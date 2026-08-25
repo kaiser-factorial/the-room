@@ -57,7 +57,13 @@
   #journals summary .count { color: var(--dim); font-size: 0.75rem; }
   .entry { font-size: 0.82rem; color: var(--dim); margin: 0.6rem 0 0.6rem 0.6rem; white-space: pre-wrap; }
   .entry .rnd { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
-  @media (max-width: 60rem) { #journals { display: none; } }
+  #cond { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.06em; margin-right: 0.5em; }
+  .msg details.thinking { margin: 0.1rem 0 0.45rem; }
+  /* Mobile: stack the journals rail under the feed instead of hiding it. */
+  @media (max-width: 60rem) {
+    .wrap { flex-direction: column; }
+    #journals { position: static; width: auto; max-height: none; border-top: 1px solid var(--line); }
+  }
 
   /* Admin modal */
   #adminModal { border: 1px solid var(--line); background: var(--panel); color: var(--text);
@@ -77,7 +83,7 @@
   <h1>THE ROOM</h1>
   <select id="sessions"></select>
   <span id="clock"></span>
-  <span id="statuswrap"><span id="dot"></span><span id="status">connecting…</span></span>
+  <span id="statuswrap"><span id="cond"></span><span id="dot"></span><span id="status">connecting…</span></span>
 </header>
 
 <div class="wrap">
@@ -105,11 +111,25 @@
       </select>
     </div>
     <div class="row"><input type="number" id="cfgDelay" value="8" min="0" style="width:5rem" /> sec between turns</div>
+    <label>batch (optional)</label>
+    <div class="row">
+      <input type="number" id="cfgCount" value="1" min="1" max="50" style="width:4rem" title="sessions per condition" /> ×
+      <input type="text" id="cfgBatchConds" placeholder="house,control (blank = condition above)" style="flex:1" />
+    </div>
     <label>agents</label>
     <div class="agents" id="cfgAgents"></div>
     <div class="row">
-      <button id="startBtn" class="primary">start session</button>
+      <button id="startBtn" class="primary">start / queue</button>
       <button id="stopBtn">stop session</button>
+    </div>
+    <label>autopilot — rotate conditions forever</label>
+    <div class="row">
+      <input type="text" id="cfgLoopConds" placeholder="house,control" style="flex:1" />
+      <input type="number" id="cfgLoopPause" value="10" min="0" style="width:4rem" title="minutes between sessions" /> min gap
+    </div>
+    <div class="row">
+      <button id="loopBtn">start autopilot</button>
+      <button id="loopStopBtn">stop autopilot</button>
     </div>
     <label>speak into the room</label>
     <textarea id="sayText" rows="2"></textarea>
@@ -174,6 +194,9 @@ function tickClock() {
 function render(e) {
   if (e.kind === 'meta') {
     meta = e.payload; ended = false;
+    // Condition badge next to the status: condition name + batch position.
+    const b = meta?.batch;
+    $('cond').textContent = (meta?.condition?.name || '') + (b ? ` · ${b.name} ${b.index + 1}/${b.total}` : '');
     clearInterval(clockTimer); clockTimer = setInterval(tickClock, 1000); tickClock();
     return;
   }
@@ -189,7 +212,8 @@ function render(e) {
     el.querySelector('.who').textContent = e.agent_name;
     el.querySelector('.who').style.color = colorOf(e.agent_id);
     el.querySelector('.body').textContent = e.text;
-    appendThinking(el, e);
+    // Thinking precedes speech — the chevron sits between name and message.
+    appendThinking(el, e, el.querySelector('.body'));
   } else if (e.kind === 'journal') {
     el.className = 'aside';
     el.textContent = `${e.agent_name} stepped away to write in their journal.`;
@@ -207,7 +231,8 @@ function render(e) {
 
 // Reasoning trace behind a chevron (F1). Traces ride in payload.thinking on
 // message/journal/system rows; textContent keeps them injection-safe.
-function appendThinking(el, e) {
+// `before` places the chevron ahead of that node (thinking precedes speech).
+function appendThinking(el, e, before) {
   const t = e.payload?.thinking;
   if (!t) return;
   const d = document.createElement('details');
@@ -218,7 +243,8 @@ function appendThinking(el, e) {
   body.className = 'trace';
   body.textContent = t;
   d.append(s, body);
-  el.appendChild(d);
+  if (before) el.insertBefore(d, before);
+  else el.appendChild(d);
 }
 
 // ── Journals rail ──────────────────────────────────────────────────────────
@@ -261,7 +287,7 @@ async function loadSessions() {
 
 async function showSession(sessionId) {
   currentSession = sessionId;
-  feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear();
+  feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear(); $('cond').textContent = '';
   meta = null; ended = false; clock.textContent = '';
   channels.forEach((c) => supabase.removeChannel(c)); channels = [];
 
@@ -279,10 +305,13 @@ async function showSession(sessionId) {
     .channel(`room-${sessionId}`)
     .on('postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'room_events', filter: `session_id=eq.${sessionId}` },
-      (p) => { render(p.new); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); })
+      // try/catch: one malformed row must not throw inside the realtime
+      // callback and silently wedge the subscription (seen live 2026-08-25
+      // — the end-of-session update errored until a session re-select).
+      (p) => { try { render(p.new); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); } catch (err) { console.error('render:', err, p.new); } })
     .on('postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'room_journals', filter: `session_id=eq.${sessionId}` },
-      (p) => renderJournal(p.new))
+      (p) => { try { renderJournal(p.new); } catch (err) { console.error('renderJournal:', err, p.new); } })
     .subscribe((s) => {
       if (ended) return;
       setStatus(s === 'SUBSCRIBED' ? 'live' : s.toLowerCase());
@@ -379,15 +408,42 @@ $('startBtn').onclick = async () => {
   // the wrong resolution, invisibly).
   const seatOverride = agentIds.length < CATALOG.length ? { agentIds } : {};
   try {
+    const count = Number($('cfgCount').value) || 1;
+    const batchConds = $('cfgBatchConds').value.split(',').map((s) => s.trim()).filter(Boolean);
+    // Batch: N sessions per condition, interleaved by the runner. A plain
+    // start is just the 1×[condition] case, so only send `batch` when it
+    // actually batches.
+    const batch = count > 1 || batchConds.length > 1 ? { batch: { count, conditions: batchConds.length ? batchConds : undefined } } : {};
     await adminCall({ action: 'command', kind: 'start', payload: {
       condition: $('cfgCondition').value,
       ...seatOverride,
+      ...batch,
       minutes: Number($('cfgMinutes').value) || 30,
       delaySeconds: Number($('cfgDelay').value) || 8,
       shuffle: { kind: $('cfgShuffle').value },
     }});
-    flash('start command sent — the runner picks it up within ~3s');
+    const totalSessions = count * (batchConds.length || 1);
+    flash(totalSessions > 1 ? `batch start sent — ${totalSessions} sessions, interleaved` : 'start command sent — the runner picks it up within ~3s');
   } catch (err) { flash(err.message); }
+};
+
+$('loopBtn').onclick = async () => {
+  const conditions = $('cfgLoopConds').value.split(',').map((s) => s.trim()).filter(Boolean);
+  try {
+    await adminCall({ action: 'command', kind: 'start', payload: {
+      condition: $('cfgCondition').value,
+      minutes: Number($('cfgMinutes').value) || 30,
+      delaySeconds: Number($('cfgDelay').value) || 8,
+      shuffle: { kind: $('cfgShuffle').value },
+      loop: { conditions: conditions.length ? conditions : undefined, pauseMinutes: Number($('cfgLoopPause').value) || 10 },
+    }});
+    flash('autopilot on — rotating ' + (conditions.length ? conditions.join(', ') : $('cfgCondition').value));
+  } catch (err) { flash(err.message); }
+};
+
+$('loopStopBtn').onclick = async () => {
+  try { await adminCall({ action: 'command', kind: 'stop', payload: { scope: 'loop' } }); flash('autopilot off (current session finishes)'); }
+  catch (err) { flash(err.message); }
 };
 
 $('stopBtn').onclick = async () => {

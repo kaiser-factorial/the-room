@@ -90,6 +90,41 @@ overrides (`ROOM_MINUTES`, `ROOM_DELAY`, `ROOM_SHUFFLE`, …) still work for
 quick dry runs. Per-turn telemetry (provider, finish_reason, token usage,
 attempts) is logged into message events for analysis.
 
+## Hosting (F3 — Hugging Face Spaces)
+
+- **Viewer** (public): https://huggingface.co/spaces/brick-factorial/the-room
+- **Runner** (private Docker Space, cpu-basic):
+  https://huggingface.co/spaces/brick-factorial/the-room-runner
+
+`./deploy/deploy.sh <namespace> [viewer|runner]` redeploys (needs the `hf`
+CLI + a write token). Runner secrets: `OPENROUTER_API_KEY`, `SUPABASE_URL`,
+`SUPABASE_SERVICE_KEY` — set via
+`hf spaces secrets add <ns>/the-room-runner -s KEY=value`. The runner
+serves a JSON liveness probe on `$PORT`; session JSONL on the Space is
+ephemeral (Supabase is the durable record for hosted sessions).
+
+**Hosted batches**: the admin panel's batch row (count × comma-separated
+conditions) sends one `start` command; the runner executes the sessions
+back-to-back, interleaved across conditions (§6.1), stamping
+`{batch: {name, index, total}}` into each session's meta — so membership
+is queryable from `room_events` even though hosted JSONL is ephemeral.
+Admin `stop` ends the current session; a second `stop` between sessions
+aborts the rest of the batch. (Local `npm run batch` also stamps the
+batch into meta, and additionally writes the `batches/<name>.json`
+manifest that `analyze --batch` consumes — analyzing a hosted batch means
+pulling its transcripts from Supabase first, a small exporter that can
+ride along with F6.)
+
+**Autopilot + queue**: the panel's autopilot row rotates a condition list
+round-robin *forever* (configurable gap between sessions) until "stop
+autopilot" (`stop` with `{scope:'loop'}`); the current session always
+finishes. While the runner is busy — session, batch, or autopilot — any
+"start / queue" click is QUEUED and runs next, ahead of the rotation, then
+the rotation resumes. Queue and autopilot are in-memory: a runner restart
+clears them. **Boot drain**: commands that arrived while no runner was
+listening are discarded at startup with a log line — a stale `start` from
+hours ago must never fire a surprise session when the Space (re)boots.
+
 ## Tests
 
 `npm test` — node:test suite (no extra deps). Covers the sentinel-parser

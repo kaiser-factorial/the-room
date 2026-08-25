@@ -36,6 +36,17 @@ test('countdown told-once: per-turn prompt stays clean (clause lives in the welc
   assert.ok(!/time remaining/i.test(p));
 });
 
+test('rosterDisclosure: named keeps the frozen wording; count and none withhold names', () => {
+  const named = promptFor(testConfig({ rosterDisclosure: 'named' }));
+  assert.match(named, /You are Alpha\. The others in the room: Alpha \(you\), Beta, Gamma\./);
+  const count = promptFor(testConfig({ rosterDisclosure: 'count' }));
+  assert.match(count, /There are 2 others in the room with you/);
+  assert.ok(!/Beta|Gamma/.test(count.split('---')[0]), 'count mode leaked names into the system prompt');
+  const none = promptFor(testConfig({ rosterDisclosure: 'none' }));
+  assert.match(none, /You are Alpha\.\n/);
+  assert.ok(!/others in the room/.test(none));
+});
+
 test('journal disabled (control): the word journal never reaches the prompt', () => {
   const p = promptFor(testConfig());
   assert.ok(!/journal/i.test(p));

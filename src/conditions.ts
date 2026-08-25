@@ -21,6 +21,7 @@ export interface ConditionSpec {
   sampling?: Partial<RoomConfig['sampling']>;
   countdown?: RoomConfig['countdown'];
   journal?: Partial<RoomConfig['journal']> & { pass?: RoomConfig['journal']['pass'] };
+  rosterDisclosure?: RoomConfig['rosterDisclosure'];
   reasoningEffort?: RoomConfig['reasoningEffort'];
   captureLogprobs?: boolean;
   contextPolicy?: RoomConfig['contextPolicy'];
@@ -60,6 +61,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     sampling: { ...baseConfig.sampling, ...merged.sampling },
     countdown: merged.countdown ?? baseConfig.countdown,
     journal: { ...baseConfig.journal, ...merged.journal, pass: { ...baseConfig.journal.pass, ...merged.journal?.pass } },
+    rosterDisclosure: merged.rosterDisclosure ?? baseConfig.rosterDisclosure,
     reasoningEffort: merged.reasoningEffort ?? baseConfig.reasoningEffort,
     captureLogprobs: merged.captureLogprobs ?? baseConfig.captureLogprobs,
     contextPolicy: merged.contextPolicy ?? baseConfig.contextPolicy,
@@ -111,6 +113,7 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
     sampling: cfg.sampling,
     countdown: cfg.countdown,
     journal: cfg.journal,
+    rosterDisclosure: cfg.rosterDisclosure,
     reasoningEffort: cfg.reasoningEffort,
     captureLogprobs: cfg.captureLogprobs,
     contextPolicy: cfg.contextPolicy,

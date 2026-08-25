@@ -66,6 +66,14 @@ export interface RoomConfig {
    *  countdown line each turn. */
   countdown: 'hidden' | 'told-once' | 'visible';
   journal: JournalConfig;
+  /** Who the prompt says is in the room (Corina 2026-08-25). 'named' =
+   *  full roster with names+versions (the original control wording,
+   *  including its "others: X (you)" quirk — frozen for comparability);
+   *  'count' = only how many others; 'none' = nothing beyond the welcome's
+   *  "you are each a different AI model" — they discover each other from
+   *  the transcript's speaker labels as people speak. Order-shuffle events
+   *  are never audible in any state. */
+  rosterDisclosure: 'named' | 'count' | 'none';
   reasoningEffort: ReasoningEffort;
   /** Ask providers for chosen-token logprobs (§2.6). Free where supported,
    *  silently absent elsewhere; rides in message telemetry. */
@@ -86,6 +94,10 @@ export interface RoomConfig {
   maxOutputTokens: number;
   /** Regenerate the rolling summary every N messages that scroll out. */
   summarizeEveryMessages: number;
+  /** Set when this session runs as part of a batch (batch.ts or a runner
+   *  batch command) — stamped into meta so membership is queryable from
+   *  the Supabase mirror even when hosted JSONL is ephemeral. */
+  batch?: { name: string; index: number; total: number };
   /** Seconds to wait between individual turns (rate limiting + watchability). */
   interTurnDelaySeconds: number;
 }
@@ -98,6 +110,7 @@ export interface SessionMeta {
   /** Fully-resolved condition — analysis must never guess what a
    *  transcript ran (BUILD_PLAN Phase 1 item 1). */
   condition: Record<string, unknown>;
+  batch?: { name: string; index: number; total: number };
 }
 
 /** Per-turn API telemetry (§6.1 rules 2–3). */

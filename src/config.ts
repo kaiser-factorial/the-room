@@ -56,6 +56,10 @@ export const config: RoomConfig = {
     pass: { enabled: false, notice: false },
   },
 
+  // Control keeps the original named roster (comparability with every
+  // session run so far); 'count'/'none' are the discovery conditions.
+  rosterDisclosure: 'named',
+
   // F1: 'low' = anti-starvation default (D3 amendment). Trace-rich
   // conditions set 'medium'/'high' AND raise maxOutputTokens with it.
   reasoningEffort: 'low',
