@@ -1,0 +1,5 @@
+{
+  "description": "Roster-discovery condition: agents are told only their own name — who else is in the room emerges from the transcript as people speak. Removes the pre-conversation anchor of knowing the lineup (initial biases / tempering to specific peers). Baseline journal kept so it differs from house on exactly one knob.",
+  "journal": { "enabled": true, "notice": true, "mode": "replace", "recall": true },
+  "rosterDisclosure": "none"
+}

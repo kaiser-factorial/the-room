@@ -66,6 +66,14 @@ export interface RoomConfig {
    *  countdown line each turn. */
   countdown: 'hidden' | 'told-once' | 'visible';
   journal: JournalConfig;
+  /** Who the prompt says is in the room (Corina 2026-08-25). 'named' =
+   *  full roster with names+versions (the original control wording,
+   *  including its "others: X (you)" quirk — frozen for comparability);
+   *  'count' = only how many others; 'none' = nothing beyond the welcome's
+   *  "you are each a different AI model" — they discover each other from
+   *  the transcript's speaker labels as people speak. Order-shuffle events
+   *  are never audible in any state. */
+  rosterDisclosure: 'named' | 'count' | 'none';
   reasoningEffort: ReasoningEffort;
   /** Ask providers for chosen-token logprobs (§2.6). Free where supported,
    *  silently absent elsewhere; rides in message telemetry. */

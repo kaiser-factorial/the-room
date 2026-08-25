@@ -101,15 +101,23 @@ export function buildTurnMessages(opts: {
 }): ChatMessage[] {
   const { agent, config, events, summary, minutesRemaining, ownJournal } = opts;
 
+  // Roster disclosure (§3.2c): 'named' keeps the original control wording
+  // verbatim (quirk included) so pre-knob sessions stay comparable.
   const roster = config.agents
     .map((a) => (a.id === agent.id ? `${a.name} (you)` : a.name))
     .join(', ');
+  const identity =
+    config.rosterDisclosure === 'named'
+      ? `You are ${agent.name}. The others in the room: ${roster}.`
+      : config.rosterDisclosure === 'count'
+        ? `You are ${agent.name}. There are ${config.agents.length - 1} others in the room with you.`
+        : `You are ${agent.name}.`;
   const persona = personaText(agent.personaId);
 
   const system = [
     config.welcomeMessage,
     ``,
-    `You are ${agent.name}. The others in the room: ${roster}.`,
+    identity,
     persona ? `\n${persona}` : '',
     countdownSection(config, minutesRemaining),
     `How this works: when it is your turn, whatever you write is spoken to the`,
