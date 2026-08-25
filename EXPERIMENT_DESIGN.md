@@ -292,8 +292,19 @@ The "Time remaining: N minutes" line is both a feature and a confound
   passes through the agents' context), so spectators keep the clock either
   way.
 - **visible**: countdown in every system prompt.
-- optional middle: told the session "will end at some point" without a
-  number — awareness of mortality without a clock.
+- **told-once** (replaces the "vague" middle state, 2026-08-25 Corina):
+  duration stated in the opening ("You have N minutes together; you will
+  not be reminded of the time again"), never updated afterward — the room
+  must track its own time. Implemented as a welcome-clause on the round-0
+  event + hidden per-turn countdown. Especially meaningful crossed with
+  the task condition (§9.2): deadline awareness should shape scoping,
+  delegation, and wrap-up behavior in ways a task-free room can't express.
+  Cross it with the task condition ONLY — do not fully cross countdown ×
+  everything (that's the variable explosion this design already fought
+  off).
+- *(cut 2026-08-25: the "vague" state — "will end at some point" without a
+  number. Told-once asks the sharper question; awareness-without-a-clock
+  is already half-present in every hidden-countdown room.)*
 
 Predictions to test: visible-countdown rooms develop ending behavior
 (summing up, goodbyes) that inflates late-window similarity; hidden-clock
@@ -484,3 +495,96 @@ Practical order: DeepSeek/Laguna/Nemotron/Seed into the catalog now (all
 config-only, one OpenRouter key) → Talkie as a ZeroGPU Gradio Space +
 `gradio` adapter → BytePlus/dedicated-GPU only if first-party metrics or
 session frequency demand it.
+
+## 9. Program extensions (noted 2026-08-25, Corina — parked, do not jump the queue)
+
+Two ideas recorded so they survive; neither adds an axis to the current
+design, and both wait behind F2 (nothing new can be evaluated until the
+analysis pipeline runs).
+
+### 9.1 Phase C — roster generations (old vs. new model families)
+
+After the main program runs on the current roster (believed to be the most
+recent version of each family — Corina to confirm), rerun the *identical*
+control condition on the **earliest still-served model of each same family**
+(earliest Sonnet vs. Sonnet 5, etc.). Methodologically this is not a new
+axis at all — it's just another roster batch under the existing rule
+("any new-model batch is compared only against a contemporaneous baseline
+batch"), so it costs nothing from the axis-trimming work.
+
+**Question**: is persona more *persistent* in newer models? Newer
+generations have far more character/persona training, so pre-register both
+directions: (a) newer roster → higher intra-agent stability and a smaller
+convergence gap ("persona as a trained attractor"); (b) older roster →
+faster convergence, **or** merely noisier (unstable intra-agent similarity
+even early — a distinguishable outcome, not a failure).
+
+Practical rules:
+
+- **Match the generation gap across seats** roughly — "each family's
+  earliest still-served instruct model" is the defensible selection rule;
+  log the chosen slug + release date per seat in the condition file. If a
+  family has no early checkpoint anywhere (DeepSeek is the suspect — check
+  native API, not just OpenRouter), run a 5-seat old batch with its own
+  contemporaneous 5-seat new baseline rather than mixing generations.
+- **Availability rot**: old models get deprecated constantly. Snapshot
+  which old slugs are served *now*; if this comparison is wanted, run it
+  sooner rather than later. This extension has a shelf life.
+- **Expect the caps to bind differently**: smaller context windows, other
+  token economics, different reasoning behavior — the D3 starvation class
+  of bug will bite differently. One shakedown session per old roster
+  before counting anything.
+- Native APIs are probably the right substrate anyway (also needed for the
+  §2.6 surprisal path) — but that's a program-wide integration decision,
+  not something this extension should trigger alone.
+
+### 9.2 Rooms-that-build (task rooms with sandboxed tools)
+
+Motivated by the pilot observation that task-free rooms run toward
+meta-discussion. Give the room something to make: a sandboxed Python/HTML
+playground (reuse the joint-session playground infrastructure) whose
+artifacts flow back into the shared room context, optionally alongside
+websearch (F4 plumbing).
+
+This splits into **two deliberately different studies** — don't blur them:
+
+- **(a) The axis version — stays in the registered program.** §3.2b already
+  has the opening-message ladder (free → seeded topic → task) and §3.4b the
+  tool ladder (none → websearch); the sandbox is the next rung of each.
+  Measurement is *unchanged*: the chat channel gets the standard
+  drift/convergence metrics, and the artifact is an uninstrumented
+  byproduct. Question: **does a shared external object accelerate or
+  retard voice convergence?** Working prediction: task talk converges
+  *lexically* fast (shared jargon about the artifact) while stance/rhythm
+  convergence slows (attention on the object, not on each other) — a
+  dissociation the §2.2 style metrics can already separate.
+- **(b) The exploratory version — explicitly outside Phase B.** Open-ended
+  "build anything with these tools": what do they choose, how do they reach
+  agreement, how do they delegate? Run as descriptive/observational
+  sessions, no pre-registration burden, flagged out of Phase-B stats the
+  same way admin-touched sessions are. Freedom from the metric is the
+  feature; this is also the likeliest source of shareable material.
+
+Design notes for whenever it's built:
+
+- **Tool privacy inherits the journal rule**: the *artifact* is shared;
+  tool traces (code, errors, intermediate output) stay private unless
+  trace-sharing is deliberately made its own condition.
+- **Turn economics**: decide explicitly whether tool use replaces the turn
+  (like the baseline journal) or is free — same economics question as
+  §3.4, likely same answer structure. Code doesn't fit in chat turns:
+  tool calls run out-of-band within a turn and the room sees a compact
+  "X ran code → artifact/result" event, keeping the conversation channel
+  measurable.
+- **Countdown × task**: the §3.5 told-once state is most meaningful here
+  (scoping and delegation under a known-but-untracked deadline). Cross
+  countdown with the task condition only.
+- **Lightweight delegation stats** (descriptive, never confirmatory):
+  proposer-vs-assenter speech-act tagging by a judge model,
+  time-to-first-commitment, role stickiness across shuffles.
+
+**Sequencing for both extensions**: F2 gates everything; the sandbox is
+effectively F4½ (shares tool plumbing with websearch). Natural slot:
+F2 → F3 → F4 → sandbox riding the same plumbing → exploratory build
+sessions interleaved whenever. Phase C waits for the main-program batches
+it would be compared against — but check old-slug availability early.

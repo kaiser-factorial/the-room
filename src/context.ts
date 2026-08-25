@@ -71,8 +71,8 @@ function countdownSection(config: RoomConfig, minutesRemaining: number): string 
   switch (config.countdown) {
     case 'visible':
       return `\nTime remaining: about ${minutesRemaining} minutes.\n`;
-    case 'vague':
-      return `\nThis will end at some point; you are not told when.\n`;
+    // 'told-once' adds nothing here: its duration clause lives in the
+    // round-0 welcome event (session.ts) and is never repeated.
     default:
       return '';
   }

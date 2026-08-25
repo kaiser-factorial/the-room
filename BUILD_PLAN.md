@@ -38,9 +38,10 @@ Effort: small. Touches `config.ts`, `openrouter.ts`, `session.ts`,
 
 *Everything §3 varies that the prompt builder doesn't yet support.*
 
-5. **Countdown visibility**: `countdown: 'visible' | 'vague' | 'hidden'`
-   — drop or soften the "Time remaining" line. Viewer keeps its clock
-   (reads `endsAt` from meta) regardless.
+5. **Countdown visibility**: `countdown: 'visible' | 'told-once' | 'hidden'`
+   — countdown line each turn, duration stated once in the welcome, or no
+   time info at all. (*'vague' swapped for 'told-once' 2026-08-25.*) Viewer
+   keeps its clock (reads `endsAt` from meta) regardless.
 6. **Journal config** (one object in the condition):
    - `enabled: false` → no journal mentioned at all (the §3.4 true control)
    - `notice: true | false` → "X stepped away" line on/off (silent journaling)
@@ -231,3 +232,26 @@ keeping track of the research program:
 
 Then **Phase B runs**: none / baseline / silent / free / gated, ≥5
 sessions each, interleaved, at Phase-A controls.
+
+## Parked extensions (2026-08-25, Corina — see EXPERIMENT_DESIGN §9)
+
+Recorded here so they're in the build queue's peripheral vision; neither
+jumps F1–F6, and both gate on F2 like everything else.
+
+- **F4½. Sandbox tools (rooms-that-build).** Sandboxed Python/HTML
+  playground (port from joint-session), artifacts shared into room
+  context, tool traces private (journal-class rule). Rides F4's sentinel/
+  tool plumbing — build it as the rung after websearch, not a separate
+  track. Serves both the §3.2b task axis (registered, standard metrics)
+  and exploratory "build anything" sessions (flagged out of Phase-B
+  stats). Decide turn economics (replace vs. free) with the same structure
+  as the journal config. Countdown's `told-once` state (swapped in for
+  'vague', 2026-08-25 — already implemented) is crossed with the task
+  condition only.
+- **Phase C. Roster generations.** Same control condition on each family's
+  earliest still-served model vs. the current roster (contemporaneous
+  baseline batch, per the standing roster rule — no new axis). Action item
+  with a shelf life: **snapshot which early slugs are still served now**
+  (OpenRouter + native APIs; DeepSeek is the doubtful one) before
+  deprecation eats the comparison. One shakedown session per old roster —
+  expect cap/context bugs of the D3 class to bite differently.

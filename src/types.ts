@@ -52,9 +52,10 @@ export interface RoomConfig {
   agents: AgentConfig[];
   shuffle: ShuffleMode;
   sampling: SamplingConfig;
-  /** 'hidden' (control) = no time info in prompts; 'vague' = "will end at
-   *  some point"; 'visible' = countdown line each turn. */
-  countdown: 'hidden' | 'vague' | 'visible';
+  /** 'hidden' (control) = no time info in prompts; 'told-once' = duration
+   *  stated in the welcome message, never updated after; 'visible' =
+   *  countdown line each turn. */
+  countdown: 'hidden' | 'told-once' | 'visible';
   journal: JournalConfig;
   /** 'full' (control) = whole transcript, no summarizer; 'window' =
    *  token-budgeted recent slice + rolling summary. */

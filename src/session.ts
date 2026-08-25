@@ -126,7 +126,11 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       condition: conditionRecord(config),
     },
   });
-  record({ kind: 'system', ts: now(), round: 0, text: config.welcomeMessage });
+  const welcomeText =
+    config.countdown === 'told-once'
+      ? `${config.welcomeMessage} You have ${config.durationMinutes} minutes together; you will not be reminded of the time again.`
+      : config.welcomeMessage;
+  record({ kind: 'system', ts: now(), round: 0, text: welcomeText });
 
   // Long-form journal variant: the call cap must leave room for the entry.
   const callMaxTokens =
