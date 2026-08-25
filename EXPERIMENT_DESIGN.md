@@ -172,6 +172,27 @@ events without the room changing:
   endpoint offers — that still needs direct APIs or self-hosted scoring;
   (b) pinning a seat's provider changes which snapshot serves it — set
   per-batch, never mid-experiment.*
+
+  *Parked design note (2026-08-25) — the surprisal matrix is PERMANENTLY
+  ASYMMETRIC: mutual surprisal is "how predictable is B's message to A",
+  scored by teacher-forcing B's text through A (vLLM `prompt_logprobs`
+  on open weights, as an offline batch job over the JSONL — post-hoc,
+  deterministic, re-runnable over old sessions). Rows exist only for
+  scorers whose weights we can run: Qwen trivially, DeepSeek's open
+  releases at multi-GPU cost, Seed/Gemini only via open cousins, and
+  Anthropic never (no weights, no logprobs on any API surface —
+  Bedrock/Vertex/Foundry included). COLUMNS are complete even when rows
+  aren't: any open scorer can score Opus's messages ("does the room find
+  Opus more predictable over the session?"), but "does Opus find the
+  room more predictable?" is unmeasurable, full stop. Options when
+  built, in decreasing purity: (1) report the asymmetric matrix and say
+  so; (2) a fixed PROBE-MODEL PANEL — one or two open scorers scoring
+  every seat's messages uniformly (that's "predictability under a
+  reference model", not mutual surprisal, but it IS uniform across
+  seats, which the mutual matrix can't be); (3) never present an open
+  model as a stand-in for Opus's own distribution. Sequenced after
+  F3–F5; implementation is one `score.ts` batch script + a vLLM
+  endpoint, riding the Talkie GPU hosting muscle.*
 - reasoning traces where exposed (does private reasoning diverge from the
   public message the way journals do?)
 - exact token accounting per turn.
