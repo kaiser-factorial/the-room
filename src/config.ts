@@ -12,7 +12,11 @@ export const config: RoomConfig = {
   agents: [
     // Colors ≈ org brand colors. Roster fixed by Corina 2026-08-24; all
     // slugs verified against OpenRouter's live list the same day.
-    { id: 'sonnet', name: 'Sonnet', model: 'anthropic/claude-sonnet-5', adapter: 'openrouter', color: '#DA7756' },
+    // Claude seat: Sonnet 5 → Opus 5 (Corina, 2026-08-25) — Opus exposes
+    // thinking traces at trace-rich settings where Sonnet's adaptive
+    // thinking mostly declines to think in chat (§2.5). Pre-swap sessions
+    // are pilot data (contemporaneous-baseline rule as usual).
+    { id: 'opus', name: 'Opus', model: 'anthropic/claude-opus-5', adapter: 'openrouter', color: '#DA7756' },
     { id: 'gemini', name: 'Gemini', model: 'google/gemini-3.7-flash', adapter: 'openrouter', color: '#4285F4' },
     { id: 'qwen', name: 'Qwen', model: 'qwen/qwen3.8-27b', adapter: 'openrouter', color: '#C084FC' },
     { id: 'grok', name: 'Grok', model: 'x-ai/grok-4.6', adapter: 'openrouter', color: '#ECECEC' },

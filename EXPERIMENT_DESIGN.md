@@ -154,6 +154,19 @@ events without the room changing:
 - **logprobs / surprisal**: how *predictable* each agent finds the others'
   messages over time — the cleanest convergence measure there is (mutual
   surprisal falling = genuine mutual modeling).
+  *Probed 2026-08-25 — logprobs via OpenRouter are a PROVIDER property,
+  not a model property: `logprobs: true` + `top_logprobs` returns real
+  per-token logprobs today on Qwen (AkashML), Grok (xAI), and DeepSeek
+  when provider-pinned (GMICloud/Novita yes, Baidu/DeepInfra no — the
+  §6.1 `providerOrder` knob does double duty here). Gemini's Google
+  endpoint returns none via OpenRouter; Anthropic has no logprobs on any
+  API surface, period. Two caveats: (a) chat-completions logprobs cover
+  the model's OWN sampled tokens only — good for per-turn confidence/
+  entropy ("style entrenchment"), but true MUTUAL surprisal requires
+  scoring another agent's text under the model (prompt/echo logprobs),
+  which no chat endpoint offers — that still needs direct APIs or
+  self-hosted scoring; (b) pinning a seat's provider for logprobs changes
+  which snapshot serves it — set it per-batch, never mid-experiment.*
 - reasoning traces where exposed (does private reasoning diverge from the
   public message the way journals do?)
 - exact token accounting per turn.

@@ -35,6 +35,7 @@ export function testConfig(overrides: Partial<RoomConfig> = {}): RoomConfig {
  *  a second. */
 export async function runStubSession(config: RoomConfig, script?: string): Promise<string> {
   process.env.ROOM_STUB = '1';
+  process.env.ROOM_QUIET = '1';
   if (script !== undefined) process.env.ROOM_STUB_SCRIPT = script;
   else delete process.env.ROOM_STUB_SCRIPT;
   delete process.env.SUPABASE_URL;

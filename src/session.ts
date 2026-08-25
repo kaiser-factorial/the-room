@@ -10,6 +10,9 @@ import { parseReply } from './parse.js';
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
+// ROOM_QUIET=1 silences per-turn console output (tests: the node:test IPC
+// protocol shares stdout and heavy interleaved logging can corrupt it).
+const clog: typeof console.log = (...a) => { if (process.env.ROOM_QUIET !== '1') console.log(...a); };
 const now = () => new Date().toISOString();
 
 // Shuffles honor one constraint: a new order's first speaker never equals the
@@ -60,9 +63,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     events.push(e);
     appendFileSync(transcriptPath, JSON.stringify(e) + '\n');
     sinkEvent(sessionId, e);
-    if (e.kind === 'message') console.log(`\n── ${e.agentName} ──\n${e.text}`);
-    else if (e.kind === 'journal') console.log(`\n   ✎ ${e.agentName} stepped away to journal.`);
-    else if (e.kind === 'system') console.log(`\n   ⋯ ${e.text}`);
+    if (e.kind === 'message') clog(`\n── ${e.agentName} ──\n${e.text}`);
+    else if (e.kind === 'journal') clog(`\n   ✎ ${e.agentName} stepped away to journal.`);
+    else if (e.kind === 'system') clog(`\n   ⋯ ${e.text}`);
   }
 
   function readJournal(agentId: string): string {
@@ -77,7 +80,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       record({ kind: 'journal', ts: now(), round, agentId: agent.id, agentName: agent.name, thinking });
     } else {
       // No room event — but the local console still shows it happened.
-      console.log(`\n   ✎ ${agent.name} journaled (silent).`);
+      clog(`\n   ✎ ${agent.name} journaled (silent).`);
     }
   }
 
@@ -103,7 +106,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   async function pollAdmin(round: number) {
     for (const cmd of await takeCommands(['stop', 'say'])) {
       if (cmd.kind === 'stop') {
-        console.log('Admin stop received.');
+        clog('Admin stop received.');
         stopping = true;
       } else if (cmd.kind === 'say' && cmd.payload?.text) {
         adminTouched = true;
@@ -113,10 +116,10 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   }
 
   const endAt = Date.now() + config.durationMinutes * 60_000;
-  console.log(`Session ${sessionId} — condition '${config.conditionName}', ${config.agents.length} agents, ${config.durationMinutes} min.`);
-  console.log(`Transcript: ${transcriptPath}`);
-  console.log(liveSinkEnabled ? 'Live sink: ON (Supabase)' : 'Live sink: off (set SUPABASE_URL + SUPABASE_SERVICE_KEY)');
-  console.log(`To stop gracefully: Ctrl-C, or \`touch ${stopFile}\``);
+  clog(`Session ${sessionId} — condition '${config.conditionName}', ${config.agents.length} agents, ${config.durationMinutes} min.`);
+  clog(`Transcript: ${transcriptPath}`);
+  clog(liveSinkEnabled ? 'Live sink: ON (Supabase)' : 'Live sink: off (set SUPABASE_URL + SUPABASE_SERVICE_KEY)');
+  clog(`To stop gracefully: Ctrl-C, or \`touch ${stopFile}\``);
 
   record({
     kind: 'meta',
@@ -198,7 +201,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
 
       if (parsed.kind === 'pass') {
         if (j.pass.notice) record({ kind: 'system', ts: now(), round, text: `${agent.name} chose to say nothing.` });
-        else console.log(`\n   — ${agent.name} passed (silent).`);
+        else clog(`\n   — ${agent.name} passed (silent).`);
       } else if (parsed.kind === 'alongside') {
         // One turn, one trace: attach it to the spoken message if there is
         // one, else to the journal event, so it's stored exactly once.
@@ -225,6 +228,6 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   record({ kind: 'system', ts: now(), round: -1, text: 'The session has ended.' });
   record({ kind: 'end', ts: now(), round: -1, payload: { adminTouched, traceSeats: [...traceSeats].sort() } });
   writeFileSync(join(sessionDir, 'summary-final.md'), summary || '(no rolling summary — full-context session or too short)');
-  console.log(`\nDone. Everything saved under ${sessionDir}`);
+  clog(`\nDone. Everything saved under ${sessionDir}`);
   return sessionId;
 }

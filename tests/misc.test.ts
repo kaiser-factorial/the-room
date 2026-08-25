@@ -28,13 +28,13 @@ test('conditions: trace-rich raises effort AND cap together (the D3 interaction)
 });
 
 test('conditions: unknown persona id fails loudly', () => {
-  assert.throws(() => resolveCondition('control', { agents: [{ id: 'sonnet', personaId: 'nonexistent-persona' }] }));
+  assert.throws(() => resolveCondition('control', { agents: [{ id: 'opus', personaId: 'nonexistent-persona' }] }));
 });
 
 test('conditions: seat selection keeps catalog order-independence and rejects <2 seats', () => {
-  const c = resolveCondition('control', { agents: ['seed', 'sonnet'] });
-  assert.deepEqual(c.agents.map((a) => a.id), ['seed', 'sonnet']);
-  assert.throws(() => resolveCondition('control', { agents: ['sonnet'] }));
+  const c = resolveCondition('control', { agents: ['seed', 'opus'] });
+  assert.deepEqual(c.agents.map((a) => a.id), ['seed', 'opus']);
+  assert.throws(() => resolveCondition('control', { agents: ['opus'] }));
 });
 
 // ── reasoning param translation ────────────────────────────────────────────
