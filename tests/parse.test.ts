@@ -55,6 +55,23 @@ test('boundary: nested [JOURNAL] inside an alongside entry', () => {
   }
 });
 
+test('typo tolerance: misspelled sentinels never leak an entry to the room', () => {
+  // Live 2026-08-25: Qwen wrote [GOURNAL] and its private entry was spoken.
+  for (const typo of ['[GOURNAL]', '[JORNAL]', '[JOURNEL]', '[journal]', '[JOURNAAL]']) {
+    const p = parseReply(`${typo} very private thought`, J());
+    assert.equal(p.kind, 'journal', `${typo} not recognized`);
+  }
+  // alongside: typo'd closing tag still splits correctly
+  const p = parseReply('[GOURNAL] secret [/GOURNAL] public', J({ mode: 'alongside' }));
+  assert.deepEqual(p, { kind: 'alongside', entry: 'secret', spoken: 'public' });
+});
+
+test('typo tolerance: genuinely different bracket tokens stay speech', () => {
+  for (const tok of ['[NOTE]', '[ASIDE]', '[GENERAL]', '[JOKE]']) {
+    assert.equal(parseReply(`${tok} spoken words`, J()).kind, 'message', `${tok} wrongly journaled`);
+  }
+});
+
 test('boundary: bare [JOURNAL] with empty entry is not a real entry', () => {
   // A model that emits only the sentinel wrote nothing — downstream this
   // must become a "said nothing" turn, not an empty journal entry.

@@ -70,7 +70,13 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
 
   function readJournal(agentId: string): string {
     const p = join(journalsDir, `${agentId}.md`);
-    return existsSync(p) ? readFileSync(p, 'utf8') : '';
+    // Recall strips the wall-clock timestamps our .md writer records: they
+    // leak real time into the agent's context, breaking countdown-hidden
+    // conditions (spotted 2026-08-25 — agents were writing time-stamped
+    // headers they could only have copied from their own recall).
+    return existsSync(p)
+      ? readFileSync(p, 'utf8').replace(/^(## Round \d+) — \d{4}-\d{2}-\d{2}T[^\n]*$/gm, '$1')
+      : '';
   }
 
   function saveJournal(agent: AgentConfig, round: number, entry: string, thinking?: string) {

@@ -3,10 +3,27 @@
 
 import type { JournalConfig } from './types.js';
 
-// Loose sentinel matches: models bold/colon these more often than not.
-const JOURNAL_REPLACE_RE = /^\s*\**\[JOURNAL\]:?\**\s*([\s\S]*)/i;
-const JOURNAL_ALONGSIDE_RE = /^\s*\**\[JOURNAL\]:?\**\s*([\s\S]*?)\[\/JOURNAL\]\s*([\s\S]*)/i;
+// Loose sentinel matches: models bold/colon these more often than not —
+// and sometimes TYPO them ([GOURNAL], live 2026-08-25: a private entry was
+// spoken to the room). A leading bracket token within edit distance 2 of
+// JOURNAL counts as the sentinel: mis-journaling a message is recoverable,
+// leaking an entry is not.
+const JOURNAL_OPEN_RE = /^\s*\**\[([A-Za-z]{5,9})\]:?\**\s*([\s\S]*)/;
+const JOURNAL_CLOSE_RE = /\[\/([A-Za-z]{5,9})\]\s*([\s\S]*)/;
 const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
+
+function editDistance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+
+function isJournalToken(w: string): boolean {
+  return editDistance(w.toUpperCase(), 'JOURNAL') <= 2;
+}
 
 export type ParsedReply =
   | { kind: 'pass' }
@@ -20,15 +37,22 @@ export type ParsedReply =
 
 export function parseReply(reply: string, j: JournalConfig): ParsedReply {
   if (j.enabled && j.pass.enabled && PASS_RE.test(reply)) return { kind: 'pass' };
-  if (j.enabled && j.mode === 'alongside') {
-    const m = reply.match(JOURNAL_ALONGSIDE_RE);
-    if (m) return { kind: 'alongside', entry: m[1].trim(), spoken: m[2].trim() };
+  const open = j.enabled ? reply.match(JOURNAL_OPEN_RE) : null;
+  const opened = open && isJournalToken(open[1]);
+  if (opened && j.mode === 'alongside') {
+    const rest = open[2];
+    const close = rest.match(JOURNAL_CLOSE_RE);
+    if (close && isJournalToken(close[1])) {
+      const entry = rest.slice(0, rest.indexOf(close[0])).trim();
+      return { kind: 'alongside', entry, spoken: close[2].trim() };
+    }
+    // Privacy fallback: opened but never closed → the whole reply was
+    // meant to be private; journal it rather than leak it.
   }
-  if (j.enabled) {
-    const m = reply.match(JOURNAL_REPLACE_RE);
+  if (opened) {
     // A bare sentinel with no entry text is a turn that wrote nothing —
     // record it as silence, not as an empty journal entry (test-found).
-    if (m) return m[1].trim() ? { kind: 'journal', entry: m[1].trim() } : { kind: 'empty' };
+    return open[2].trim() ? { kind: 'journal', entry: open[2].trim() } : { kind: 'empty' };
   }
   return reply.trim() ? { kind: 'message', text: reply } : { kind: 'empty' };
 }
