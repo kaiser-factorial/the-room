@@ -14,10 +14,10 @@ export const config: RoomConfig = {
     // slugs verified against OpenRouter's live list the same day.
     { id: 'sonnet', name: 'Sonnet', model: 'anthropic/claude-sonnet-5', adapter: 'openrouter', color: '#DA7756' },
     { id: 'gemini', name: 'Gemini', model: 'google/gemini-3.7-flash', adapter: 'openrouter', color: '#4285F4' },
-    { id: 'qwen', name: 'Qwen', model: 'qwen/qwen3.8-27b', adapter: 'openrouter', color: '#615CED' },
-    { id: 'grok', name: 'Grok', model: 'x-ai/grok-4.6', adapter: 'openrouter', color: '#1D9BF0' },
-    { id: 'deepseek', name: 'DeepSeek', model: 'deepseek/deepseek-v4-flash-0731', adapter: 'openrouter', color: '#4D6BFE' },
-    { id: 'seed', name: 'Seed', model: 'bytedance-seed/seed-2-1-turbo', adapter: 'openrouter', color: '#00B2FF' },
+    { id: 'qwen', name: 'Qwen', model: 'qwen/qwen3.8-27b', adapter: 'openrouter', color: '#C084FC' },
+    { id: 'grok', name: 'Grok', model: 'x-ai/grok-4.6', adapter: 'openrouter', color: '#ECECEC' },
+    { id: 'deepseek', name: 'DeepSeek', model: 'deepseek/deepseek-v4-flash-0731', adapter: 'openrouter', color: '#7B61FF' },
+    { id: 'seed', name: 'Seed', model: 'bytedance-seed/seed-2-1-turbo', adapter: 'openrouter', color: '#22C7E0' },
   ],
 
   // FROZEN 2026-08-24 (BUILD_PLAN D4) — the shared-prompt attractor behind
