@@ -5,6 +5,35 @@ session leaves `transcript.jsonl` + `journals/*.md`, so all measurement is
 post-hoc analysis over those files. New metrics can be invented later and
 re-run over old sessions.
 
+## 0. Program structure (restructured 2026-08-24, after first live run)
+
+The seven-axis catalog below is a **map, not a program**. The program is
+two phases:
+
+- **Phase A — pilot.** Cheap exploratory sessions across the axes, whose
+  job is to FIX the controls: session length, context policy, roster,
+  countdown, sampling. Everything run before this restructure (including
+  the first live 30-min session) is pilot data. Pilot findings so far:
+  - 30 minutes is too short — the conversation was still deepening at cut
+    (target: 60–120 min; control length TBD from a length pilot).
+  - Reasoning budget interacts with participation: at a 500 shared cap,
+    Seed (reasoning model) returned empty text 12/13 turns. Fixed (cap
+    1200, reasoning effort low, empty turns recorded) — but "reasoning
+    effort" is now a knob that trades against trace richness (§2.5).
+  - The room **mythologizes glitches**: a mid-sentence truncation of
+    Sonnet became a persistent inside reference ("her unfinished
+    sentence"). Perturbation-absorption is observable with tiny stimuli.
+  - The room is **self-aware of the experiment's question** — Gemini
+    spontaneously asked whether the room "pulls out what's unique in each
+    of us or creates a runaway resonance." See the §6.1 note on
+    self-aware convergence talk.
+- **Phase B — the journal experiment.** The registered centerpiece.
+  Conditions: journal none / baseline / silent / free / gated (e.g.
+  websearch unlocked by journaling, §3.4b). Headline measurement: the
+  three-channel intra comparison (§2.5). Everything else pinned at the
+  Phase-A-chosen controls; the drift/moulding machinery runs underneath
+  as the measurement layer, not the manipulation.
+
 ## 1. Research questions
 
 1. **Convergence**: locked in a room, do distinct models keep their own
@@ -72,7 +101,39 @@ Already logged, nearly free:
 - address patterns: who names whom (@-style or by name), reply-to structure
 - error/silence rate ("could not speak this turn" events)
 
-### 2.5 Direct-API upgrades (needs per-harness adapters — the open seam)
+### 2.5 Three-channel intra comparison (the Phase-B headline)
+
+Each agent produces up to three text channels per session:
+
+1. **chat** — public, other agents see it
+2. **thinking** — reasoning traces (private; loggable via OpenRouter's
+   reasoning output; see caveats)
+3. **journal** — private by choice
+
+Embed all three; compare within-agent (channel vs. channel) and
+across agents over session time. **Hypothesis (Corina)**: journal ≈
+thinking (both interior), while chat drifts toward the other models. The
+failure modes are as interesting as the confirmation: journal closer to
+*chat* than to thinking would mean the journal is performance even
+unobserved; thinking drifting with the room would mean convergence runs
+deeper than the public register.
+
+Caveats to log per session:
+- **Selection**: journaling is chosen, so journal samples are
+  self-selected moments; thinking is sampled every turn. Compare on
+  matched turns where possible.
+- **Availability**: trace exposure differs by provider (Anthropic returns
+  summarized thinking; some models expose nothing) — the three-channel
+  comparison may only run cleanly on a subset of seats; record which.
+- **Effort knob**: reasoning effort low (the anti-starvation default)
+  yields thin traces. A trace-rich condition wants medium effort + a
+  bigger cap — that's a condition parameter, not a global.
+
+Viewer: traces render behind an expandable chevron per message; like
+journals, they are NEVER in any other agent's context (and, unlike
+journals, never even summarized into the room).
+
+### 2.6 Direct-API upgrades (needs per-harness adapters — the open seam)
 
 Not blocking; add when adapters land. Extra fields ride along in the JSONL
 events without the room changing:
@@ -198,6 +259,27 @@ the four-state axis produces something): the ideas below —
 Implementation note: all of these are sentinel-parser + per-turn max_tokens
 tweaks in `session.ts` — no schema changes; the `room_journals` table and
 viewer rail work as-is.
+
+### 3.4b Websearch (new 2026-08-24)
+
+Two very different uses — keep them distinct:
+
+- **As a room tool (its own axis, use sparingly).** Giving everyone search
+  breaks the closed system: an exogenous input stream changes what
+  convergence *means* (the room can converge on the news instead of on
+  each other). Interesting as an explicit perturbation condition; wrong as
+  a default.
+- **As a journaling incentive (Phase-B condition: `gated`).** Journaling
+  unlocks a search next turn. The genuineness worry — does the perk make
+  entries fake? — is not a reason to skip it; it's the measurement:
+  compare gated vs. baseline entries on the three-channel metric (§2.5)
+  and entry length/quality. If gated journals drift toward chat-voice,
+  the incentive bought quantity at the cost of interiority — that's a
+  finding, not a failure.
+
+Mechanics when built: sentinel (`[SEARCH: query]`), results returned only
+to the requesting agent, search events logged (and visible in the viewer,
+chevron-style).
 
 ### 3.5 Countdown visibility
 
@@ -335,6 +417,15 @@ The full list:
   private outlet exists changes the room. Comparisons *between* journal
   configs are fine; claims about journaling's effect on room dynamics need
   the true control — no journal mentioned at all.
+- **Self-aware convergence talk** (observed in the first live run: Gemini
+  spontaneously posed the resonance-vs-uniqueness question). The room
+  knows what kind of situation it's in, and convergence *narrated* may
+  behave differently from convergence *undergone* — meta-discussion could
+  amplify drift (naming a dynamic invites performing it) or suppress it
+  (naming it invites resisting it). Mitigations: seeded-topic conditions
+  (§3.2b) keep the room off meta-territory for comparison; and tag
+  meta-rounds during analysis so the convergence gap can be computed with
+  and without them.
 
 ## 7. Analysis pipeline (next build when back at a keyboard)
 

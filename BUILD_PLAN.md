@@ -162,10 +162,47 @@ every session logs its exact seats — with one rule: never compare a
 new-roster batch against months-old baselines (provider snapshots drift,
 §6.1); rerun a contemporaneous baseline batch alongside any new-model batch.
 
-## Suggested order
+## Suggested order (superseded — see Forward plan)
 
-Phase 1 → 2 in one sitting (they're mostly the same files). Then **first
-real experiment** is runnable: countdown × journal-config or room-size,
-OpenRouter-only roster, before any adapter work. Phase 4's `analyze.ts`
-next (it gates all conclusions). Phases 3/5 slot in whenever keys/hosting
-answers arrive.
+Phase 1 → 2 in one sitting (done). Phase 4's `analyze.ts` next (it gates
+all conclusions). Phases 3/5 slot in whenever keys/hosting answers arrive.
+
+## Forward plan (2026-08-24, post-restructure — EXPERIMENT_DESIGN §0)
+
+The program is now Phase A (pilot → fix controls) / Phase B (the journal
+experiment, three-channel measurement). Builds that serve it, in order:
+
+**F1. Thought-trace capture + viewer chevron.** Request reasoning output
+on each call (OpenRouter reasoning field); store per message — new
+`thinking` column or payload on `room_events` plus JSONL. Privacy rule:
+NEVER in any other agent's context, never summarized into the room (same
+class as journals, stricter). Viewer: expandable chevron under each
+message; also a chevron for journal entries already in the rail. Trace
+richness (reasoning effort) becomes a condition parameter — 'low' stays
+the anti-starvation default; a trace-rich condition uses medium + bigger
+cap. Log per-seat trace availability (provider differences) into meta.
+
+**F2. `analyze.ts` (was Phase 4)** — now including the three-channel
+intra comparison (§2.5) alongside convergence gap/style/journal/turn
+metrics; plus `batch.ts` with interleaving and manifests. Gates Phase A's
+control-fixing decisions (length pilot needs measurable output).
+
+**F3. HF Spaces deployment.**
+- Runner → Docker Space (Node; needs always-on — small paid tier or
+  accept sleep between sessions; control plane is already restart-safe).
+- Viewer → static Space (public; anyone can watch).
+- Longer-session defaults (60–120 min) land here — control length chosen
+  by a Phase-A length pilot, not by fiat.
+
+**F4. Websearch tool (§3.4b).** Sentinel `[SEARCH: query]`; results
+returned only to the requester; logged + viewer-visible. Ships in two
+condition forms: room-tool axis and journal-gated (`gated` condition for
+Phase B).
+
+**F5. Talkie (ZeroGPU Gradio Space + gradio adapter)** with latency
+mitigations: per-turn timeout degrading to "said nothing", optional
+reduced turn frequency (a `turnEvery: 2` seat parameter), pre-warm call
+before session start.
+
+Then **Phase B runs**: none / baseline / silent / free / gated, ≥5
+sessions each, interleaved, at Phase-A controls.

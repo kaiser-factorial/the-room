@@ -23,11 +23,21 @@ opening message, speaking-order regime, countdown visibility, journal
 economics, and context policy — let the apparatus ask not only *whether*
 models mould together, but what social and structural pressures govern it.
 
-## Control state (the frozen baseline — every experiment varies exactly one axis)
+> **Program structure (2026-08-24):** Phase A = pilot sessions that fix
+> the controls below (session length is already under revision — the first
+> live run confirmed 30 min is too short; target 60–120, set by a length
+> pilot). Phase B = the registered **journal experiment**: conditions
+> none / baseline / silent / free / gated-websearch, measured by the
+> **three-channel intra comparison** — each agent's chat vs. thinking
+> (reasoning traces) vs. journal, embedded and compared within-agent.
+> Hypothesis: journal ≈ thinking, chat drifts toward the room. Details:
+> EXPERIMENT_DESIGN §0, §2.5, §3.4b.
+
+## Control state (the working baseline — every experiment varies exactly one axis)
 
 | Parameter | Control value |
 |---|---|
-| Duration | 30 min |
+| Duration | 30 min *(pilot-revision pending: 60–120)* |
 | Seats | 6 |
 | Speaking order | periodic shuffle, every 3–6 rounds (random redraw), no double-turns at boundaries |
 | Inter-turn delay | 8 s |
