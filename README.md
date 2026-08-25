@@ -90,6 +90,37 @@ overrides (`ROOM_MINUTES`, `ROOM_DELAY`, `ROOM_SHUFFLE`, …) still work for
 quick dry runs. Per-turn telemetry (provider, finish_reason, token usage,
 attempts) is logged into message events for analysis.
 
+## Tests
+
+`npm test` — node:test suite (no extra deps). Covers the sentinel-parser
+table, every scripted failure path (starvation, truncation, adapter error,
+pass), prompt construction per condition (incl. the frozen D4 welcome),
+conditions merging, windows/mimicry/style edge cases, and two invariants
+that must never regress: **journal entries and thinking traces never
+appear in any other agent's context**, and analyze must **detect planted
+dynamics** (a coined phrase with the right coiner/adopters, rising
+inter-similarity) in a voice-stub session. The stub adapter is scriptable:
+`ROOM_STUB_SCRIPT=plain,journal,alongside,pass,empty,truncate,error`
+drives one scenario per call; without a script it generates per-agent
+voices with planted convergence and mimicry so dry-run metrics have
+structure to find.
+
+## Analysis (F2)
+
+```bash
+npm run batch -- --name pilot --count 5 house control   # interleaved sessions + manifest
+npm run analyze -- sessions/<id>                         # one session → metrics.json
+npm run analyze -- --batch batches/pilot.json            # batch → report.md + baseline
+```
+
+`analyze.ts` computes the §2.1 convergence gap, §2.2 style/mimicry, §2.3
+journal metrics, §2.4 turn dynamics, and the §2.5 three-channel comparison
+(chat vs. thinking vs. journal, using F1's traces). Embeddings
+(`google/gemini-embedding-2`) are cached in each session dir so re-runs are
+free; `ROOM_STUB=1` dry-runs the pipeline offline. Filters are baked in:
+admin-dirty tails dropped, truncated messages excluded from style and
+window stats, final rounds trimmed from the late window.
+
 ## Live viewer
 
 The loop mirrors every event to Supabase (project `catchall`, table

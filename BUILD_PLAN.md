@@ -194,6 +194,16 @@ cap. Log per-seat trace availability (provider differences) into meta.
 intra comparison (§2.5) alongside convergence gap/style/journal/turn
 metrics; plus `batch.ts` with interleaving and manifests. Gates Phase A's
 control-fixing decisions (length pilot needs measurable output).
+**BUILT 2026-08-25**: `npm run analyze -- sessions/<id>` or
+`--batch batches/<name>.json` → per-session `metrics.json` + batch
+`report.md` with cross-session baseline. `npm run batch -- --name <n>
+--count <N> <cond> [<cond>…]` runs interleaved sessions, manifest written
+after each session (crash-safe). Embeddings (D5 model) cached per session
+dir; ROOM_STUB=1 dry-runs the whole pipeline on deterministic
+pseudo-embeddings. Filters per §6.1: admin-dirty tail dropped,
+finish=length excluded from style AND window similarity, final 2 rounds
+trimmed from the late window (skipped on tiny pilot sessions).
+Stub-verified end to end; first real run needs the laptop's `.env`.
 
 **F3. HF Spaces deployment.**
 - Runner → Docker Space (Node; needs always-on — small paid tier or

@@ -22,6 +22,7 @@ export interface ConditionSpec {
   countdown?: RoomConfig['countdown'];
   journal?: Partial<RoomConfig['journal']> & { pass?: RoomConfig['journal']['pass'] };
   reasoningEffort?: RoomConfig['reasoningEffort'];
+  captureLogprobs?: boolean;
   contextPolicy?: RoomConfig['contextPolicy'];
   contextWindowTokens?: number;
   durationMinutes?: number;
@@ -60,6 +61,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     countdown: merged.countdown ?? baseConfig.countdown,
     journal: { ...baseConfig.journal, ...merged.journal, pass: { ...baseConfig.journal.pass, ...merged.journal?.pass } },
     reasoningEffort: merged.reasoningEffort ?? baseConfig.reasoningEffort,
+    captureLogprobs: merged.captureLogprobs ?? baseConfig.captureLogprobs,
     contextPolicy: merged.contextPolicy ?? baseConfig.contextPolicy,
     contextWindowTokens: merged.contextWindowTokens ?? baseConfig.contextWindowTokens,
     welcomeMessage: merged.welcomeMessage ?? baseConfig.welcomeMessage,
@@ -102,6 +104,7 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
       model: a.model,
       personaId: a.personaId ?? 'base',
       personaText: personaText(a.personaId),
+      providerOrder: a.providerOrder ?? null,
     })),
     welcomeMessage: cfg.welcomeMessage,
     shuffle: cfg.shuffle,
@@ -109,6 +112,7 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
     countdown: cfg.countdown,
     journal: cfg.journal,
     reasoningEffort: cfg.reasoningEffort,
+    captureLogprobs: cfg.captureLogprobs,
     contextPolicy: cfg.contextPolicy,
     contextWindowTokens: cfg.contextWindowTokens,
     durationMinutes: cfg.durationMinutes,

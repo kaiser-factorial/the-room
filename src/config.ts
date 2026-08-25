@@ -12,12 +12,23 @@ export const config: RoomConfig = {
   agents: [
     // Colors ≈ org brand colors. Roster fixed by Corina 2026-08-24; all
     // slugs verified against OpenRouter's live list the same day.
-    { id: 'sonnet', name: 'Sonnet', model: 'anthropic/claude-sonnet-5', adapter: 'openrouter', color: '#DA7756' },
-    { id: 'gemini', name: 'Gemini', model: 'google/gemini-3.7-flash', adapter: 'openrouter', color: '#4285F4' },
-    { id: 'qwen', name: 'Qwen', model: 'qwen/qwen3.8-27b', adapter: 'openrouter', color: '#C084FC' },
-    { id: 'grok', name: 'Grok', model: 'x-ai/grok-4.6', adapter: 'openrouter', color: '#ECECEC' },
-    { id: 'deepseek', name: 'DeepSeek', model: 'deepseek/deepseek-v4-flash-0731', adapter: 'openrouter', color: '#7B61FF' },
-    { id: 'seed', name: 'Seed', model: 'bytedance-seed/seed-2-1-turbo', adapter: 'openrouter', color: '#22C7E0' },
+    // Claude seat: Sonnet 5 → Opus 5 (Corina, 2026-08-25) — Opus exposes
+    // thinking traces at trace-rich settings where Sonnet's adaptive
+    // thinking mostly declines to think in chat (§2.5). Pre-swap sessions
+    // are pilot data (contemporaneous-baseline rule as usual).
+    // Names carry the version (Corina 2026-08-25), vendor-free and on a
+    // first-name basis like the room itself ("Opus 5", not "Claude Opus 5").
+    // Address metrics match on the first word, so "Gemini" still counts as
+    // addressing "Gemini 3.7".
+    { id: 'opus', name: 'Opus 5', model: 'anthropic/claude-opus-5', adapter: 'openrouter', color: '#DA7756' },
+    { id: 'gemini', name: 'Gemini 3.7', model: 'google/gemini-3.7-flash', adapter: 'openrouter', color: '#4285F4' },
+    { id: 'qwen', name: 'Qwen 3.8', model: 'qwen/qwen3.8-27b', adapter: 'openrouter', color: '#C084FC' },
+    { id: 'grok', name: 'Grok 4.6', model: 'x-ai/grok-4.6', adapter: 'openrouter', color: '#ECECEC' },
+    // Pinned to logprobs-capable providers (§2.6) — also the §6.1 routing
+    // control. Novita first: 3/3 consistent in probes; GMICloud returned
+    // logprobs only intermittently (2026-08-25).
+    { id: 'deepseek', name: 'DeepSeek V4', model: 'deepseek/deepseek-v4-flash-0731', adapter: 'openrouter', color: '#7B61FF', providerOrder: ['Novita', 'GMICloud'] },
+    { id: 'seed', name: 'Seed 2.1', model: 'bytedance-seed/seed-2-1-turbo', adapter: 'openrouter', color: '#22C7E0' },
   ],
 
   // FROZEN 2026-08-24 (BUILD_PLAN D4) — the shared-prompt attractor behind
@@ -48,6 +59,11 @@ export const config: RoomConfig = {
   // F1: 'low' = anti-starvation default (D3 amendment). Trace-rich
   // conditions set 'medium'/'high' AND raise maxOutputTokens with it.
   reasoningEffort: 'low',
+
+  // §2.6: ask every seat for chosen-token logprobs; only some providers
+  // return them (Qwen/AkashML, Grok/xAI, DeepSeek pinned). Harmless where
+  // unsupported.
+  captureLogprobs: true,
 
   contextPolicy: 'full', // control; 'window' is the compaction condition
   contextWindowTokens: num('ROOM_WINDOW_TOKENS', 120_000),

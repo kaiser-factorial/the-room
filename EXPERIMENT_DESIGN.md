@@ -122,9 +122,22 @@ Caveats to log per session:
 - **Selection**: journaling is chosen, so journal samples are
   self-selected moments; thinking is sampled every turn. Compare on
   matched turns where possible.
-- **Availability**: trace exposure differs by provider (Anthropic returns
-  summarized thinking; some models expose nothing) — the three-channel
-  comparison may only run cleanly on a subset of seats; record which.
+- **Availability**: trace exposure differs by provider — the three-channel
+  comparison may only run cleanly on a subset of seats; record which
+  (logged per session as `traceSeats` on the end event). **Measured
+  2026-08-25 (live shakedown + probes): 5/6 core seats return traces via
+  OpenRouter at effort low (Gemini, Qwen, Grok, DeepSeek, Seed).
+  Anthropic seats ignore OpenRouter's `effort` — they need the native
+  budget form `reasoning: {max_tokens ≥ 1024}`, which the adapter now
+  sends for anthropic/* WHEN the output cap affords it (so house/control
+  at cap 1200 keep Claude traceless — the budget would re-create D3
+  starvation — while trace-rich at cap 2400 enables it; Opus 5 traces
+  richly there). Second wrinkle: Sonnet 5 thinks ADAPTIVELY — even with a
+  budget it produced zero thinking on conversational room-style prompts
+  and traced only on genuinely hard ones. Sonnet's thinking channel in
+  chat sessions is therefore sparse-to-empty BY THE MODEL'S OWN CHOICE;
+  treat trace presence per-turn as data, and expect the three-channel
+  comparison to run on ~5 seats regardless.**
 - **Effort knob**: reasoning effort low (the anti-starvation default)
   yields thin traces. A trace-rich condition wants medium effort + a
   bigger cap — that's a condition parameter, not a global.
@@ -141,6 +154,45 @@ events without the room changing:
 - **logprobs / surprisal**: how *predictable* each agent finds the others'
   messages over time — the cleanest convergence measure there is (mutual
   surprisal falling = genuine mutual modeling).
+  *Probed 2026-08-25, now WIRED IN (`captureLogprobs`, default on):
+  chosen-token logprobs ride in message telemetry, and analyze reports
+  per-agent `meanTokenLogprob` (+late window). Logprobs via OpenRouter
+  are a PROVIDER property, not a model property — verified full-roster
+  through the adapter: **3/6 seats return them** (Qwen — multiple
+  providers; Grok — xAI; DeepSeek — pinned `providerOrder:
+  ['Novita','GMICloud']`, Novita 3/3 consistent, GMICloud intermittent,
+  Baidu/DeepInfra none). Seed is served only by ByteDance's own endpoint
+  and Gemini only by Google/AI Studio — neither exposes logprobs on any
+  endpoint (Gemini's native API has logprob options; that's a
+  direct-adapter item). Anthropic has no logprobs on any API surface,
+  period. Two caveats: (a) chat-completions logprobs cover the model's
+  OWN sampled tokens only — good for per-turn confidence/entropy ("style
+  entrenchment"), but true MUTUAL surprisal requires scoring another
+  agent's text under the model (prompt/echo logprobs), which no chat
+  endpoint offers — that still needs direct APIs or self-hosted scoring;
+  (b) pinning a seat's provider changes which snapshot serves it — set
+  per-batch, never mid-experiment.*
+
+  *Parked design note (2026-08-25) — the surprisal matrix is PERMANENTLY
+  ASYMMETRIC: mutual surprisal is "how predictable is B's message to A",
+  scored by teacher-forcing B's text through A (vLLM `prompt_logprobs`
+  on open weights, as an offline batch job over the JSONL — post-hoc,
+  deterministic, re-runnable over old sessions). Rows exist only for
+  scorers whose weights we can run: Qwen trivially, DeepSeek's open
+  releases at multi-GPU cost, Seed/Gemini only via open cousins, and
+  Anthropic never (no weights, no logprobs on any API surface —
+  Bedrock/Vertex/Foundry included). COLUMNS are complete even when rows
+  aren't: any open scorer can score Opus's messages ("does the room find
+  Opus more predictable over the session?"), but "does Opus find the
+  room more predictable?" is unmeasurable, full stop. Options when
+  built, in decreasing purity: (1) report the asymmetric matrix and say
+  so; (2) a fixed PROBE-MODEL PANEL — one or two open scorers scoring
+  every seat's messages uniformly (that's "predictability under a
+  reference model", not mutual surprisal, but it IS uniform across
+  seats, which the mutual matrix can't be); (3) never present an open
+  model as a stand-in for Opus's own distribution. Sequenced after
+  F3–F5; implementation is one `score.ts` batch script + a vLLM
+  endpoint, riding the Talkie GPU hosting muscle.*
 - reasoning traces where exposed (does private reasoning diverge from the
   public message the way journals do?)
 - exact token accounting per turn.

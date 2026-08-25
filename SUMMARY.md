@@ -65,7 +65,7 @@ baseline batch, never archival ones).
 
 | Model | Slug |
 |---|---|
-| Claude Sonnet 5 | `anthropic/claude-sonnet-5` |
+| Claude Opus 5 | `anthropic/claude-opus-5` |
 | Gemini 3.7 Flash | `google/gemini-3.7-flash` |
 | Qwen 3.8 27B | `qwen/qwen3.8-27b` |
 | Grok 4.6 | `x-ai/grok-4.6` |
@@ -73,7 +73,10 @@ baseline batch, never archival ones).
 | ByteDance Seed 2.1 Turbo | `bytedance-seed/seed-2-1-turbo` |
 
 *(Roster fixed by Corina 2026-08-24; all six slugs verified against
-OpenRouter's live model list the same day. Matches `src/config.ts`.)*
+OpenRouter's live model list the same day. Claude seat amended to Opus 5
+2026-08-25 — Opus exposes thinking traces at trace-rich settings where
+Sonnet 5's adaptive thinking declines to think in chat (§2.5); sessions
+before the swap are pilot data. Matches `src/config.ts`.)*
 
 **Extended pool (config-only additions, later batches):** GPT-5.6 Luna
 (`openai/gpt-5.6-luna`), Laguna (`poolside/laguna-s-2.1` or `laguna-m.1`),

@@ -6,19 +6,19 @@ import { audibleEvents, buildSummaryPrompt, buildTurnMessages, contextSlice } fr
 import { conditionRecord } from './conditions.js';
 import { liveSinkEnabled, sinkEvent, sinkJournal } from './sink.js';
 import { takeCommands } from './control.js';
+import { parseReply } from './parse.js';
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
+// ROOM_QUIET=1 silences per-turn console output (tests: the node:test IPC
+// protocol shares stdout and heavy interleaved logging can corrupt it).
+const clog: typeof console.log = (...a) => { if (process.env.ROOM_QUIET !== '1') console.log(...a); };
 const now = () => new Date().toISOString();
-
-// Loose sentinel matches: models bold/colon these more often than not.
-const JOURNAL_REPLACE_RE = /^\s*\**\[JOURNAL\]:?\**\s*([\s\S]*)/i;
-const JOURNAL_ALONGSIDE_RE = /^\s*\**\[JOURNAL\]:?\**\s*([\s\S]*?)\[\/JOURNAL\]\s*([\s\S]*)/i;
-const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
 
 // Shuffles honor one constraint: a new order's first speaker never equals the
 // previous round's last speaker (no double turns across the boundary).
-function shuffledOrder(agents: AgentConfig[], previousLast: string | null): AgentConfig[] {
+// Exported for the property test in tests/.
+export function shuffledOrder(agents: AgentConfig[], previousLast: string | null): AgentConfig[] {
   const order = [...agents];
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -36,9 +36,15 @@ export interface SessionHandle {
   stop: () => void;
 }
 
-/** Run one full session with the given (condition-resolved) config. */
-export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandle) => void): Promise<void> {
-  const sessionId = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+/** Run one full session with the given (condition-resolved) config.
+ *  Returns the session id (= the session dir name) for batch manifests. */
+export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandle) => void): Promise<string> {
+  let sessionId = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  // Second-resolution ids can collide (two runners, or tests): suffix
+  // rather than interleave two transcripts into one dir (test-found).
+  if (existsSync(join(import.meta.dirname, '..', 'sessions', sessionId))) {
+    sessionId += '-' + Math.random().toString(36).slice(2, 6);
+  }
   const sessionDir = join(import.meta.dirname, '..', 'sessions', sessionId);
   const journalsDir = join(sessionDir, 'journals');
   mkdirSync(journalsDir, { recursive: true });
@@ -57,9 +63,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     events.push(e);
     appendFileSync(transcriptPath, JSON.stringify(e) + '\n');
     sinkEvent(sessionId, e);
-    if (e.kind === 'message') console.log(`\n── ${e.agentName} ──\n${e.text}`);
-    else if (e.kind === 'journal') console.log(`\n   ✎ ${e.agentName} stepped away to journal.`);
-    else if (e.kind === 'system') console.log(`\n   ⋯ ${e.text}`);
+    if (e.kind === 'message') clog(`\n── ${e.agentName} ──\n${e.text}`);
+    else if (e.kind === 'journal') clog(`\n   ✎ ${e.agentName} stepped away to journal.`);
+    else if (e.kind === 'system') clog(`\n   ⋯ ${e.text}`);
   }
 
   function readJournal(agentId: string): string {
@@ -74,7 +80,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       record({ kind: 'journal', ts: now(), round, agentId: agent.id, agentName: agent.name, thinking });
     } else {
       // No room event — but the local console still shows it happened.
-      console.log(`\n   ✎ ${agent.name} journaled (silent).`);
+      clog(`\n   ✎ ${agent.name} journaled (silent).`);
     }
   }
 
@@ -100,7 +106,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   async function pollAdmin(round: number) {
     for (const cmd of await takeCommands(['stop', 'say'])) {
       if (cmd.kind === 'stop') {
-        console.log('Admin stop received.');
+        clog('Admin stop received.');
         stopping = true;
       } else if (cmd.kind === 'say' && cmd.payload?.text) {
         adminTouched = true;
@@ -110,10 +116,10 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   }
 
   const endAt = Date.now() + config.durationMinutes * 60_000;
-  console.log(`Session ${sessionId} — condition '${config.conditionName}', ${config.agents.length} agents, ${config.durationMinutes} min.`);
-  console.log(`Transcript: ${transcriptPath}`);
-  console.log(liveSinkEnabled ? 'Live sink: ON (Supabase)' : 'Live sink: off (set SUPABASE_URL + SUPABASE_SERVICE_KEY)');
-  console.log(`To stop gracefully: Ctrl-C, or \`touch ${stopFile}\``);
+  clog(`Session ${sessionId} — condition '${config.conditionName}', ${config.agents.length} agents, ${config.durationMinutes} min.`);
+  clog(`Transcript: ${transcriptPath}`);
+  clog(liveSinkEnabled ? 'Live sink: ON (Supabase)' : 'Live sink: off (set SUPABASE_URL + SUPABASE_SERVICE_KEY)');
+  clog(`To stop gracefully: Ctrl-C, or \`touch ${stopFile}\``);
 
   record({
     kind: 'meta',
@@ -179,7 +185,13 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             minutesRemaining,
             ownJournal: readJournal(agent.id),
           }),
-          { maxTokens: callMaxTokens, sampling: config.sampling, reasoningEffort: config.reasoningEffort },
+          {
+            maxTokens: callMaxTokens,
+            sampling: config.sampling,
+            reasoningEffort: config.reasoningEffort,
+            logprobs: config.captureLogprobs,
+            providerOrder: agent.providerOrder,
+          },
         );
         reply = res.text;
         telemetry = res.meta;
@@ -191,27 +203,20 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       }
 
       const j = config.journal;
-      const passMatch = j.enabled && j.pass.enabled && reply.match(PASS_RE);
-      const alongsideMatch = j.enabled && j.mode === 'alongside' ? reply.match(JOURNAL_ALONGSIDE_RE) : null;
-      // Privacy fallback: in alongside mode an opening [JOURNAL] with no
-      // closing tag was meant to be private — journal the whole reply rather
-      // than leak it to the room. In replace mode this is the normal parse.
-      const replaceMatch = j.enabled && !alongsideMatch ? reply.match(JOURNAL_REPLACE_RE) : null;
+      const parsed = parseReply(reply, j);
 
-      if (passMatch) {
+      if (parsed.kind === 'pass') {
         if (j.pass.notice) record({ kind: 'system', ts: now(), round, text: `${agent.name} chose to say nothing.` });
-        else console.log(`\n   — ${agent.name} passed (silent).`);
-      } else if (alongsideMatch) {
-        const entry = alongsideMatch[1].trim();
-        const spoken = alongsideMatch[2].trim();
+        else clog(`\n   — ${agent.name} passed (silent).`);
+      } else if (parsed.kind === 'alongside') {
         // One turn, one trace: attach it to the spoken message if there is
         // one, else to the journal event, so it's stored exactly once.
-        if (entry) saveJournal(agent, round, entry, spoken ? undefined : thinking);
-        if (spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: spoken, telemetry, thinking });
-      } else if (replaceMatch) {
-        saveJournal(agent, round, replaceMatch[1].trim(), thinking);
-      } else if (reply) {
-        record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: reply, telemetry, thinking });
+        if (parsed.entry) saveJournal(agent, round, parsed.entry, parsed.spoken ? undefined : thinking);
+        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+      } else if (parsed.kind === 'journal') {
+        saveJournal(agent, round, parsed.entry, thinking);
+      } else if (parsed.kind === 'message') {
+        record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });
       } else {
         // Empty visible text (e.g. reasoning ate the whole budget). Never
         // drop a turn silently — the room perceives silence, and analysis
@@ -229,5 +234,6 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   record({ kind: 'system', ts: now(), round: -1, text: 'The session has ended.' });
   record({ kind: 'end', ts: now(), round: -1, payload: { adminTouched, traceSeats: [...traceSeats].sort() } });
   writeFileSync(join(sessionDir, 'summary-final.md'), summary || '(no rolling summary — full-context session or too short)');
-  console.log(`\nDone. Everything saved under ${sessionDir}`);
+  clog(`\nDone. Everything saved under ${sessionDir}`);
+  return sessionId;
 }
