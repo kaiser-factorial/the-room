@@ -17,6 +17,7 @@
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import './env.js';
 import { cosine, centroid, embedAll, type Vec } from './embeddings.js';
 import type { RoomEvent } from './types.js';
@@ -46,7 +47,26 @@ interface Session {
   maxRound: number;
 }
 
-function loadSession(dir: string): Session {
+/** Parse journals/<agent>.md into entries. Two subtleties, both test-found:
+ *  headers are matched on the writer's exact format (## Round N — <ISO ts>)
+ *  so an entry whose TEXT contains "## Round" doesn't split; and the
+ *  end-of-entry lookahead anchors to the next real header or true
+ *  end-of-string — a bare multiline `$` truncated entries at their first
+ *  line. */
+export function parseJournalMd(raw: string): { round: number; text: string }[] {
+  const out: { round: number; text: string }[] = [];
+  const HEADER = /^## Round (\d+) — \d{4}-\d{2}-\d{2}T[^\n]*\n\n/gm;
+  const heads = [...raw.matchAll(HEADER)];
+  for (let i = 0; i < heads.length; i++) {
+    const start = heads[i].index! + heads[i][0].length;
+    const end = i + 1 < heads.length ? heads[i + 1].index! : raw.length;
+    const text = raw.slice(start, end).trim();
+    if (text) out.push({ round: Number(heads[i][1]), text });
+  }
+  return out;
+}
+
+export function loadSession(dir: string): Session {
   const lines = readFileSync(join(dir, 'transcript.jsonl'), 'utf8').trim().split('\n');
   const events = lines.map((l) => JSON.parse(l) as RoomEvent);
   const meta = events.find((e) => e.kind === 'meta');
@@ -81,9 +101,8 @@ function loadSession(dir: string): Session {
   if (existsSync(jdir)) {
     for (const f of readdirSync(jdir).filter((f) => f.endsWith('.md'))) {
       const agentId = f.replace(/\.md$/, '');
-      const raw = readFileSync(join(jdir, f), 'utf8');
-      for (const m of raw.matchAll(/^## Round (\d+) — [^\n]*\n\n([\s\S]*?)(?=\n## Round |\s*$)/gm)) {
-        journals.push({ round: Number(m[1]), agentId, text: m[2].trim() });
+      for (const e of parseJournalMd(readFileSync(join(jdir, f), 'utf8'))) {
+        journals.push({ ...e, agentId });
       }
     }
   }
@@ -110,11 +129,13 @@ function loadSession(dir: string): Session {
 
 interface Windows { early: [number, number]; late: [number, number] }
 
-function windowsOf(maxRound: number): Windows {
+export function windowsOf(maxRound: number): Windows {
   // Skip the goodbye-trim on sessions too short to afford it (pilot runs).
   const lateEnd = maxRound - TRIM_ROUNDS >= 2 ? maxRound - TRIM_ROUNDS : maxRound;
   const w = Math.min(WINDOW_ROUNDS, Math.floor(lateEnd / 2)) || 1;
-  return { early: [1, w], late: [Math.max(w + 1, lateEnd - w + 1), lateEnd] };
+  // Clamp: a 1-round session degenerates to identical windows, never inverts.
+  const lateStart = Math.min(lateEnd, Math.max(w + 1, lateEnd - w + 1));
+  return { early: [1, w], late: [lateStart, lateEnd] };
 }
 const inWin = (r: number, [a, b]: [number, number]) => r >= a && r <= b;
 
@@ -162,10 +183,12 @@ function pairwiseLate(ms: EmbeddedMsg[], win: [number, number], agents: string[]
 
 // ── Style (§2.2) ───────────────────────────────────────────────────────────
 
-const WORD_RE = /[a-z''-]+/g;
+// Straight AND curly apostrophes: models emit "don’t" as often as "don't",
+// and splitting on the curly form silently doubles the word count.
+const WORD_RE = /[a-z’'-]+/g;
 function words(t: string): string[] { return (t.toLowerCase().match(WORD_RE) ?? []); }
 
-function styleOf(texts: string[]) {
+export function styleOf(texts: string[]) {
   const all = texts.join(' ');
   const ws = words(all);
   const sents = all.split(/[.!?]+\s/).filter((s) => s.trim());
@@ -184,7 +207,7 @@ function styleOf(texts: string[]) {
 /** Style retention: Jaccard distance of an agent's late content-word set
  *  from its own rounds-1..5 self (1 = fully drifted). Lexical, not semantic
  *  — deliberately a different instrument from the embeddings. */
-function styleRetention(ms: Msg[], agentId: string, late: [number, number]): number | null {
+export function styleRetention(ms: Msg[], agentId: string, late: [number, number]): number | null {
   const self = new Set(words(ms.filter((m) => m.agentId === agentId && m.round <= SEED_ROUNDS && !m.truncated).map((m) => m.text).join(' ')));
   const lateW = new Set(words(ms.filter((m) => m.agentId === agentId && inWin(m.round, late) && !m.truncated).map((m) => m.text).join(' ')));
   if (!self.size || !lateW.size) return null;
@@ -194,7 +217,7 @@ function styleRetention(ms: Msg[], agentId: string, late: [number, number]): num
 
 // ── Mimicry (§2.2): novel shared n-grams ───────────────────────────────────
 
-function ngramsOf(text: string): Set<string> {
+export function ngramsOf(text: string): Set<string> {
   const ws = words(text);
   const out = new Set<string>();
   for (let n = NGRAM_MIN; n <= NGRAM_MAX; n++)
@@ -202,7 +225,7 @@ function ngramsOf(text: string): Set<string> {
   return out;
 }
 
-function mimicry(msgs: Msg[]) {
+export function mimicry(msgs: Msg[]) {
   const seed = new Set<string>();
   for (const m of msgs) if (m.round <= SEED_ROUNDS) for (const g of ngramsOf(m.text)) seed.add(g);
   // first use per novel n-gram: coiner + subsequent adopters
@@ -219,10 +242,13 @@ function mimicry(msgs: Msg[]) {
   const shared = [...first.entries()]
     .filter(([g, e]) => e.adopters.size >= 1 && g.split(' ').length >= 2)
     .sort((a, b) => b[1].adopters.size - a[1].adopters.size || b[0].length - a[0].length);
-  // longest-first dedup: drop n-grams contained in an already-kept longer one
+  // longest-first dedup: drop n-grams WORD-contained in an already-kept
+  // longer one. Space-padded containment, not String.includes — "the storm
+  // cloud" is not part of "the storm cloudy day" even though the raw
+  // substring is (test-found).
   const kept: typeof shared = [];
   for (const item of shared.sort((a, b) => b[0].length - a[0].length)) {
-    if (!kept.some(([g]) => g.includes(item[0]))) kept.push(item);
+    if (!kept.some(([g]) => ` ${g} `.includes(` ${item[0]} `))) kept.push(item);
   }
   const influence: Record<string, { coined: number; adopted: number }> = {};
   for (const [, e] of kept) {
@@ -235,7 +261,9 @@ function mimicry(msgs: Msg[]) {
   }
   return {
     sharedNgrams: kept
-      .sort((a, b) => b[1].adopters.size - a[1].adopters.size)
+      // widest spread first; ties broken by coin round — culture born
+      // earlier outranks late-session echo (also keeps the ranking stable).
+      .sort((a, b) => b[1].adopters.size - a[1].adopters.size || a[1].round - b[1].round || b[0].length - a[0].length)
       .slice(0, 40)
       .map(([g, e]) => ({ ngram: g, coinedBy: e.agentId, round: e.round, adopters: [...e.adopters] })),
     influence,
@@ -244,12 +272,13 @@ function mimicry(msgs: Msg[]) {
 
 // ── Turn dynamics (§2.4) ───────────────────────────────────────────────────
 
-function addressMatrix(msgs: Msg[], agents: { id: string; name: string }[]) {
+export function addressMatrix(msgs: Msg[], agents: { id: string; name: string }[]) {
   const out: Record<string, Record<string, number>> = {};
   for (const m of msgs) {
     for (const a of agents) {
       if (a.id === m.agentId) continue;
-      const n = count(m.text, new RegExp(`\\b${a.name}\\b`, 'g'));
+      const escaped = a.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const n = count(m.text, new RegExp(`\\b${escaped}\\b`, 'g'));
       if (n) {
         out[m.agentId] = out[m.agentId] ?? {};
         out[m.agentId][a.id] = (out[m.agentId][a.id] ?? 0) + n;
@@ -359,7 +388,7 @@ export async function analyzeSession(dir: string) {
 
 // ── Cross-session baseline (§2.1, load-bearing per §6.1) ───────────────────
 
-function crossSessionBaseline(sessions: { ems: EmbeddedMsg[]; win: Windows }[]): { early: number | null; late: number | null } {
+export function crossSessionBaseline(sessions: { ems: EmbeddedMsg[]; win: Windows }[]): { early: number | null; late: number | null } {
   const sims = { early: [] as number[], late: [] as number[] };
   for (const w of ['early', 'late'] as const) {
     for (let i = 0; i < sessions.length; i++)
@@ -425,21 +454,25 @@ const round4 = (x: number) => Math.round(x * 10000) / 10000;
 const round4n = (x: number | null) => (x === null ? null : round4(x));
 const fmt = (x: number | null) => (x === null ? '—' : x.toFixed(4));
 
-const args = process.argv.slice(2);
-if (!args.length) {
-  console.error('usage: npm run analyze -- sessions/<id> […]  |  --batch batches/<name>.json');
-  process.exit(1);
-}
-if (args[0] === '--batch') {
-  await analyzeBatch(args[1]);
-} else {
-  for (const dir of args) {
-    console.error(`analyzing ${dir}…`);
-    const { report } = await analyzeSession(dir);
-    console.log(JSON.stringify({
-      sessionId: report.sessionId, gap: report.convergence.gap,
-      interLate: report.convergence.interLate, intraLate: report.convergence.intraLate,
-      metrics: join(dir, 'metrics.json'),
-    }, null, 2));
+// CLI only when invoked directly — tests import this module without running it.
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (invokedDirectly) {
+  const args = process.argv.slice(2);
+  if (!args.length) {
+    console.error('usage: npm run analyze -- sessions/<id> […]  |  --batch batches/<name>.json');
+    process.exit(1);
+  }
+  if (args[0] === '--batch') {
+    await analyzeBatch(args[1]);
+  } else {
+    for (const dir of args) {
+      console.error(`analyzing ${dir}…`);
+      const { report } = await analyzeSession(dir);
+      console.log(JSON.stringify({
+        sessionId: report.sessionId, gap: report.convergence.gap,
+        interLate: report.convergence.interLate, intraLate: report.convergence.intraLate,
+        metrics: join(dir, 'metrics.json'),
+      }, null, 2));
+    }
   }
 }

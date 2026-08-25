@@ -122,9 +122,14 @@ Caveats to log per session:
 - **Selection**: journaling is chosen, so journal samples are
   self-selected moments; thinking is sampled every turn. Compare on
   matched turns where possible.
-- **Availability**: trace exposure differs by provider (Anthropic returns
-  summarized thinking; some models expose nothing) — the three-channel
-  comparison may only run cleanly on a subset of seats; record which.
+- **Availability**: trace exposure differs by provider — the three-channel
+  comparison may only run cleanly on a subset of seats; record which
+  (logged per session as `traceSeats` on the end event). **Measured
+  2026-08-25 (live shakedown): 5/6 core seats return traces via OpenRouter
+  at effort low (Gemini, Qwen, Grok, DeepSeek, Seed); Sonnet returns
+  nothing at any effort, even with an explicit reasoning token budget —
+  Sonnet's thinking channel requires the native Anthropic adapter
+  (BUILD_PLAN Phase 3 item 10).**
 - **Effort knob**: reasoning effort low (the anti-starvation default)
   yields thin traces. A trace-rich condition wants medium effort + a
   bigger cap — that's a condition parameter, not a global.

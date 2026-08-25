@@ -34,6 +34,10 @@ export function contextSlice(config: RoomConfig, events: RoomEvent[]): { slice: 
     budget -= cost;
     start--;
   }
+  // Never starve the transcript to empty: whatever the budget, an agent in a
+  // room that has spoken always sees at least the newest event (test-found:
+  // a tiny budget silently produced a no-context room).
+  if (start === audible.length && audible.length > 0) start = audible.length - 1;
   return { slice: audible.slice(start), omitted: start };
 }
 

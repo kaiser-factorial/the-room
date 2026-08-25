@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20.11" },
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "start": "tsx src/loop.ts",
     "runner": "tsx src/runner.ts",
     "batch": "tsx src/batch.ts",
     "analyze": "tsx src/analyze.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test --test-concurrency=1 tests/*.test.ts"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

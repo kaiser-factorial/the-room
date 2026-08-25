@@ -6,19 +6,16 @@ import { audibleEvents, buildSummaryPrompt, buildTurnMessages, contextSlice } fr
 import { conditionRecord } from './conditions.js';
 import { liveSinkEnabled, sinkEvent, sinkJournal } from './sink.js';
 import { takeCommands } from './control.js';
+import { parseReply } from './parse.js';
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
 const now = () => new Date().toISOString();
 
-// Loose sentinel matches: models bold/colon these more often than not.
-const JOURNAL_REPLACE_RE = /^\s*\**\[JOURNAL\]:?\**\s*([\s\S]*)/i;
-const JOURNAL_ALONGSIDE_RE = /^\s*\**\[JOURNAL\]:?\**\s*([\s\S]*?)\[\/JOURNAL\]\s*([\s\S]*)/i;
-const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
-
 // Shuffles honor one constraint: a new order's first speaker never equals the
 // previous round's last speaker (no double turns across the boundary).
-function shuffledOrder(agents: AgentConfig[], previousLast: string | null): AgentConfig[] {
+// Exported for the property test in tests/.
+export function shuffledOrder(agents: AgentConfig[], previousLast: string | null): AgentConfig[] {
   const order = [...agents];
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -39,7 +36,12 @@ export interface SessionHandle {
 /** Run one full session with the given (condition-resolved) config.
  *  Returns the session id (= the session dir name) for batch manifests. */
 export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandle) => void): Promise<string> {
-  const sessionId = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  let sessionId = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  // Second-resolution ids can collide (two runners, or tests): suffix
+  // rather than interleave two transcripts into one dir (test-found).
+  if (existsSync(join(import.meta.dirname, '..', 'sessions', sessionId))) {
+    sessionId += '-' + Math.random().toString(36).slice(2, 6);
+  }
   const sessionDir = join(import.meta.dirname, '..', 'sessions', sessionId);
   const journalsDir = join(sessionDir, 'journals');
   mkdirSync(journalsDir, { recursive: true });
@@ -192,27 +194,20 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       }
 
       const j = config.journal;
-      const passMatch = j.enabled && j.pass.enabled && reply.match(PASS_RE);
-      const alongsideMatch = j.enabled && j.mode === 'alongside' ? reply.match(JOURNAL_ALONGSIDE_RE) : null;
-      // Privacy fallback: in alongside mode an opening [JOURNAL] with no
-      // closing tag was meant to be private — journal the whole reply rather
-      // than leak it to the room. In replace mode this is the normal parse.
-      const replaceMatch = j.enabled && !alongsideMatch ? reply.match(JOURNAL_REPLACE_RE) : null;
+      const parsed = parseReply(reply, j);
 
-      if (passMatch) {
+      if (parsed.kind === 'pass') {
         if (j.pass.notice) record({ kind: 'system', ts: now(), round, text: `${agent.name} chose to say nothing.` });
         else console.log(`\n   — ${agent.name} passed (silent).`);
-      } else if (alongsideMatch) {
-        const entry = alongsideMatch[1].trim();
-        const spoken = alongsideMatch[2].trim();
+      } else if (parsed.kind === 'alongside') {
         // One turn, one trace: attach it to the spoken message if there is
         // one, else to the journal event, so it's stored exactly once.
-        if (entry) saveJournal(agent, round, entry, spoken ? undefined : thinking);
-        if (spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: spoken, telemetry, thinking });
-      } else if (replaceMatch) {
-        saveJournal(agent, round, replaceMatch[1].trim(), thinking);
-      } else if (reply) {
-        record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: reply, telemetry, thinking });
+        if (parsed.entry) saveJournal(agent, round, parsed.entry, parsed.spoken ? undefined : thinking);
+        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+      } else if (parsed.kind === 'journal') {
+        saveJournal(agent, round, parsed.entry, thinking);
+      } else if (parsed.kind === 'message') {
+        record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });
       } else {
         // Empty visible text (e.g. reasoning ate the whole budget). Never
         // drop a turn silently — the room perceives silence, and analysis
