@@ -90,6 +90,26 @@ function stubVoice(model: string, turn: number): string {
   return s1 + ' ' + s2 + coin + adopt;
 }
 
+/** Anthropic models ignore OpenRouter's `effort` (no thinking, no trace —
+ *  probed 2026-08-25); they need Anthropic's native budget form,
+ *  `reasoning: {max_tokens}`, minimum 1024, which shares the output cap.
+ *  Translate effort → budget for anthropic/* seats, but ONLY when the cap
+ *  leaves ≥800 visible tokens above the minimum budget — otherwise omit
+ *  reasoning entirely rather than re-create D3 starvation. Net effect:
+ *  house/control (cap 1200) keep Claude traceless; trace-rich (cap 2400)
+ *  gets Claude traces. Sonnet 5 also thinks ADAPTIVELY: a budget is a
+ *  ceiling, and conversational turns may legitimately produce no trace. */
+const ANTHROPIC_MIN_BUDGET = 1024;
+const VISIBLE_FLOOR = 800;
+export function reasoningParam(model: string, effort: ReasoningEffort, maxTokens: number): Record<string, unknown> | undefined {
+  if (!model.startsWith('anthropic/')) return { effort };
+  const budget = Math.min(
+    { low: 1024, medium: 2048, high: 4096 }[effort],
+    maxTokens - VISIBLE_FLOOR,
+  );
+  return budget >= ANTHROPIC_MIN_BUDGET ? { max_tokens: budget } : undefined;
+}
+
 export const openrouterAdapter: Adapter = {
   async send(model, messages, opts) {
     if (process.env.ROOM_STUB === '1') {
@@ -127,8 +147,9 @@ export const openrouterAdapter: Adapter = {
       // rounds this way). 'low' stays the anti-starvation default — the room
       // is a chat, not a puzzle; trace-rich conditions raise effort AND the
       // cap together (F1).
-      reasoning: { effort: opts.reasoningEffort ?? 'low' },
+      reasoning: reasoningParam(model, opts.reasoningEffort ?? 'low', opts.maxTokens),
     };
+    if (!body.reasoning) delete body.reasoning;
     if (opts.sampling) {
       body.temperature = opts.sampling.temperature;
       if (opts.sampling.topP !== undefined) body.top_p = opts.sampling.topP;

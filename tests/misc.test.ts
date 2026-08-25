@@ -37,6 +37,22 @@ test('conditions: seat selection keeps catalog order-independence and rejects <2
   assert.throws(() => resolveCondition('control', { agents: ['sonnet'] }));
 });
 
+// ── reasoning param translation ────────────────────────────────────────────
+
+test('reasoningParam: non-Anthropic seats get effort verbatim', async () => {
+  const { reasoningParam } = await import('../src/openrouter.js');
+  assert.deepEqual(reasoningParam('x-ai/grok-4.6', 'low', 1200), { effort: 'low' });
+});
+
+test('reasoningParam: Anthropic gets a budget only when the cap affords it', async () => {
+  const { reasoningParam } = await import('../src/openrouter.js');
+  // house cap 1200: 1200-800 < 1024 minimum → thinking off, no starvation
+  assert.equal(reasoningParam('anthropic/claude-sonnet-5', 'low', 1200), undefined);
+  // trace-rich cap 2400: budget clamped to cap-floor
+  assert.deepEqual(reasoningParam('anthropic/claude-sonnet-5', 'medium', 2400), { max_tokens: 1600 });
+  assert.deepEqual(reasoningParam('anthropic/claude-opus-5', 'high', 8000), { max_tokens: 4096 });
+});
+
 // ── embeddings ─────────────────────────────────────────────────────────────
 
 test('cosine/centroid basics', () => {

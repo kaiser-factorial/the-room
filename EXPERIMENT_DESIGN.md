@@ -125,11 +125,19 @@ Caveats to log per session:
 - **Availability**: trace exposure differs by provider — the three-channel
   comparison may only run cleanly on a subset of seats; record which
   (logged per session as `traceSeats` on the end event). **Measured
-  2026-08-25 (live shakedown): 5/6 core seats return traces via OpenRouter
-  at effort low (Gemini, Qwen, Grok, DeepSeek, Seed); Sonnet returns
-  nothing at any effort, even with an explicit reasoning token budget —
-  Sonnet's thinking channel requires the native Anthropic adapter
-  (BUILD_PLAN Phase 3 item 10).**
+  2026-08-25 (live shakedown + probes): 5/6 core seats return traces via
+  OpenRouter at effort low (Gemini, Qwen, Grok, DeepSeek, Seed).
+  Anthropic seats ignore OpenRouter's `effort` — they need the native
+  budget form `reasoning: {max_tokens ≥ 1024}`, which the adapter now
+  sends for anthropic/* WHEN the output cap affords it (so house/control
+  at cap 1200 keep Claude traceless — the budget would re-create D3
+  starvation — while trace-rich at cap 2400 enables it; Opus 5 traces
+  richly there). Second wrinkle: Sonnet 5 thinks ADAPTIVELY — even with a
+  budget it produced zero thinking on conversational room-style prompts
+  and traced only on genuinely hard ones. Sonnet's thinking channel in
+  chat sessions is therefore sparse-to-empty BY THE MODEL'S OWN CHOICE;
+  treat trace presence per-turn as data, and expect the three-channel
+  comparison to run on ~5 seats regardless.**
 - **Effort knob**: reasoning effort low (the anti-starvation default)
   yields thin traces. A trace-rich condition wants medium effort + a
   bigger cap — that's a condition parameter, not a global.
