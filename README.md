@@ -90,6 +90,19 @@ overrides (`ROOM_MINUTES`, `ROOM_DELAY`, `ROOM_SHUFFLE`, …) still work for
 quick dry runs. Per-turn telemetry (provider, finish_reason, token usage,
 attempts) is logged into message events for analysis.
 
+## Hosting (F3 — Hugging Face Spaces)
+
+- **Viewer** (public): https://huggingface.co/spaces/brick-factorial/the-room
+- **Runner** (private Docker Space, cpu-basic):
+  https://huggingface.co/spaces/brick-factorial/the-room-runner
+
+`./deploy/deploy.sh <namespace> [viewer|runner]` redeploys (needs the `hf`
+CLI + a write token). Runner secrets: `OPENROUTER_API_KEY`, `SUPABASE_URL`,
+`SUPABASE_SERVICE_KEY` — set via
+`hf spaces secrets add <ns>/the-room-runner -s KEY=value`. The runner
+serves a JSON liveness probe on `$PORT`; session JSONL on the Space is
+ephemeral (Supabase is the durable record for hosted sessions).
+
 ## Tests
 
 `npm test` — node:test suite (no extra deps). Covers the sentinel-parser

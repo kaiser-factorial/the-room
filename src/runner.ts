@@ -7,6 +7,7 @@
 // shuffle? } — condition names a preset in conditions/; the rest are ad-hoc
 // overrides applied on top.
 
+import { createServer } from 'node:http';
 import './env.js';
 import { resolveCondition } from './conditions.js';
 import { runSession } from './session.js';
@@ -17,6 +18,18 @@ if (!controlEnabled) {
   console.error('Runner needs SUPABASE_URL + SUPABASE_SERVICE_KEY (the control plane lives in Supabase).');
   process.exit(1);
 }
+
+// Minimal status endpoint. Hosted platforms (HF Docker Spaces, Fly, …)
+// require the container to answer HTTP on $PORT or they mark it broken;
+// it also gives the admin dashboard a liveness probe. No control surface
+// here — commands only ever come through room_control.
+const bootedAt = Date.now();
+createServer((_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ ok: true, state: running ? 'in-session' : 'idle', uptimeSec: Math.round((Date.now() - bootedAt) / 1000) }));
+}).listen(Number(process.env.PORT) || 7860, () => {
+  console.log(`Status endpoint on :${Number(process.env.PORT) || 7860}`);
+});
 
 function configFrom(p: StartPayload | null): RoomConfig {
   const overrides: Record<string, unknown> = {};

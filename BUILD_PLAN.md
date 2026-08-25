@@ -205,12 +205,24 @@ finish=length excluded from style AND window similarity, final 2 rounds
 trimmed from the late window (skipped on tiny pilot sessions).
 Stub-verified end to end; first real run needs the laptop's `.env`.
 
-**F3. HF Spaces deployment.**
-- Runner → Docker Space (Node; needs always-on — small paid tier or
-  accept sleep between sessions; control plane is already restart-safe).
-- Viewer → static Space (public; anyone can watch).
-- Longer-session defaults (60–120 min) land here — control length chosen
-  by a Phase-A length pilot, not by fiat.
+**F3. HF Spaces deployment. — DEPLOYED 2026-08-25**
+- Viewer → static Space, public, LIVE:
+  https://huggingface.co/spaces/brick-factorial/the-room
+- Runner → Docker Space (cpu-basic, private):
+  https://huggingface.co/spaces/brick-factorial/the-room-runner — image
+  builds and runs; runner.ts now serves a liveness probe on $PORT
+  (required by Docker Spaces). **Blocked on one secret**: Corina runs
+  `hf spaces secrets add brick-factorial/the-room-runner -s
+  SUPABASE_SERVICE_KEY=...` (OPENROUTER_API_KEY is set but is the
+  temporary test key — rotate it the same way). Redeploys:
+  `./deploy/deploy.sh <namespace> [viewer|runner]`.
+- Hosted-session caveat: the Space filesystem is ephemeral, so JSONL
+  written there dies on rebuild — Supabase is the durable record for
+  hosted sessions (HF bucket volume is the upgrade if hosted JSONL must
+  persist). cpu-basic sleeps after 48h without HTTP traffic — the admin
+  dashboard (F6) pinging the liveness probe covers this.
+- Longer-session defaults (60–120 min) still gated on the Phase-A length
+  pilot, not by fiat; the admin panel's minutes field covers pilots.
 
 **F4. Websearch tool (§3.4b).** Sentinel `[SEARCH: query]`; results
 returned only to the requester; logged + viewer-visible. Ships in two
