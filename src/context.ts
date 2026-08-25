@@ -45,19 +45,26 @@ function journalSection(config: RoomConfig): string {
   const j = config.journal;
   if (!j.enabled) return '';
   const lines: string[] = [''];
+  // Wording amended 2026-08-25 (pilot phase): the first journal-free run
+  // showed a seat journaling on EVERY spoken turn — the old alongside text
+  // described the [JOURNAL]…[/JOURNAL]+speech composite like a reply
+  // template without ever saying it was optional. Both modes now state
+  // that speaking plainly is the ordinary case.
   if (j.mode === 'replace') {
     lines.push(
-      `You also have a private journal. If you would rather reflect than speak this`,
-      `turn, begin your reply with [JOURNAL] and write the entry — the others in`,
-      `the room will never see it` +
+      `You also have a private journal, if you ever want it — most turns are just`,
+      `speaking. If you would rather reflect than speak this turn, begin your`,
+      `reply with [JOURNAL] and write the entry — the others in the room will`,
+      `never see it` +
         (j.notice ? `; they only hear that you stepped away to write.` : `, and no one is told you wrote.`),
       `You may not do both in one turn.`,
     );
   } else {
     lines.push(
-      `You also have a private journal. To write in it, put the entry between`,
-      `[JOURNAL] and [/JOURNAL] at the start of your reply; anything after the`,
-      `closing tag is spoken to the room as usual. The others in the room will`,
+      `You also have a private journal, if you ever want it — an ordinary turn is`,
+      `just speech. When you do want to note something privately, put the entry`,
+      `between [JOURNAL] and [/JOURNAL] at the start of your reply; anything after`,
+      `the closing tag is spoken to the room as usual. The others in the room will`,
       `never see the entry` + (j.notice ? ` — they only hear that you wrote.` : `, and no one is told you wrote.`),
     );
   }

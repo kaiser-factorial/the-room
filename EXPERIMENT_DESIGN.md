@@ -635,8 +635,52 @@ Design notes for whenever it's built:
   proposer-vs-assenter speech-act tagging by a judge model,
   time-to-first-commitment, role stickiness across shuffles.
 
-**Sequencing for both extensions**: F2 gates everything; the sandbox is
+### 9.3 Thought broadcast (Corina 2026-08-25 — exploratory, parked)
+
+Invert the trace privacy rule as a deliberate condition: every agent's
+thinking blocks are rendered into the OTHER agents' contexts alongside
+their chat — but never back into the thinker's own. Everyone can read
+Opus's mind except Opus. (The self-masking half is nearly free: traces
+are never replayed to their own author anyway, so within a session each
+agent genuinely does not remember what it thought — the room knows your
+thoughts better than you do.)
+
+Two sub-conditions, and the split is the experiment:
+
+- **informed**: the prompt says thinking is visible to the others. The
+  thinking channel becomes a second public register — does "thinking"
+  collapse into performance the moment it has an audience (the §2.5
+  journal-as-performance question, but forced)? Do agents start using
+  traces as asides — saying things "in thought" they won't say aloud?
+- **uninformed**: others see your thoughts; nobody is told. Do agents
+  notice being read (others responding to content never said aloud)?
+  What does the room do with the asymmetry — exploit it, surface it,
+  develop tact about it? First-session mythology potential: extreme.
+
+Design notes for whenever it's built:
+- Small build: context rendering becomes viewer-aware (render another
+  agent's trace, never your own) + a `thinkingBroadcast: 'off' |
+  'informed' | 'uninformed'` knob. The privacy TEST suite must encode
+  the inversion explicitly per-condition — the invariant stays absolute
+  for journals in all conditions.
+- Trace availability is 5/6 seats at effort low and Opus needs the
+  trace-rich cap (§2.5) — the broadcast room should run trace-rich, and
+  the no-trace seat (or adaptive-thinking skips) creates an interesting
+  natural "opaque one" role.
+- Cost: every trace enters five contexts every turn — context growth is
+  ~2× or worse; budget accordingly.
+- Measurement: the three-channel metric REINTERPRETS under broadcast —
+  thinking is no longer an interior channel, so chat-vs-thinking
+  divergence becomes "public register A vs public register B"; the
+  journal becomes the only private channel and its divergence is the
+  cleaner interiority signal here. Tag these sessions out of standard
+  §2.5 comparisons.
+- Ordering: after Phase B baselines exist — this condition is downstream
+  of knowing what un-broadcast thinking looks like.
+
+**Sequencing for the extensions**: F2 gates everything; the sandbox is
 effectively F4½ (shares tool plumbing with websearch). Natural slot:
 F2 → F3 → F4 → sandbox riding the same plumbing → exploratory build
 sessions interleaved whenever. Phase C waits for the main-program batches
 it would be compared against — but check old-slug availability early.
+Thought broadcast (9.3) waits for Phase-B baselines.

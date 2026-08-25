@@ -140,11 +140,19 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       : config.welcomeMessage;
   record({ kind: 'system', ts: now(), round: 0, text: welcomeText });
 
-  // Long-form journal variant: the call cap must leave room for the entry.
+  // The call cap must leave room for everything a turn can produce.
+  // Long-form journal variant: cap covers the bigger entry allowance.
+  // Alongside mode: a turn is entry + spoken message + hidden reasoning in
+  // ONE completion — at the plain cap that re-created D3 starvation (first
+  // journal-free run: Seed said nothing 3 turns, trace present each time).
+  // Doubling the cap is the backstop only; visible length is still shaped
+  // by the prompt norm.
   const callMaxTokens =
-    config.journal.enabled && config.journal.maxTokens > 0
-      ? Math.max(config.maxOutputTokens, config.journal.maxTokens)
-      : config.maxOutputTokens;
+    config.journal.enabled && config.journal.mode === 'alongside'
+      ? config.maxOutputTokens * 2
+      : config.journal.enabled && config.journal.maxTokens > 0
+        ? Math.max(config.maxOutputTokens, config.journal.maxTokens)
+        : config.maxOutputTokens;
 
   let previousLast: string | null = null;
   let order: AgentConfig[] = [];
