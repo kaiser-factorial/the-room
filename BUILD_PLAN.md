@@ -218,26 +218,16 @@ keeping track of the research program:
 - Data source: `room_events`/`room_sessions` now; a `room_metrics` table
   written by `analyze.ts` later (the dashboard is the natural consumer of
   F2's output).
-- **UI: build on `ccru`** (https://github.com/lumpenspace/ccru —
-  `ccru/components`): `CyberContainer` (collapsible, draggable) for
-  summary cards, `CyberStackGroup` for stacked control panels,
-  `CyberGridGroup` for the overview grid, `CyberPanel` primitives for
-  floating detail panes. ccru is React, so the admin surface becomes a
-  small Vite+React app (deployed beside — or replacing — the static
-  viewer page; the public feed can stay the lightweight static page or
-  migrate in, decide at build time). Reference usage:
-
-  ```tsx
-  import { CyberContainer, CyberGridGroup, CyberStackGroup } from 'ccru/components'
-
-  <CyberGridGroup columns={2}>
-    <CyberStackGroup>
-      <CyberContainer title="journal-silent · 3/5 run" collapsible defaultOpen>
-        {/* per-session cards */}
-      </CyberContainer>
-    </CyberStackGroup>
-  </CyberGridGroup>
-  ```
+- **UI: stay vanilla — no React (decided 2026-08-24).** The viewer
+  remains the single static page so the focus stays on the experiment.
+  The dashboard becomes a second view inside it (admin-gated, e.g. behind
+  the dot after login): native `<details>` cards per session in a CSS
+  grid, condition rollup headers, same dark aesthetic. That covers the
+  collapsible-card/grid layout ccru would have provided, minus drag.
+  (Considered and dropped: `ccru` — github.com/lumpenspace/ccru — nice
+  collapsible/draggable panel components, but React-only and not worth a
+  build step for this. Revisit only if the admin surface ever grows past
+  what a static page holds.)
 
 Then **Phase B runs**: none / baseline / silent / free / gated, ≥5
 sessions each, interleaved, at Phase-A controls.
