@@ -36,8 +36,9 @@ export interface SessionHandle {
   stop: () => void;
 }
 
-/** Run one full session with the given (condition-resolved) config. */
-export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandle) => void): Promise<void> {
+/** Run one full session with the given (condition-resolved) config.
+ *  Returns the session id (= the session dir name) for batch manifests. */
+export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandle) => void): Promise<string> {
   const sessionId = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const sessionDir = join(import.meta.dirname, '..', 'sessions', sessionId);
   const journalsDir = join(sessionDir, 'journals');
@@ -230,4 +231,5 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   record({ kind: 'end', ts: now(), round: -1, payload: { adminTouched, traceSeats: [...traceSeats].sort() } });
   writeFileSync(join(sessionDir, 'summary-final.md'), summary || '(no rolling summary — full-context session or too short)');
   console.log(`\nDone. Everything saved under ${sessionDir}`);
+  return sessionId;
 }

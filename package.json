@@ -7,6 +7,8 @@
   "scripts": {
     "start": "tsx src/loop.ts",
     "runner": "tsx src/runner.ts",
+    "batch": "tsx src/batch.ts",
+    "analyze": "tsx src/analyze.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
