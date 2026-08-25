@@ -50,7 +50,12 @@ export const config: RoomConfig = {
 
   durationMinutes: num('ROOM_MINUTES', 30), // D3 standard shape
   maxRounds: num('ROOM_MAX_ROUNDS', 100),
-  maxOutputTokens: 500,
+  // 1200 (was 500): the cap is shared with hidden reasoning tokens, and the
+  // first live run truncated 26/54 messages mid-sentence (finish=length) and
+  // starved Seed to empty replies. The "group chat register" prompt norm
+  // remains the readability lever; the cap is the runaway backstop.
+  // (D3 amendment 2026-08-24, logged in BUILD_PLAN.)
+  maxOutputTokens: 1200,
   summarizeEveryMessages: num('ROOM_SUMMARIZE_EVERY', 20),
   interTurnDelaySeconds: num('ROOM_DELAY', 8),
 };

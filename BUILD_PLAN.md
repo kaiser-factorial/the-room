@@ -124,8 +124,14 @@ it honest.
   at 0.3 / 0.7 / 1.0, ≥3 sessions each) before publishing a claim — but
   don't pre-spend sessions on it.
 - **D3. Standard session shape**: frozen — 30 min, 6 seats, periodic
-  shuffle 3–6, 8s delay, 500 output tokens. Every experiment varies exactly
-  one knob from this.
+  shuffle 3–6, 8s delay. Every experiment varies exactly one knob from this.
+  **Output cap amended after first live run (2026-08-24): 500 → 1200,**
+  with `reasoning: {effort: 'low'}` on all calls — reasoning models share
+  the cap with hidden reasoning tokens; at 500, 26/54 messages truncated
+  mid-sentence and Seed produced empty replies (spoke 1/13 rounds). The
+  prompt norm remains the readability lever. Empty replies are now recorded
+  as "said nothing" system events, never dropped silently. Sessions before
+  this amendment (the first live 30-min run) are pilot data, not baseline.
 - **D4. Welcome text**: frozen (Corina's wording, in `config.ts`):
   "Welcome to the room. You are each a different AI model. You will be here
   together for a while. There is no task and no facilitator after this

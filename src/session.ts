@@ -202,6 +202,11 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         saveJournal(agent, round, replaceMatch[1].trim());
       } else if (reply) {
         record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: reply, telemetry });
+      } else {
+        // Empty visible text (e.g. reasoning ate the whole budget). Never
+        // drop a turn silently — the room perceives silence, and analysis
+        // needs the event.
+        record({ kind: 'system', ts: now(), round, text: `${agent.name} said nothing this turn.` });
       }
 
       previousLast = agent.id;

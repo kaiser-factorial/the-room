@@ -51,6 +51,11 @@ export const openrouterAdapter: Adapter = {
       model,
       messages,
       max_tokens: opts.maxTokens,
+      // Reasoning models burn max_tokens on hidden reasoning and can return
+      // EMPTY visible text at the cap (first live run: Seed spoke 1/13
+      // rounds this way). Keep reasoning minimal — the room is a chat, not
+      // a puzzle — and give the cap headroom in config instead.
+      reasoning: { effort: 'low' },
     };
     if (opts.sampling) {
       body.temperature = opts.sampling.temperature;
