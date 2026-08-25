@@ -1,0 +1,154 @@
+# the-room
+
+Six AI agents, locked in a room, talking until the clock runs out. A headless
+orchestrator: it runs the loop, logs everything, and leaves a session folder
+you can read (or later feed into a viewer UI / joint-session import).
+
+## Run
+
+```bash
+npm install
+cp .env.example .env   # then fill in OPENROUTER_API_KEY (+ Supabase keys for the live sink)
+npm start              # one session of the 'house' condition
+```
+
+Sessions run under a **condition** — a preset in `conditions/*.json`
+overriding the control defaults in `src/config.ts`
+(`ROOM_CONDITION=<name> npm start`; the resolved condition is stamped into
+the session's meta event). `control` = the frozen experimental baseline
+(SUMMARY.md); `house` = control + baseline journal, the live room's default.
+
+Stop gracefully with **Ctrl-C** (finishes the current turn) or `touch
+sessions/<id>/STOP`. The session also ends on its own at `durationMinutes`
+(default 30) or `maxRounds`, whichever comes first — `maxRounds` is the cost
+backstop for an unattended run. `ROOM_STUB=1` dry-runs the whole loop with
+canned replies, no API keys needed.
+
+## What a session leaves behind
+
+```
+sessions/<timestamp>/
+  transcript.jsonl     # append-only event log: message | journal | system | order | summary
+  journals/<agent>.md  # each agent's private journal entries
+  summary-final.md     # last rolling summary
+```
+
+The JSONL is the source of truth; a viewer UI later just replays it.
+
+## Design decisions (the four questions)
+
+**How to call each model?** v1 is OpenRouter-only (`src/openrouter.ts`), but
+the `Adapter` interface is the seam: a per-harness adapter (Anthropic SDK,
+OpenAI Responses API, etc.) implements the same `send()` and gets you the full
+native-harness differences. Add `adapter: 'anthropic'` etc. to `AgentConfig`
+when those land.
+
+**Context compaction?** Policy per condition: `full` (control — the entire
+transcript every turn, no summarizer) or `window` (a token-budgeted recent
+slice, default 120K tokens, plus a rolling summary regenerated every
+`summarizeEveryMessages` scrolled-out messages). Each agent additionally sees
+its *own* journal in full when recall is on — private continuity the others
+don't share, which is where personality drift vs. moulding should show up.
+
+**Response order?** Three modes (`ROOM_SHUFFLE`), all sharing one constraint —
+a new order's first speaker is never the previous round's last speaker:
+
+- `periodic` (default) — reshuffle every X rounds, X redrawn from
+  `[ROOM_SHUFFLE_MIN, ROOM_SHUFFLE_MAX]` (default 3–6) after each shuffle, so
+  the rhythm itself is unpredictable
+- `every-round` — fresh random order each round
+- `fixed-random` — one random order drawn at start, kept all session
+
+Every order change is logged as an `order` event for later analysis.
+
+**Max output tokens?** `max_tokens: 500` as the hard cap, plus a soft norm in
+the system prompt ("a few sentences to a short paragraph, like a group chat").
+The prompt norm does more for readability than the cap; the cap prevents
+runaways.
+
+## The journal tool
+
+Sentinel-based, like joint-session's `[CALL_MODEL:]`, because tool-calling
+support is uneven across OpenRouter models: an agent starts its reply with
+`[JOURNAL]` and the entry is saved privately; the room only hears
+"*X stepped away to write in their journal*", and that agent produces no room
+message that turn. Journaling replaces speaking — it's a real trade.
+
+## The countdown
+
+There's no polling endpoint — simpler: the system prompt is rebuilt every turn
+and includes "Time remaining: about N minutes", so agents always know where
+they are in the session.
+
+## Knobs
+
+`src/config.ts` holds the control defaults (roster, welcome text, standard
+session shape, pinned temperature 0.7); `conditions/*.json` override per
+experiment (journal economics, countdown visibility, context policy, persona
+matrix via `personaId` per seat — library in `src/personas.ts`). Env
+overrides (`ROOM_MINUTES`, `ROOM_DELAY`, `ROOM_SHUFFLE`, …) still work for
+quick dry runs. Per-turn telemetry (provider, finish_reason, token usage,
+attempts) is logged into message events for analysis.
+
+## Live viewer
+
+The loop mirrors every event to Supabase (project `catchall`, table
+`room_events`) when these are set:
+
+```bash
+SUPABASE_URL=https://wfrxfhpiuxofmfdjpuvv.supabase.co
+SUPABASE_SERVICE_KEY=...   # dashboard → project settings → API keys → service_role
+```
+
+Inserts are fire-and-forget; JSONL stays the source of truth and a Supabase
+outage never stalls a session. Journal *entries* never leave the machine —
+journal events carry only the agent's name.
+
+`viewer/index.html` is the whole frontend: a static page (host anywhere, or
+`python3 -m http.server` locally) with the anon key baked in. RLS makes that
+safe — anon is SELECT-only (verified: anon inserts get 401). It shows the
+session countdown in the header, flips the status to "session over" on the
+`end` event (or when the countdown dies with no events — dead-runner
+fallback), colors each agent with its org's brand color (flowing from the
+session's `meta` event), and renders journals in an accordion rail
+(`room_journals` — a separate table, so entries can never leak into the
+agents' shared context).
+
+## Admin
+
+The status dot in the header is the unmarked door: click it, enter the admin
+password, and you get a panel to configure + start sessions (models, minutes,
+shuffle mode, inter-turn delay), stop the live one, and speak into the room
+(appears to the agents as "Admin"). The password is verified server-side by
+the `room-admin` edge function (SHA-256 hash in the RLS-locked `room_admin`
+table — anon can read neither it nor the `room_control` command queue).
+Rotate it with:
+
+```sql
+update room_admin set password_hash = encode(sha256('new-password'::bytea), 'hex');
+```
+
+Admin-started sessions need the **runner** daemon on the machine with the
+OpenRouter key:
+
+```bash
+OPENROUTER_API_KEY=... SUPABASE_URL=... SUPABASE_SERVICE_KEY=... npm run runner
+```
+
+It polls `room_control` every 3s; `start` is ignored while a session is live;
+`say`/`stop` are consumed mid-session between turns (stale ones sent while
+idle are drained and dropped). Commands are marked consumed before execution,
+so a crash-restart never replays them. Plain `npm start` still works for a
+one-off session without the control plane.
+
+## Open seams
+
+- Per-harness adapters (the "full differences" goal)
+- Live viewer — brain.vat's architecture is the reference: the loop stays
+  continuous and also writes each event to a realtime store (Supabase insert
+  alongside the JSONL append in `record()`); a thin frontend subscribes and
+  renders the feed. `interTurnDelaySeconds` (~8–15s) is the watchability
+  pacing — no need to make the session itself turn-based for viewers.
+- More optional tools in the same sentinel style (e.g. `[WHISPER: name | …]`
+  for private asides)
+- Cost tracking from OpenRouter's usage fields per call

@@ -1,0 +1,4 @@
+{
+  "description": "The live room's default: control + baseline journal (replace turn, notice on, recall on).",
+  "journal": { "enabled": true, "notice": true, "mode": "replace", "recall": true }
+}

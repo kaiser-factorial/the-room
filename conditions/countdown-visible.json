@@ -1,0 +1,4 @@
+{
+  "description": "Countdown axis: time-remaining line in every prompt (control is hidden).",
+  "countdown": "visible"
+}

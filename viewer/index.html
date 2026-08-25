@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>the room</title>
+<style>
+  :root {
+    --bg: #0e0e11; --panel: #17171c; --text: #e8e6e1; --dim: #8a8794;
+    --line: #26262e; --accent: #6fce6f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 "Iowan Old Style", Georgia, serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line);
+    padding: 0.8rem 1.2rem; display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap;
+  }
+  header h1 { font-size: 1rem; margin: 0; letter-spacing: 0.12em; font-weight: normal; }
+  header select, .admin input, .admin select, .admin button, .admin textarea {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    padding: 0.3rem 0.55rem; font: inherit; font-size: 0.85rem;
+  }
+  #clock { font-size: 0.85rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+  #statuswrap { margin-left: auto; font-size: 0.8rem; color: var(--dim); display: flex; align-items: center; gap: 0.4em; }
+  /* The dot doubles as the (unmarked) door to the admin panel. No animation. */
+  #dot { width: 0.55em; height: 0.55em; border-radius: 50%; background: var(--dim); cursor: default; }
+  #dot.live { background: var(--accent); }
+  #dot.ended { background: #b8563e; }
+
+  .wrap { display: flex; max-width: 72rem; margin: 0 auto; align-items: flex-start; }
+  main { flex: 1; min-width: 0; max-width: 44rem; margin: 0 auto; padding: 1.5rem 1.2rem 6rem; }
+  .msg { margin: 1.4rem 0; }
+  .msg .who { font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; }
+  .msg .body { white-space: pre-wrap; }
+  .aside { color: var(--dim); font-style: italic; font-size: 0.9rem; margin: 1.2rem 0; text-align: center; }
+  .order { color: var(--dim); font-size: 0.75rem; letter-spacing: 0.06em; margin: 1.6rem 0; text-align: center; }
+  .order::before, .order::after { content: " — "; }
+
+  /* Journals rail */
+  #journals { width: 17rem; flex-shrink: 0; padding: 1.5rem 1rem; position: sticky; top: 3.2rem;
+    max-height: calc(100vh - 3.2rem); overflow-y: auto; }
+  #journals h2 { font-size: 0.75rem; letter-spacing: 0.14em; color: var(--dim); font-weight: normal; text-transform: uppercase; }
+  #journals details { border-bottom: 1px solid var(--line); padding: 0.4rem 0; }
+  #journals summary { cursor: pointer; font-size: 0.85rem; letter-spacing: 0.05em; }
+  #journals summary .count { color: var(--dim); font-size: 0.75rem; }
+  .entry { font-size: 0.82rem; color: var(--dim); margin: 0.6rem 0 0.6rem 0.6rem; white-space: pre-wrap; }
+  .entry .rnd { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  @media (max-width: 60rem) { #journals { display: none; } }
+
+  /* Admin modal */
+  #adminModal { border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    padding: 1.2rem; width: min(26rem, 92vw); }
+  #adminModal::backdrop { background: rgba(0,0,0,0.6); }
+  .admin { display: flex; flex-direction: column; gap: 0.7rem; }
+  .admin label { font-size: 0.78rem; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .admin .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .admin .agents { display: grid; grid-template-columns: 1fr 1fr; gap: 0.2rem; font-size: 0.85rem; }
+  .admin button { cursor: pointer; }
+  .admin button.primary { border-color: var(--accent); }
+  #adminMsg { font-size: 0.8rem; color: var(--dim); min-height: 1.2em; }
+</style>
+</head>
+<body>
+<header>
+  <h1>THE ROOM</h1>
+  <select id="sessions"></select>
+  <span id="clock"></span>
+  <span id="statuswrap"><span id="dot"></span><span id="status">connecting…</span></span>
+</header>
+
+<div class="wrap">
+  <main id="feed"></main>
+  <aside id="journals"><h2>journals</h2><div id="journalList"></div></aside>
+</div>
+
+<dialog id="adminModal">
+  <div class="admin" id="adminLogin">
+    <label>admin password</label>
+    <input type="password" id="pw" autocomplete="off" />
+    <div class="row"><button id="loginBtn" class="primary">enter</button><button id="closeBtn">close</button></div>
+    <div id="adminMsg"></div>
+  </div>
+  <div class="admin" id="adminPanel" style="display:none">
+    <label>condition</label>
+    <div class="row"><select id="cfgCondition"></select></div>
+    <label>session</label>
+    <div class="row">
+      <input type="number" id="cfgMinutes" value="30" min="1" style="width:5rem" /> min
+      <select id="cfgShuffle">
+        <option value="periodic">shuffle every 3–6 rounds</option>
+        <option value="every-round">shuffle every round</option>
+        <option value="fixed-random">fixed random order</option>
+      </select>
+    </div>
+    <div class="row"><input type="number" id="cfgDelay" value="8" min="0" style="width:5rem" /> sec between turns</div>
+    <label>agents</label>
+    <div class="agents" id="cfgAgents"></div>
+    <div class="row">
+      <button id="startBtn" class="primary">start session</button>
+      <button id="stopBtn">stop session</button>
+    </div>
+    <label>speak into the room</label>
+    <textarea id="sayText" rows="2"></textarea>
+    <div class="row"><button id="sayBtn">send</button><button id="closeBtn2">close</button></div>
+    <div id="adminMsg2"></div>
+  </div>
+</dialog>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://wfrxfhpiuxofmfdjpuvv.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcnhmaHBpdXhvZm1mZGpwdXZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMDk0NzIsImV4cCI6MjA5ODc4NTQ3Mn0.cpBDy6DUtj_m9esL4bGCjTp7V0m-sCuG5cxHxZ5iZg0';
+const ADMIN_FN = `${SUPABASE_URL}/functions/v1/room-admin`;
+
+// Must match config.ts — the roster the admin panel offers.
+const CATALOG = [
+  { id: 'sonnet', name: 'Sonnet', color: '#DA7756' },
+  { id: 'gemini', name: 'Gemini', color: '#4285F4' },
+  { id: 'qwen', name: 'Qwen', color: '#615CED' },
+  { id: 'grok', name: 'Grok', color: '#1D9BF0' },
+  { id: 'deepseek', name: 'DeepSeek', color: '#4D6BFE' },
+  { id: 'seed', name: 'Seed', color: '#00B2FF' },
+];
+// Must match conditions/*.json (redeploy viewer when adding presets).
+const CONDITIONS = ['house', 'control', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window'];
+const ADMIN_COLOR = '#e8e6e1';
+
+const supabase = createClient(SUPABASE_URL, ANON_KEY);
+const $ = (id) => document.getElementById(id);
+const feed = $('feed'), statusEl = $('status'), dot = $('dot'), clock = $('clock');
+
+// meta payload (colors, endsAt) for the session being viewed
+let meta = null;
+let ended = false;
+let clockTimer = null;
+
+const colorOf = (id) =>
+  id === 'admin' ? ADMIN_COLOR
+  : meta?.agents?.find((a) => a.id === id)?.color
+  ?? CATALOG.find((a) => a.id === id)?.color
+  ?? `hsl(${[...(id || '?')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)} 55% 68%)`;
+
+function setStatus(state) {
+  statusEl.textContent = state;
+  dot.className = state === 'live' ? 'live' : state === 'session over' ? 'ended' : '';
+}
+
+function tickClock() {
+  if (!meta?.endsAt || ended) { if (ended) clock.textContent = ''; return; }
+  const ms = new Date(meta.endsAt).getTime() - Date.now();
+  if (ms <= 0) {
+    clock.textContent = '0:00';
+    // Countdown hit zero with no end event — treat as over (covers a dead runner).
+    setStatus('session over');
+    return;
+  }
+  const s = Math.floor(ms / 1000);
+  clock.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function render(e) {
+  if (e.kind === 'meta') {
+    meta = e.payload; ended = false;
+    clearInterval(clockTimer); clockTimer = setInterval(tickClock, 1000); tickClock();
+    return;
+  }
+  if (e.kind === 'end') {
+    ended = true; clock.textContent = '';
+    setStatus('session over');
+    return;
+  }
+  const el = document.createElement('div');
+  if (e.kind === 'message') {
+    el.className = 'msg';
+    el.innerHTML = `<div class="who"></div><div class="body"></div>`;
+    el.querySelector('.who').textContent = e.agent_name;
+    el.querySelector('.who').style.color = colorOf(e.agent_id);
+    el.querySelector('.body').textContent = e.text;
+  } else if (e.kind === 'journal') {
+    el.className = 'aside';
+    el.textContent = `${e.agent_name} stepped away to write in their journal.`;
+  } else if (e.kind === 'system') {
+    el.className = 'aside';
+    el.textContent = e.text;
+  } else if (e.kind === 'order') {
+    el.className = 'order';
+    el.textContent = `round ${e.round} · order: ${(e.order_ids || []).join(' → ')}`;
+  } else return; // summaries are loop bookkeeping, not feed content
+  feed.appendChild(el);
+}
+
+// ── Journals rail ──────────────────────────────────────────────────────────
+const journalList = $('journalList');
+const journalSections = new Map(); // agent_id -> {details, body, count}
+
+function renderJournal(j) {
+  let sec = journalSections.get(j.agent_id);
+  if (!sec) {
+    const details = document.createElement('details');
+    const summaryEl = document.createElement('summary');
+    summaryEl.innerHTML = `<span></span> <span class="count"></span>`;
+    summaryEl.querySelector('span').textContent = j.agent_name;
+    summaryEl.querySelector('span').style.color = colorOf(j.agent_id);
+    const body = document.createElement('div');
+    details.append(summaryEl, body);
+    journalList.appendChild(details);
+    sec = { details, body, count: 0, countEl: summaryEl.querySelector('.count') };
+    journalSections.set(j.agent_id, sec);
+  }
+  const entry = document.createElement('div');
+  entry.className = 'entry';
+  entry.innerHTML = `<div class="rnd"></div><div></div>`;
+  entry.querySelector('.rnd').textContent = `round ${j.round}`;
+  entry.children[1].textContent = j.text;
+  sec.body.appendChild(entry);
+  sec.countEl.textContent = `(${++sec.count})`;
+}
+
+// ── Session loading ────────────────────────────────────────────────────────
+let currentSession = null;
+let channels = [];
+
+async function loadSessions() {
+  const { data, error } = await supabase
+    .from('room_sessions').select('session_id').order('latest_id', { ascending: false });
+  if (error) { setStatus(error.message); return []; }
+  return (data || []).map((r) => r.session_id);
+}
+
+async function showSession(sessionId) {
+  currentSession = sessionId;
+  feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear();
+  meta = null; ended = false; clock.textContent = '';
+  channels.forEach((c) => supabase.removeChannel(c)); channels = [];
+
+  const [ev, jr] = await Promise.all([
+    supabase.from('room_events').select('*').eq('session_id', sessionId).order('seq', { ascending: true }),
+    supabase.from('room_journals').select('*').eq('session_id', sessionId).order('id', { ascending: true }),
+  ]);
+  if (ev.error) { setStatus(ev.error.message); return; }
+  (ev.data || []).forEach(render);
+  (jr.data || []).forEach(renderJournal);
+  window.scrollTo(0, document.body.scrollHeight);
+  if (!ended) setStatus('live');
+
+  channels.push(supabase
+    .channel(`room-${sessionId}`)
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'room_events', filter: `session_id=eq.${sessionId}` },
+      (p) => { render(p.new); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); })
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'room_journals', filter: `session_id=eq.${sessionId}` },
+      (p) => renderJournal(p.new))
+    .subscribe((s) => {
+      if (ended) return;
+      setStatus(s === 'SUBSCRIBED' ? 'live' : s.toLowerCase());
+    }));
+}
+
+async function refreshSessions(selectNewest) {
+  const sessions = await loadSessions();
+  const sel = $('sessions');
+  sel.innerHTML = '';
+  for (const s of sessions) {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = s;
+    sel.appendChild(opt);
+  }
+  if (!sessions.length) { setStatus('no sessions yet'); return; }
+  if (selectNewest || !currentSession || !sessions.includes(currentSession)) {
+    sel.value = sessions[0];
+    showSession(sessions[0]);
+  } else {
+    sel.value = currentSession;
+  }
+}
+
+$('sessions').onchange = (e) => showSession(e.target.value);
+refreshSessions(true);
+// A brand-new session = first rows under an unseen session_id; cheap poll to
+// pick it up and jump there.
+setInterval(async () => {
+  const sessions = await loadSessions();
+  if (sessions.length && sessions[0] !== $('sessions').options[0]?.value) refreshSessions(true);
+}, 5000);
+
+// ── Admin (behind the status dot) ──────────────────────────────────────────
+const modal = $('adminModal');
+let adminPw = sessionStorage.getItem('room-admin-pw') || '';
+
+dot.addEventListener('click', () => {
+  $('adminLogin').style.display = adminPw ? 'none' : 'flex';
+  $('adminPanel').style.display = adminPw ? 'flex' : 'none';
+  if (!$('cfgCondition').children.length) {
+    for (const c of CONDITIONS) {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = c;
+      $('cfgCondition').appendChild(opt);
+    }
+  }
+  if (!$('cfgAgents').children.length) {
+    for (const a of CATALOG) {
+      const lab = document.createElement('label');
+      lab.style.textTransform = 'none';
+      lab.innerHTML = `<input type="checkbox" checked value="${a.id}" /> <span></span>`;
+      lab.querySelector('span').textContent = a.name;
+      lab.querySelector('span').style.color = a.color;
+      $('cfgAgents').appendChild(lab);
+    }
+  }
+  modal.showModal();
+});
+$('closeBtn').onclick = $('closeBtn2').onclick = () => modal.close();
+
+async function adminCall(body) {
+  const res = await fetch(ADMIN_FN, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}` },
+    body: JSON.stringify({ password: adminPw, ...body }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+$('loginBtn').onclick = async () => {
+  adminPw = $('pw').value;
+  $('adminMsg').textContent = 'checking…';
+  try {
+    await adminCall({ action: 'login' });
+    sessionStorage.setItem('room-admin-pw', adminPw);
+    $('adminLogin').style.display = 'none';
+    $('adminPanel').style.display = 'flex';
+  } catch (err) {
+    adminPw = '';
+    $('adminMsg').textContent = err.message;
+  }
+};
+
+const flash = (t) => { $('adminMsg2').textContent = t; setTimeout(() => { $('adminMsg2').textContent = ''; }, 4000); };
+
+$('startBtn').onclick = async () => {
+  const agentIds = [...$('cfgAgents').querySelectorAll('input:checked')].map((i) => i.value);
+  // Only send a seat override when the selection actually narrows the
+  // catalog — otherwise it would clobber seat/persona assignments that a
+  // named condition defines (the meta stamp would then faithfully record
+  // the wrong resolution, invisibly).
+  const seatOverride = agentIds.length < CATALOG.length ? { agentIds } : {};
+  try {
+    await adminCall({ action: 'command', kind: 'start', payload: {
+      condition: $('cfgCondition').value,
+      ...seatOverride,
+      minutes: Number($('cfgMinutes').value) || 30,
+      delaySeconds: Number($('cfgDelay').value) || 8,
+      shuffle: { kind: $('cfgShuffle').value },
+    }});
+    flash('start command sent — the runner picks it up within ~3s');
+  } catch (err) { flash(err.message); }
+};
+
+$('stopBtn').onclick = async () => {
+  try { await adminCall({ action: 'command', kind: 'stop' }); flash('stop sent'); }
+  catch (err) { flash(err.message); }
+};
+
+$('sayBtn').onclick = async () => {
+  const text = $('sayText').value.trim();
+  if (!text) return;
+  try {
+    await adminCall({ action: 'command', kind: 'say', payload: { text } });
+    $('sayText').value = '';
+    flash('sent — lands before the next turn');
+  } catch (err) { flash(err.message); }
+};
+</script>
+</body>
+</html>

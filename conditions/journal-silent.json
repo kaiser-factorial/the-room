@@ -1,0 +1,4 @@
+{
+  "description": "Journal axis: baseline journal but no notice to the room — isolates the social signal of stepping away.",
+  "journal": { "enabled": true, "notice": false, "mode": "replace", "recall": true }
+}

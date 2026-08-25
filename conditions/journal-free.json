@@ -1,0 +1,4 @@
+{
+  "description": "Journal axis: journal + room message in the same turn — journaling at zero conversational cost.",
+  "journal": { "enabled": true, "notice": true, "mode": "alongside", "recall": true }
+}

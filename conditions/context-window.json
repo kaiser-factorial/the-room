@@ -1,0 +1,4 @@
+{
+  "description": "Context axis: token-budgeted window + rolling summary (control is full transcript).",
+  "contextPolicy": "window"
+}

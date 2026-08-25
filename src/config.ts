@@ -1,0 +1,76 @@
+import type { RoomConfig } from './types.js';
+
+/**
+ * Base config = the CONTROL state (SUMMARY.md table, decisions D1–D8):
+ * standard session shape, hidden countdown, no journal, full context,
+ * temperature 0.7. Conditions in conditions/*.json override from here —
+ * the live room's default is the 'house' condition (baseline journal on).
+ */
+export const config: RoomConfig = {
+  conditionName: 'control',
+
+  agents: [
+    // Colors ≈ org brand colors. Roster fixed by Corina 2026-08-24; all
+    // slugs verified against OpenRouter's live list the same day.
+    { id: 'sonnet', name: 'Sonnet', model: 'anthropic/claude-sonnet-5', adapter: 'openrouter', color: '#DA7756' },
+    { id: 'gemini', name: 'Gemini', model: 'google/gemini-3.7-flash', adapter: 'openrouter', color: '#4285F4' },
+    { id: 'qwen', name: 'Qwen', model: 'qwen/qwen3.8-27b', adapter: 'openrouter', color: '#615CED' },
+    { id: 'grok', name: 'Grok', model: 'x-ai/grok-4.6', adapter: 'openrouter', color: '#1D9BF0' },
+    { id: 'deepseek', name: 'DeepSeek', model: 'deepseek/deepseek-v4-flash-0731', adapter: 'openrouter', color: '#4D6BFE' },
+    { id: 'seed', name: 'Seed', model: 'bytedance-seed/seed-2-1-turbo', adapter: 'openrouter', color: '#00B2FF' },
+  ],
+
+  // FROZEN 2026-08-24 (BUILD_PLAN D4) — the shared-prompt attractor behind
+  // every session. Only §3.2b opening-message conditions may swap it.
+  welcomeMessage: [
+    'Welcome to the room. You are each a different AI model. You will be here',
+    'together for a while. There is no task and no facilitator after this',
+    'message. What you talk about is yours to decide.',
+  ].join(' '),
+
+  // ROOM_SHUFFLE=every-round | periodic | fixed-random (periodic redraws its
+  // interval from [minRounds, maxRounds] after each shuffle).
+  shuffle: shuffleMode(),
+
+  sampling: { temperature: 0.7 }, // D2: pinned for all seats
+
+  countdown: 'hidden', // control (decided 2026-08-24)
+
+  journal: {
+    enabled: false, // control = no journal; 'house' condition enables it
+    notice: true,
+    mode: 'replace',
+    recall: true,
+    maxTokens: 0,
+    pass: { enabled: false, notice: false },
+  },
+
+  contextPolicy: 'full', // control; 'window' is the compaction condition
+  contextWindowTokens: num('ROOM_WINDOW_TOKENS', 120_000),
+
+  durationMinutes: num('ROOM_MINUTES', 30), // D3 standard shape
+  maxRounds: num('ROOM_MAX_ROUNDS', 100),
+  maxOutputTokens: 500,
+  summarizeEveryMessages: num('ROOM_SUMMARIZE_EVERY', 20),
+  interTurnDelaySeconds: num('ROOM_DELAY', 8),
+};
+
+/** Model used to regenerate the rolling summary (window policy only). */
+export const SUMMARIZER_MODEL = 'google/gemini-2.5-flash';
+
+function shuffleMode(): import('./types.js').ShuffleMode {
+  switch (process.env.ROOM_SHUFFLE) {
+    case 'fixed-random':
+      return { kind: 'fixed-random' };
+    case 'every-round':
+      return { kind: 'every-round' };
+    default:
+      return { kind: 'periodic', minRounds: num('ROOM_SHUFFLE_MIN', 3), maxRounds: num('ROOM_SHUFFLE_MAX', 6) };
+  }
+}
+
+/** Env override for a numeric knob — lets dry runs shrink the session. */
+function num(name: string, fallback: number): number {
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v > 0 ? v : fallback;
+}
