@@ -97,8 +97,9 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
 4. **Speaking order** — periodic shuffle (control) · every-round ·
    fixed-random (stable "conversational neighbors").
 5. **Countdown** — hidden (control) · visible ("time remaining" each turn)
-   · vague ("this will end at some point"). Viewer UI keeps its clock in
-   all conditions.
+   · vague ("this will end at some point") · told-once (duration stated in
+   the welcome, never updated — crossed with the task condition only).
+   Viewer UI keeps its clock in all conditions.
 6. **Journal** — trimmed to four states: **none** (control) · **baseline**
    (replace turn, notice ON, recall ON — the house condition) · **silent**
    (same, notice OFF — does the social signal of stepping away matter?) ·
@@ -121,5 +122,12 @@ late-window stats; cross-session baseline mandatory; summarizer bypassed in
 full-context conditions; admin-touched sessions auto-flagged; ≥5 sessions
 per condition, conditions interleaved in time.
 
-*Details: EXPERIMENT_DESIGN.md (metrics, confounds §6.1) · BUILD_PLAN.md
-(phases, resolved decisions D1–D8).*
+**Parked extensions (2026-08-25, EXPERIMENT_DESIGN §9):** Phase C roster
+generations (same control condition on each family's earliest still-served
+model — persona persistence across generations; snapshot old slugs early,
+they deprecate) · rooms-that-build (sandboxed Python/HTML playground as the
+next rung of the task/tool ladders; registered axis version + exploratory
+build-anything sessions outside Phase-B stats).
+
+*Details: EXPERIMENT_DESIGN.md (metrics, confounds §6.1, extensions §9) ·
+BUILD_PLAN.md (phases, resolved decisions D1–D8).*
