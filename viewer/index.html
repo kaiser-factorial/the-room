@@ -113,8 +113,17 @@
     <label>agents</label>
     <div class="agents" id="cfgAgents"></div>
     <div class="row">
-      <button id="startBtn" class="primary">start session</button>
+      <button id="startBtn" class="primary">start / queue</button>
       <button id="stopBtn">stop session</button>
+    </div>
+    <label>autopilot — rotate conditions forever</label>
+    <div class="row">
+      <input type="text" id="cfgLoopConds" placeholder="house,control" style="flex:1" />
+      <input type="number" id="cfgLoopPause" value="10" min="0" style="width:4rem" title="minutes between sessions" /> min gap
+    </div>
+    <div class="row">
+      <button id="loopBtn">start autopilot</button>
+      <button id="loopStopBtn">stop autopilot</button>
     </div>
     <label>speak into the room</label>
     <textarea id="sayText" rows="2"></textarea>
@@ -401,6 +410,25 @@ $('startBtn').onclick = async () => {
     const totalSessions = count * (batchConds.length || 1);
     flash(totalSessions > 1 ? `batch start sent — ${totalSessions} sessions, interleaved` : 'start command sent — the runner picks it up within ~3s');
   } catch (err) { flash(err.message); }
+};
+
+$('loopBtn').onclick = async () => {
+  const conditions = $('cfgLoopConds').value.split(',').map((s) => s.trim()).filter(Boolean);
+  try {
+    await adminCall({ action: 'command', kind: 'start', payload: {
+      condition: $('cfgCondition').value,
+      minutes: Number($('cfgMinutes').value) || 30,
+      delaySeconds: Number($('cfgDelay').value) || 8,
+      shuffle: { kind: $('cfgShuffle').value },
+      loop: { conditions: conditions.length ? conditions : undefined, pauseMinutes: Number($('cfgLoopPause').value) || 10 },
+    }});
+    flash('autopilot on — rotating ' + (conditions.length ? conditions.join(', ') : $('cfgCondition').value));
+  } catch (err) { flash(err.message); }
+};
+
+$('loopStopBtn').onclick = async () => {
+  try { await adminCall({ action: 'command', kind: 'stop', payload: { scope: 'loop' } }); flash('autopilot off (current session finishes)'); }
+  catch (err) { flash(err.message); }
 };
 
 $('stopBtn').onclick = async () => {

@@ -115,6 +115,16 @@ manifest that `analyze --batch` consumes — analyzing a hosted batch means
 pulling its transcripts from Supabase first, a small exporter that can
 ride along with F6.)
 
+**Autopilot + queue**: the panel's autopilot row rotates a condition list
+round-robin *forever* (configurable gap between sessions) until "stop
+autopilot" (`stop` with `{scope:'loop'}`); the current session always
+finishes. While the runner is busy — session, batch, or autopilot — any
+"start / queue" click is QUEUED and runs next, ahead of the rotation, then
+the rotation resumes. Queue and autopilot are in-memory: a runner restart
+clears them. **Boot drain**: commands that arrived while no runner was
+listening are discarded at startup with a log line — a stale `start` from
+hours ago must never fire a surprise session when the Space (re)boots.
+
 ## Tests
 
 `npm test` — node:test suite (no extra deps). Covers the sentinel-parser

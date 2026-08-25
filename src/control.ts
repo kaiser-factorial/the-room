@@ -15,12 +15,23 @@ export interface StartPayload {
    *  INTERLEAVED across conditions (§6.1 — never sequential blocks).
    *  conditions defaults to [condition]; name defaults to a timestamp. */
   batch?: { count?: number; conditions?: string[]; name?: string };
+  /** Autopilot: cycle these conditions round-robin FOREVER (pause minutes
+   *  between sessions) until a stop with {scope:'loop'} arrives. Queued
+   *  starts slot in ahead of the rotation. Rides inside `start` because
+   *  the room-admin edge function whitelists kinds start|stop|say. */
+  loop?: { conditions?: string[]; pauseMinutes?: number };
+}
+
+export interface StopPayload {
+  /** 'loop' = exit autopilot after the current session; a plain stop ends
+   *  the current session (or, while idle, clears queue + autopilot). */
+  scope?: 'loop';
 }
 
 export interface Command {
   id: number;
   kind: 'start' | 'stop' | 'say';
-  payload: (StartPayload & { text?: string }) | null;
+  payload: (StartPayload & StopPayload & { text?: string }) | null;
 }
 
 export const controlEnabled = liveSinkEnabled;
