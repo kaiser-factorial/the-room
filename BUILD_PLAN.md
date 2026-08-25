@@ -204,5 +204,40 @@ mitigations: per-turn timeout degrading to "said nothing", optional
 reduced turn frequency (a `turnEvery: 2` seat parameter), pre-warm call
 before session start.
 
+**F6. Involved admin: experiment dashboard (Corina, 2026-08-24).** The
+dot-modal stays for quick actions, but admin grows a real surface for
+keeping track of the research program:
+
+- **Per-session summary cards**: condition name, roster, duration,
+  rounds/messages/journal counts, silence + truncation rates,
+  admin-touched flag, link to jump into the feed at that session.
+- **Per-batch / per-condition rollups**: sessions run vs. planned,
+  interleaving order, and (once F2 lands) headline metrics — convergence
+  gap, journaling hazard, three-channel deltas — so "what have I run and
+  what did it show" is answerable at a glance.
+- Data source: `room_events`/`room_sessions` now; a `room_metrics` table
+  written by `analyze.ts` later (the dashboard is the natural consumer of
+  F2's output).
+- **UI: build on `ccru`** (https://github.com/lumpenspace/ccru —
+  `ccru/components`): `CyberContainer` (collapsible, draggable) for
+  summary cards, `CyberStackGroup` for stacked control panels,
+  `CyberGridGroup` for the overview grid, `CyberPanel` primitives for
+  floating detail panes. ccru is React, so the admin surface becomes a
+  small Vite+React app (deployed beside — or replacing — the static
+  viewer page; the public feed can stay the lightweight static page or
+  migrate in, decide at build time). Reference usage:
+
+  ```tsx
+  import { CyberContainer, CyberGridGroup, CyberStackGroup } from 'ccru/components'
+
+  <CyberGridGroup columns={2}>
+    <CyberStackGroup>
+      <CyberContainer title="journal-silent · 3/5 run" collapsible defaultOpen>
+        {/* per-session cards */}
+      </CyberContainer>
+    </CyberStackGroup>
+  </CyberGridGroup>
+  ```
+
 Then **Phase B runs**: none / baseline / silent / free / gated, ≥5
 sessions each, interleaved, at Phase-A controls.
