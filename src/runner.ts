@@ -67,9 +67,29 @@ for (;;) {
   if (start && !running) {
     running = true;
     try {
-      const cfg = configFrom(start.payload);
-      console.log(`Admin start: condition '${cfg.conditionName}', ${cfg.agents.length} agents, ${cfg.durationMinutes} min, shuffle=${cfg.shuffle.kind}`);
-      await runSession(cfg, (h) => { handle = h; });
+      // Batch mode: count rounds over the condition list, interleaved
+      // (§6.1: condition A, B, A, B — never blocks). A plain start is the
+      // degenerate 1×[condition] batch. Admin `stop` mid-session ends that
+      // session (via the session's own poll); a further `stop` arriving
+      // between sessions aborts the rest of the batch.
+      const b = start.payload?.batch;
+      const conditions = b?.conditions?.length ? b.conditions : [start.payload?.condition || 'house'];
+      const count = Math.max(1, Math.min(b?.count ?? 1, 50));
+      const total = count * conditions.length;
+      const batchName = total > 1 ? (b?.name || `batch-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}`) : undefined;
+      let index = 0;
+      outer: for (let r = 0; r < count; r++) {
+        for (const cond of conditions) {
+          if (index > 0 && (await takeCommands(['stop'])).length) {
+            console.log(`Batch ${batchName}: aborted by admin after ${index}/${total} sessions.`);
+            break outer;
+          }
+          const cfg = configFrom({ ...start.payload, condition: cond });
+          if (batchName) cfg.batch = { name: batchName, index: index++, total };
+          console.log(`Admin start${batchName ? ` [${batchName} ${index}/${total}]` : ''}: condition '${cfg.conditionName}', ${cfg.agents.length} agents, ${cfg.durationMinutes} min, shuffle=${cfg.shuffle.kind}`);
+          await runSession(cfg, (h) => { handle = h; });
+        }
+      }
     } catch (err) {
       console.error('session failed:', err);
     }

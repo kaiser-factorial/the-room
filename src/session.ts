@@ -131,6 +131,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       shuffle: config.shuffle,
       agents: config.agents.map((a) => ({ id: a.id, name: a.name, color: a.color })),
       condition: conditionRecord(config),
+      ...(config.batch ? { batch: config.batch } : {}),
     },
   });
   const welcomeText =

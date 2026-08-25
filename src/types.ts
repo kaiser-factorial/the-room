@@ -86,6 +86,10 @@ export interface RoomConfig {
   maxOutputTokens: number;
   /** Regenerate the rolling summary every N messages that scroll out. */
   summarizeEveryMessages: number;
+  /** Set when this session runs as part of a batch (batch.ts or a runner
+   *  batch command) — stamped into meta so membership is queryable from
+   *  the Supabase mirror even when hosted JSONL is ephemeral. */
+  batch?: { name: string; index: number; total: number };
   /** Seconds to wait between individual turns (rate limiting + watchability). */
   interTurnDelaySeconds: number;
 }
@@ -98,6 +102,7 @@ export interface SessionMeta {
   /** Fully-resolved condition — analysis must never guess what a
    *  transcript ran (BUILD_PLAN Phase 1 item 1). */
   condition: Record<string, unknown>;
+  batch?: { name: string; index: number; total: number };
 }
 
 /** Per-turn API telemetry (§6.1 rules 2–3). */

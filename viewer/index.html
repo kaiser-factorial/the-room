@@ -105,6 +105,11 @@
       </select>
     </div>
     <div class="row"><input type="number" id="cfgDelay" value="8" min="0" style="width:5rem" /> sec between turns</div>
+    <label>batch (optional)</label>
+    <div class="row">
+      <input type="number" id="cfgCount" value="1" min="1" max="50" style="width:4rem" title="sessions per condition" /> ×
+      <input type="text" id="cfgBatchConds" placeholder="house,control (blank = condition above)" style="flex:1" />
+    </div>
     <label>agents</label>
     <div class="agents" id="cfgAgents"></div>
     <div class="row">
@@ -379,14 +384,22 @@ $('startBtn').onclick = async () => {
   // the wrong resolution, invisibly).
   const seatOverride = agentIds.length < CATALOG.length ? { agentIds } : {};
   try {
+    const count = Number($('cfgCount').value) || 1;
+    const batchConds = $('cfgBatchConds').value.split(',').map((s) => s.trim()).filter(Boolean);
+    // Batch: N sessions per condition, interleaved by the runner. A plain
+    // start is just the 1×[condition] case, so only send `batch` when it
+    // actually batches.
+    const batch = count > 1 || batchConds.length > 1 ? { batch: { count, conditions: batchConds.length ? batchConds : undefined } } : {};
     await adminCall({ action: 'command', kind: 'start', payload: {
       condition: $('cfgCondition').value,
       ...seatOverride,
+      ...batch,
       minutes: Number($('cfgMinutes').value) || 30,
       delaySeconds: Number($('cfgDelay').value) || 8,
       shuffle: { kind: $('cfgShuffle').value },
     }});
-    flash('start command sent — the runner picks it up within ~3s');
+    const totalSessions = count * (batchConds.length || 1);
+    flash(totalSessions > 1 ? `batch start sent — ${totalSessions} sessions, interleaved` : 'start command sent — the runner picks it up within ~3s');
   } catch (err) { flash(err.message); }
 };
 

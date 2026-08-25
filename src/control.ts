@@ -11,6 +11,10 @@ export interface StartPayload {
   agentIds?: string[];
   shuffle?: { kind: 'every-round' | 'periodic' | 'fixed-random'; minRounds?: number; maxRounds?: number };
   delaySeconds?: number;
+  /** Batch mode (BUILD_PLAN item 12): run count × conditions sessions,
+   *  INTERLEAVED across conditions (§6.1 — never sequential blocks).
+   *  conditions defaults to [condition]; name defaults to a timestamp. */
+  batch?: { count?: number; conditions?: string[]; name?: string };
 }
 
 export interface Command {

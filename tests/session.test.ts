@@ -75,6 +75,13 @@ test('logprobs capture: telemetry carries them only where the provider returns t
   }
 });
 
+test('batch identity is stamped into the meta event', async () => {
+  const dir = await runStubSession(testConfig({ maxRounds: 1, batch: { name: 'pilot-x', index: 2, total: 10 } }), 'plain');
+  const meta = events(dir).find((e) => e.kind === 'meta');
+  assert.ok(meta && meta.kind === 'meta');
+  assert.deepEqual(meta.payload.batch, { name: 'pilot-x', index: 2, total: 10 });
+});
+
 test('told-once countdown: duration in the round-0 welcome, absent per turn', async () => {
   const dir = await runStubSession(testConfig({ maxRounds: 1, countdown: 'told-once', durationMinutes: 5 }), 'plain');
   const es = events(dir);

@@ -47,6 +47,7 @@ for (let r = 0; r < count && !stopping; r++) {
     if (stopping) break;
     console.log(`\n═══ batch ${name}: session ${manifest.sessions.length + 1}/${count * conditions.length} (${cond}) ═══`);
     const config = resolveCondition(cond);
+    config.batch = { name, index: manifest.sessions.length, total: count * conditions.length };
     const id = await runSession(config, (h) => { handle = h; });
     manifest.sessions.push({ id, condition: cond });
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
