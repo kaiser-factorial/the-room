@@ -50,6 +50,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   let summarizedThrough = 0; // audible-event count already folded into summary
   let stopping = false;
   let adminTouched = false; // D8 dirty-session flag
+  const traceSeats = new Set<string>(); // F1: seats that produced ≥1 trace
   onHandle?.({ stop: () => { stopping = true; } });
 
   function record(e: RoomEvent) {
@@ -66,11 +67,11 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     return existsSync(p) ? readFileSync(p, 'utf8') : '';
   }
 
-  function saveJournal(agent: AgentConfig, round: number, entry: string) {
+  function saveJournal(agent: AgentConfig, round: number, entry: string, thinking?: string) {
     appendFileSync(join(journalsDir, `${agent.id}.md`), `\n## Round ${round} — ${now()}\n\n${entry}\n`);
     sinkJournal(sessionId, round, agent.id, agent.name, entry);
     if (config.journal.notice) {
-      record({ kind: 'journal', ts: now(), round, agentId: agent.id, agentName: agent.name });
+      record({ kind: 'journal', ts: now(), round, agentId: agent.id, agentName: agent.name, thinking });
     } else {
       // No room event — but the local console still shows it happened.
       console.log(`\n   ✎ ${agent.name} journaled (silent).`);
@@ -166,6 +167,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
 
       let reply: string;
       let telemetry;
+      let thinking: string | undefined;
       try {
         const res = await openrouterAdapter.send(
           agent.model,
@@ -177,10 +179,12 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             minutesRemaining,
             ownJournal: readJournal(agent.id),
           }),
-          { maxTokens: callMaxTokens, sampling: config.sampling },
+          { maxTokens: callMaxTokens, sampling: config.sampling, reasoningEffort: config.reasoningEffort },
         );
         reply = res.text;
         telemetry = res.meta;
+        thinking = res.thinking;
+        if (thinking) traceSeats.add(agent.id);
       } catch (err) {
         record({ kind: 'system', ts: now(), round, text: `${agent.name} could not speak this turn (${(err as Error).message.slice(0, 120)})` });
         continue;
@@ -200,17 +204,20 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       } else if (alongsideMatch) {
         const entry = alongsideMatch[1].trim();
         const spoken = alongsideMatch[2].trim();
-        if (entry) saveJournal(agent, round, entry);
-        if (spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: spoken, telemetry });
+        // One turn, one trace: attach it to the spoken message if there is
+        // one, else to the journal event, so it's stored exactly once.
+        if (entry) saveJournal(agent, round, entry, spoken ? undefined : thinking);
+        if (spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: spoken, telemetry, thinking });
       } else if (replaceMatch) {
-        saveJournal(agent, round, replaceMatch[1].trim());
+        saveJournal(agent, round, replaceMatch[1].trim(), thinking);
       } else if (reply) {
-        record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: reply, telemetry });
+        record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: reply, telemetry, thinking });
       } else {
         // Empty visible text (e.g. reasoning ate the whole budget). Never
         // drop a turn silently — the room perceives silence, and analysis
-        // needs the event.
-        record({ kind: 'system', ts: now(), round, text: `${agent.name} said nothing this turn.` });
+        // needs the event. The trace (if any) rides along: it's often the
+        // only record of what the silent turn was doing.
+        record({ kind: 'system', ts: now(), round, text: `${agent.name} said nothing this turn.`, agentId: agent.id, thinking });
       }
 
       previousLast = agent.id;
@@ -220,7 +227,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   }
 
   record({ kind: 'system', ts: now(), round: -1, text: 'The session has ended.' });
-  record({ kind: 'end', ts: now(), round: -1, payload: { adminTouched } });
+  record({ kind: 'end', ts: now(), round: -1, payload: { adminTouched, traceSeats: [...traceSeats].sort() } });
   writeFileSync(join(sessionDir, 'summary-final.md'), summary || '(no rolling summary — full-context session or too short)');
   console.log(`\nDone. Everything saved under ${sessionDir}`);
 }

@@ -45,6 +45,10 @@ export const config: RoomConfig = {
     pass: { enabled: false, notice: false },
   },
 
+  // F1: 'low' = anti-starvation default (D3 amendment). Trace-rich
+  // conditions set 'medium'/'high' AND raise maxOutputTokens with it.
+  reasoningEffort: 'low',
+
   contextPolicy: 'full', // control; 'window' is the compaction condition
   contextWindowTokens: num('ROOM_WINDOW_TOKENS', 120_000),
 

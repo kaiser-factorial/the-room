@@ -3,7 +3,7 @@
 // Gradio/ZeroGPU for Talkie) — extra telemetry rides in `meta` so the room
 // never has to care which harness produced a turn.
 
-import type { SamplingConfig, TurnTelemetry } from './types.js';
+import type { ReasoningEffort, SamplingConfig, TurnTelemetry } from './types.js';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -13,11 +13,16 @@ export interface ChatMessage {
 export interface SendOptions {
   maxTokens: number;
   sampling?: SamplingConfig;
+  /** Trace richness (F1); defaults to 'low', the anti-starvation setting. */
+  reasoningEffort?: ReasoningEffort;
 }
 
 export interface SendResult {
   text: string;
   meta: TurnTelemetry;
+  /** Reasoning trace when the provider exposes one (availability varies by
+   *  seat — some return summaries, some nothing; log which, §2.5). */
+  thinking?: string;
 }
 
 export interface Adapter {
@@ -42,6 +47,9 @@ export const openrouterAdapter: Adapter = {
       return {
         text: `${STUB_REPLIES[stubTurn++ % STUB_REPLIES.length]} (stub ${stubTurn}, ${model})`,
         meta: { provider: 'stub', finishReason: 'stop', attempts: 1 },
+        // Alternate trace/no-trace so the dry run exercises both the viewer
+        // chevron and the per-seat availability logging.
+        thinking: stubTurn % 2 === 0 ? `(stub reasoning trace for turn ${stubTurn})` : undefined,
       };
     }
     const key = process.env.OPENROUTER_API_KEY;
@@ -53,9 +61,10 @@ export const openrouterAdapter: Adapter = {
       max_tokens: opts.maxTokens,
       // Reasoning models burn max_tokens on hidden reasoning and can return
       // EMPTY visible text at the cap (first live run: Seed spoke 1/13
-      // rounds this way). Keep reasoning minimal — the room is a chat, not
-      // a puzzle — and give the cap headroom in config instead.
-      reasoning: { effort: 'low' },
+      // rounds this way). 'low' stays the anti-starvation default — the room
+      // is a chat, not a puzzle; trace-rich conditions raise effort AND the
+      // cap together (F1).
+      reasoning: { effort: opts.reasoningEffort ?? 'low' },
     };
     if (opts.sampling) {
       body.temperature = opts.sampling.temperature;
@@ -82,12 +91,31 @@ export const openrouterAdapter: Adapter = {
       if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${await res.text()}`);
       const data = (await res.json()) as {
         provider?: string;
-        choices?: { message?: { content?: string | null }; finish_reason?: string }[];
+        choices?: {
+          message?: {
+            content?: string | null;
+            // OpenRouter's normalized reasoning output (F1). `reasoning` is
+            // the plain-text trace; `reasoning_details` carries provider
+            // blocks (incl. summaries) when the text field is absent.
+            reasoning?: string | null;
+            reasoning_details?: { text?: string; summary?: string }[];
+          };
+          finish_reason?: string;
+        }[];
         usage?: { prompt_tokens?: number; completion_tokens?: number };
       };
       const choice = data.choices?.[0];
+      const thinking =
+        choice?.message?.reasoning?.trim() ||
+        choice?.message?.reasoning_details
+          ?.map((d) => d.text ?? d.summary ?? '')
+          .filter(Boolean)
+          .join('\n\n')
+          .trim() ||
+        undefined;
       return {
         text: choice?.message?.content?.trim() ?? '',
+        thinking,
         meta: {
           provider: data.provider,
           finishReason: choice?.finish_reason,

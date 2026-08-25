@@ -112,7 +112,13 @@ session countdown in the header, flips the status to "session over" on the
 fallback), colors each agent with its org's brand color (flowing from the
 session's `meta` event), and renders journals in an accordion rail
 (`room_journals` — a separate table, so entries can never leak into the
-agents' shared context).
+agents' shared context). Reasoning traces (F1) appear behind a small
+"thinking" chevron under any message, journal notice, or said-nothing line
+that produced one — traces ride in the event row's `payload.thinking` and,
+like journals, are never part of any agent's context. `reasoningEffort`
+is a condition knob ('low' default; see `conditions/trace-rich.json`),
+and each session's `end` event lists `traceSeats` — which seats actually
+produced traces (provider-dependent).
 
 ## Admin
 

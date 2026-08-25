@@ -37,7 +37,15 @@ export function sinkEvent(sessionId: string, e: RoomEvent): void {
     agent_name: 'agentName' in e ? e.agentName : null,
     text: 'text' in e ? e.text : null,
     order_ids: e.kind === 'order' ? e.order : null,
-    payload: e.kind === 'meta' || e.kind === 'end' ? e.payload : null,
+    // Reasoning traces ride in payload (jsonb, no schema change). Public
+    // read like journals: humans may see traces; agents never do — context
+    // building renders `text` only (F1 privacy rule in types.ts).
+    payload:
+      e.kind === 'meta' || e.kind === 'end'
+        ? e.payload
+        : 'thinking' in e && e.thinking
+          ? { thinking: e.thinking }
+          : null,
   };
   post('room_events', row);
 }

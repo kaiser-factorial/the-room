@@ -1,0 +1,6 @@
+{
+  "description": "F1 trace-rich variant: medium reasoning effort with a bigger cap so traces are substantive without starving visible replies (the D3 interaction). For three-channel (§2.5) sessions that need thick thinking; not the control.",
+  "journal": { "enabled": true, "notice": true, "mode": "replace", "recall": true },
+  "reasoningEffort": "medium",
+  "maxOutputTokens": 2400
+}

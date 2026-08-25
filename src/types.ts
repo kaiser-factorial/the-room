@@ -46,6 +46,10 @@ export type ShuffleMode =
   /** One random order drawn at session start, kept for the whole session. */
   | { kind: 'fixed-random' };
 
+/** Trace richness (F1): 'low' is the anti-starvation default (D3); a
+ *  trace-rich condition pairs 'medium'/'high' with a bigger output cap. */
+export type ReasoningEffort = 'low' | 'medium' | 'high';
+
 export interface RoomConfig {
   /** Condition name this config was resolved from (stamped into meta). */
   conditionName: string;
@@ -57,6 +61,7 @@ export interface RoomConfig {
    *  countdown line each turn. */
   countdown: 'hidden' | 'told-once' | 'visible';
   journal: JournalConfig;
+  reasoningEffort: ReasoningEffort;
   /** 'full' (control) = whole transcript, no summarizer; 'window' =
    *  token-budgeted recent slice + rolling summary. */
   contextPolicy: 'full' | 'window';
@@ -95,12 +100,18 @@ export interface TurnTelemetry {
   usage?: { prompt?: number; completion?: number };
 }
 
+/** F1 privacy rule: `thinking` is a reasoning trace. It is NEVER rendered
+ *  into any agent's context (context.ts renders `text` only) and never
+ *  summarized into the room — same class as journals, stricter. Humans see
+ *  it (viewer chevron); the room does not. */
 export type RoomEvent =
-  | { kind: 'message'; ts: string; round: number; agentId: string; agentName: string; text: string; telemetry?: TurnTelemetry }
-  | { kind: 'journal'; ts: string; round: number; agentId: string; agentName: string }
-  | { kind: 'system'; ts: string; round: number; text: string }
+  | { kind: 'message'; ts: string; round: number; agentId: string; agentName: string; text: string; telemetry?: TurnTelemetry; thinking?: string }
+  | { kind: 'journal'; ts: string; round: number; agentId: string; agentName: string; thinking?: string }
+  | { kind: 'system'; ts: string; round: number; text: string; agentId?: string; thinking?: string }
   | { kind: 'order'; ts: string; round: number; order: string[] }
   | { kind: 'summary'; ts: string; round: number; text: string }
   | { kind: 'meta'; ts: string; round: number; payload: SessionMeta }
-  /** adminTouched = D8 dirty-session flag: an admin spoke mid-session. */
-  | { kind: 'end'; ts: string; round: number; payload: { adminTouched: boolean } };
+  /** adminTouched = D8 dirty-session flag: an admin spoke mid-session.
+   *  traceSeats = agent ids that produced ≥1 reasoning trace (per-seat
+   *  availability differs by provider — §2.5 caveat; known only post-hoc). */
+  | { kind: 'end'; ts: string; round: number; payload: { adminTouched: boolean; traceSeats?: string[] } };
