@@ -154,19 +154,24 @@ events without the room changing:
 - **logprobs / surprisal**: how *predictable* each agent finds the others'
   messages over time — the cleanest convergence measure there is (mutual
   surprisal falling = genuine mutual modeling).
-  *Probed 2026-08-25 — logprobs via OpenRouter are a PROVIDER property,
-  not a model property: `logprobs: true` + `top_logprobs` returns real
-  per-token logprobs today on Qwen (AkashML), Grok (xAI), and DeepSeek
-  when provider-pinned (GMICloud/Novita yes, Baidu/DeepInfra no — the
-  §6.1 `providerOrder` knob does double duty here). Gemini's Google
-  endpoint returns none via OpenRouter; Anthropic has no logprobs on any
-  API surface, period. Two caveats: (a) chat-completions logprobs cover
-  the model's OWN sampled tokens only — good for per-turn confidence/
-  entropy ("style entrenchment"), but true MUTUAL surprisal requires
-  scoring another agent's text under the model (prompt/echo logprobs),
-  which no chat endpoint offers — that still needs direct APIs or
-  self-hosted scoring; (b) pinning a seat's provider for logprobs changes
-  which snapshot serves it — set it per-batch, never mid-experiment.*
+  *Probed 2026-08-25, now WIRED IN (`captureLogprobs`, default on):
+  chosen-token logprobs ride in message telemetry, and analyze reports
+  per-agent `meanTokenLogprob` (+late window). Logprobs via OpenRouter
+  are a PROVIDER property, not a model property — verified full-roster
+  through the adapter: **3/6 seats return them** (Qwen — multiple
+  providers; Grok — xAI; DeepSeek — pinned `providerOrder:
+  ['Novita','GMICloud']`, Novita 3/3 consistent, GMICloud intermittent,
+  Baidu/DeepInfra none). Seed is served only by ByteDance's own endpoint
+  and Gemini only by Google/AI Studio — neither exposes logprobs on any
+  endpoint (Gemini's native API has logprob options; that's a
+  direct-adapter item). Anthropic has no logprobs on any API surface,
+  period. Two caveats: (a) chat-completions logprobs cover the model's
+  OWN sampled tokens only — good for per-turn confidence/entropy ("style
+  entrenchment"), but true MUTUAL surprisal requires scoring another
+  agent's text under the model (prompt/echo logprobs), which no chat
+  endpoint offers — that still needs direct APIs or self-hosted scoring;
+  (b) pinning a seat's provider changes which snapshot serves it — set
+  per-batch, never mid-experiment.*
 - reasoning traces where exposed (does private reasoning diverge from the
   public message the way journals do?)
 - exact token accounting per turn.

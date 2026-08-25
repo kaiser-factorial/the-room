@@ -7,6 +7,11 @@ export interface AgentConfig {
   model: string;
   /** Which provider adapter to use. v1 ships "openrouter" only. */
   adapter: 'openrouter';
+  /** Per-seat OpenRouter provider pinning — overrides sampling.providerOrder
+   *  for this seat only. Routing-drift control (§6.1) and the logprobs
+   *  unlock (§2.6): the same slug returns logprobs on some providers and
+   *  not others. Set per-batch; never change mid-experiment. */
+  providerOrder?: string[];
   /** Persona id from personas.ts ('base' or absent = no injection — the
    *  model's own character, which is the control state). */
   personaId?: string;
@@ -62,6 +67,9 @@ export interface RoomConfig {
   countdown: 'hidden' | 'told-once' | 'visible';
   journal: JournalConfig;
   reasoningEffort: ReasoningEffort;
+  /** Ask providers for chosen-token logprobs (§2.6). Free where supported,
+   *  silently absent elsewhere; rides in message telemetry. */
+  captureLogprobs: boolean;
   /** 'full' (control) = whole transcript, no summarizer; 'window' =
    *  token-budgeted recent slice + rolling summary. */
   contextPolicy: 'full' | 'window';
@@ -98,6 +106,11 @@ export interface TurnTelemetry {
   finishReason?: string;
   attempts?: number;
   usage?: { prompt?: number; completion?: number };
+  /** Chosen-token logprobs for the agent's OWN sampled tokens (§2.6):
+   *  per-turn confidence/entropy, not mutual surprisal. Present only on
+   *  seats whose serving provider returns logprobs (2026-08-25: Qwen via
+   *  AkashML, Grok via xAI, DeepSeek when pinned to GMICloud/Novita). */
+  logprobs?: number[];
 }
 
 /** F1 privacy rule: `thinking` is a reasoning trace. It is NEVER rendered

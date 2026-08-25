@@ -185,7 +185,13 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             minutesRemaining,
             ownJournal: readJournal(agent.id),
           }),
-          { maxTokens: callMaxTokens, sampling: config.sampling, reasoningEffort: config.reasoningEffort },
+          {
+            maxTokens: callMaxTokens,
+            sampling: config.sampling,
+            reasoningEffort: config.reasoningEffort,
+            logprobs: config.captureLogprobs,
+            providerOrder: agent.providerOrder,
+          },
         );
         reply = res.text;
         telemetry = res.meta;

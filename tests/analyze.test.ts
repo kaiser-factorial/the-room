@@ -146,6 +146,17 @@ test('addressMatrix: name mentions counted per speaker→target', () => {
   assert.equal(a.beta.alpha, 1);
 });
 
+test('addressMatrix: versioned names match on the bare first word', () => {
+  // Roster names carry versions ("Gemini 3.7") but agents shorten in
+  // address — "Gemini" must still count as addressing that seat.
+  const agents = [{ id: 'g', name: 'Gemini 3.7' }, { id: 'q', name: 'Qwen 3.8' }];
+  const dir = syntheticSession({ events: [msg(1, 'alpha', 'Gemini, what does Qwen 3.8 think?')] });
+  const s = loadSession(dir);
+  const a = addressMatrix(s.msgs, agents);
+  assert.equal(a.alpha.g, 1);
+  assert.equal(a.alpha.q, 1);
+});
+
 test('boundary: an agent name containing regex metacharacters must not throw', () => {
   const agents = [...AGENTS.map((x) => ({ id: x.id, name: x.name })), { id: 'cpp', name: 'C++ (experimental)' }];
   const dir = syntheticSession({ events: [msg(1, 'alpha', 'What does C++ (experimental) think?')] });

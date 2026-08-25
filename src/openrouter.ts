@@ -15,6 +15,11 @@ export interface SendOptions {
   sampling?: SamplingConfig;
   /** Trace richness (F1); defaults to 'low', the anti-starvation setting. */
   reasoningEffort?: ReasoningEffort;
+  /** Request chosen-token logprobs (§2.6). Providers that don't support
+   *  them just return none — harmless to ask everywhere. */
+  logprobs?: boolean;
+  /** Per-seat provider pinning; overrides sampling.providerOrder. */
+  providerOrder?: string[];
 }
 
 export interface SendResult {
@@ -122,7 +127,12 @@ export const openrouterAdapter: Adapter = {
       // Traces on ODD turns so single-round tests (every seat at turn 1)
       // still exercise the trace path; even turns cover trace-absence.
       const thinking = mTurn % 2 === 1 ? `(stub trace: ${model} turn ${mTurn}, weighing what to say)` : undefined;
-      const meta = { provider: 'stub', finishReason: 'stop', attempts: 1 };
+      // Deterministic fake logprobs on half the seats — mirrors reality
+      // (provider-dependent availability) and exercises the capture path.
+      const stubLp = opts.logprobs && hashCode(model) % 2 === 0
+        ? Array.from({ length: 8 }, (_, i) => -((hashCode(model) + mTurn * 13 + i) % 300) / 100 - 0.01)
+        : undefined;
+      const meta = { provider: 'stub', finishReason: 'stop', attempts: 1, logprobs: stubLp };
       switch (scenario) {
         case 'error': throw new Error('stub scripted failure');
         case 'empty': return { text: '', meta, thinking };
@@ -150,13 +160,15 @@ export const openrouterAdapter: Adapter = {
       reasoning: reasoningParam(model, opts.reasoningEffort ?? 'low', opts.maxTokens),
     };
     if (!body.reasoning) delete body.reasoning;
+    // top_logprobs is required by some providers (GMICloud returns nothing
+    // on a bare logprobs:true — probed 2026-08-25); 1 keeps payloads small.
+    if (opts.logprobs) { body.logprobs = true; body.top_logprobs = 1; }
     if (opts.sampling) {
       body.temperature = opts.sampling.temperature;
       if (opts.sampling.topP !== undefined) body.top_p = opts.sampling.topP;
-      if (opts.sampling.providerOrder?.length) {
-        body.provider = { order: opts.sampling.providerOrder, allow_fallbacks: false };
-      }
     }
+    const order = opts.providerOrder ?? opts.sampling?.providerOrder;
+    if (order?.length) body.provider = { order, allow_fallbacks: false };
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       const res = await fetch(API_URL, {
@@ -176,6 +188,7 @@ export const openrouterAdapter: Adapter = {
       const data = (await res.json()) as {
         provider?: string;
         choices?: {
+          logprobs?: { content?: { logprob?: number }[] };
           message?: {
             content?: string | null;
             // OpenRouter's normalized reasoning output (F1). `reasoning` is
@@ -197,6 +210,9 @@ export const openrouterAdapter: Adapter = {
           .join('\n\n')
           .trim() ||
         undefined;
+      const lp = choice?.logprobs?.content
+        ?.map((t) => t.logprob)
+        .filter((x): x is number => typeof x === 'number');
       return {
         text: choice?.message?.content?.trim() ?? '',
         thinking,
@@ -205,6 +221,7 @@ export const openrouterAdapter: Adapter = {
           finishReason: choice?.finish_reason,
           attempts: attempt,
           usage: { prompt: data.usage?.prompt_tokens, completion: data.usage?.completion_tokens },
+          logprobs: lp?.length ? lp : undefined,
         },
       };
     }

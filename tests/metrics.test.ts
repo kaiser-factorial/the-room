@@ -42,4 +42,9 @@ test('analyze detects the planted room dynamics in a voice-stub session', async 
   // Three-channel populates when traces exist (odd stub turns).
   const tc = report.threeChannel.find((t) => t.agentId === 'coiner');
   assert.ok(tc && tc.traceTurns > 0 && tc.chatVsThinkingMatched !== null);
+
+  // §2.6 logprobs ride into style metrics — present on even-hash stub
+  // seats (coiner), absent on odd (gamma), mirroring provider variance.
+  assert.ok(report.styleByAgent.coiner.meanTokenLogprob !== null && report.styleByAgent.coiner.meanTokenLogprob! < 0);
+  assert.equal(report.styleByAgent.gamma.meanTokenLogprob, null);
 });

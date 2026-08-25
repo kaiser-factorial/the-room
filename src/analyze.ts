@@ -31,7 +31,7 @@ const SEED_ROUNDS = 5;      // n-grams present here are "native", not room cultu
 
 interface Msg {
   round: number; ts: string; agentId: string; agentName: string; text: string;
-  truncated: boolean; thinking?: string;
+  truncated: boolean; thinking?: string; logprobs?: number[];
 }
 interface JournalEntry { round: number; agentId: string; text: string }
 
@@ -84,6 +84,7 @@ export function loadSession(dir: string): Session {
       msgs.push({
         round: e.round, ts: e.ts, agentId: e.agentId, agentName: e.agentName, text: e.text,
         truncated: e.telemetry?.finishReason === 'length', thinking: e.thinking,
+        logprobs: e.telemetry?.logprobs,
       });
       if (prevTs !== null) {
         const arr = latencies.get(e.agentId) ?? [];
@@ -277,7 +278,11 @@ export function addressMatrix(msgs: Msg[], agents: { id: string; name: string }[
   for (const m of msgs) {
     for (const a of agents) {
       if (a.id === m.agentId) continue;
-      const escaped = a.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Match on the name's first word: agents shorten versioned names in
+      // address ("Gemini", not "Gemini 3.7"), and first words are unique
+      // across the roster.
+      const short = a.name.split(' ')[0];
+      const escaped = short.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const n = count(m.text, new RegExp(`\\b${escaped}\\b`, 'g'));
       if (n) {
         out[m.agentId] = out[m.agentId] ?? {};
@@ -368,12 +373,18 @@ export async function analyzeSession(dir: string) {
     },
     styleByAgent: Object.fromEntries(agents.map((a) => {
       const mine = s.msgs.filter((m) => m.agentId === a && !m.truncated);
+      // §2.6 own-token confidence: mean chosen-token logprob, all rounds
+      // vs. late window. Rising = the agent's own distribution sharpening
+      // ("style entrenchment"); null on seats whose provider returns none.
+      const lp = (ms: Msg[]) => mean(ms.flatMap((m) => m.logprobs ?? []));
       return [a, {
         ...styleOf(mine.map((m) => m.text)),
         truncated: s.msgs.filter((m) => m.agentId === a && m.truncated).length,
         retentionDrift: styleRetention(s.msgs, a, win.late),
         meanLatencySec: round2(mean(s.latencies.get(a) ?? []) ?? 0),
         silences: s.silences.filter((x) => x.agentId === a).length,
+        meanTokenLogprob: lp(mine),
+        meanTokenLogprobLate: lp(mine.filter((m) => inWin(m.round, win.late))),
       }];
     })),
     mimicry: mimicry(s.msgs),

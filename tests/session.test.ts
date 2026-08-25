@@ -62,6 +62,19 @@ test('traceSeats: end event lists exactly the seats that produced traces', async
   assert.deepEqual(end.payload.traceSeats, traced);
 });
 
+test('logprobs capture: telemetry carries them only where the provider returns them', async () => {
+  // Stub emits fake logprobs on even-hash models: beta yes, alpha/gamma no.
+  const dir = await runStubSession(testConfig({ maxRounds: 2 }), 'plain');
+  const msgs = events(dir).filter((e) => e.kind === 'message');
+  const withLp = msgs.filter((e) => e.kind === 'message' && e.telemetry?.logprobs?.length);
+  const betaMsgs = msgs.filter((e) => e.kind === 'message' && e.agentId === 'beta');
+  assert.ok(betaMsgs.length > 0);
+  assert.deepEqual(withLp.map((e) => e.kind === 'message' && e.agentId), betaMsgs.map(() => 'beta'));
+  for (const e of withLp) {
+    assert.ok(e.kind === 'message' && e.telemetry!.logprobs!.every((x) => typeof x === 'number' && x <= 0));
+  }
+});
+
 test('told-once countdown: duration in the round-0 welcome, absent per turn', async () => {
   const dir = await runStubSession(testConfig({ maxRounds: 1, countdown: 'told-once', durationMinutes: 5 }), 'plain');
   const es = events(dir);
