@@ -97,9 +97,9 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
 4. **Speaking order** — periodic shuffle (control) · every-round ·
    fixed-random (stable "conversational neighbors").
 5. **Countdown** — hidden (control) · visible ("time remaining" each turn)
-   · vague ("this will end at some point") · told-once (duration stated in
-   the welcome, never updated — crossed with the task condition only).
-   Viewer UI keeps its clock in all conditions.
+   · told-once (duration stated in the welcome, never updated — replaces
+   the former "vague" state; crossed with the task condition only). Viewer
+   UI keeps its clock in all conditions.
 6. **Journal** — trimmed to four states: **none** (control) · **baseline**
    (replace turn, notice ON, recall ON — the house condition) · **silent**
    (same, notice OFF — does the social signal of stepping away matter?) ·

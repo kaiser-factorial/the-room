@@ -292,16 +292,19 @@ The "Time remaining: N minutes" line is both a feature and a confound
   passes through the agents' context), so spectators keep the clock either
   way.
 - **visible**: countdown in every system prompt.
-- optional middle: told the session "will end at some point" without a
-  number — awareness of mortality without a clock.
-- **told-once** (added 2026-08-25, Corina): duration stated in the opening
-  ("you have N minutes together"), never updated afterward — the room must
-  track its own time. Cheap to implement (a welcome-text clause + hidden
-  countdown), and especially meaningful crossed with the task condition
-  (§9.2): deadline awareness should shape scoping, delegation, and wrap-up
-  behavior in ways a task-free room can't express. Cross it with the task
-  condition ONLY — do not fully cross countdown × everything (that's the
-  variable explosion this design already fought off).
+- **told-once** (replaces the "vague" middle state, 2026-08-25 Corina):
+  duration stated in the opening ("You have N minutes together; you will
+  not be reminded of the time again"), never updated afterward — the room
+  must track its own time. Implemented as a welcome-clause on the round-0
+  event + hidden per-turn countdown. Especially meaningful crossed with
+  the task condition (§9.2): deadline awareness should shape scoping,
+  delegation, and wrap-up behavior in ways a task-free room can't express.
+  Cross it with the task condition ONLY — do not fully cross countdown ×
+  everything (that's the variable explosion this design already fought
+  off).
+- *(cut 2026-08-25: the "vague" state — "will end at some point" without a
+  number. Told-once asks the sharper question; awareness-without-a-clock
+  is already half-present in every hidden-countdown room.)*
 
 Predictions to test: visible-countdown rooms develop ending behavior
 (summing up, goodbyes) that inflates late-window similarity; hidden-clock
