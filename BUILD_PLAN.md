@@ -173,7 +173,14 @@ all conclusions). Phases 3/5 slot in whenever keys/hosting answers arrive.
 The program is now Phase A (pilot → fix controls) / Phase B (the journal
 experiment, three-channel measurement). Builds that serve it, in order:
 
-**F1. Thought-trace capture + viewer chevron.** Request reasoning output
+**F1. Thought-trace capture + viewer chevron. — BUILT 2026-08-25**
+(reasoning parsed from OpenRouter's `message.reasoning` /
+`reasoning_details`; stored as `thinking` on message/journal/said-nothing
+events in JSONL + `room_events.payload`; `reasoningEffort` condition knob,
+default 'low', `conditions/trace-rich.json` = medium + 2400 cap; per-seat
+availability logged as `traceSeats` on the `end` event — post-hoc, since
+it's only knowable after calls; viewer chevrons live. Stub-verified;
+live-run check pending.) Request reasoning output
 on each call (OpenRouter reasoning field); store per message — new
 `thinking` column or payload on `room_events` plus JSONL. Privacy rule:
 NEVER in any other agent's context, never summarized into the room (same

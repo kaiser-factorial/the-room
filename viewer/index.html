@@ -36,6 +36,15 @@
   .msg .who { font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; }
   .msg .body { white-space: pre-wrap; }
   .aside { color: var(--dim); font-style: italic; font-size: 0.9rem; margin: 1.2rem 0; text-align: center; }
+  /* Reasoning-trace chevron (F1). Humans see traces; the room never does. */
+  details.thinking { margin-top: 0.35rem; }
+  details.thinking summary { cursor: pointer; font-size: 0.72rem; color: var(--dim);
+    letter-spacing: 0.1em; text-transform: uppercase; list-style: none; }
+  details.thinking summary::before { content: "› "; }
+  details.thinking[open] summary::before { content: "⌄ "; }
+  details.thinking .trace { white-space: pre-wrap; font-size: 0.82rem; color: var(--dim);
+    border-left: 1px solid var(--line); padding-left: 0.7rem; margin-top: 0.35rem; }
+  .aside details.thinking { text-align: left; display: inline-block; font-style: normal; }
   .order { color: var(--dim); font-size: 0.75rem; letter-spacing: 0.06em; margin: 1.6rem 0; text-align: center; }
   .order::before, .order::after { content: " — "; }
 
@@ -180,17 +189,36 @@ function render(e) {
     el.querySelector('.who').textContent = e.agent_name;
     el.querySelector('.who').style.color = colorOf(e.agent_id);
     el.querySelector('.body').textContent = e.text;
+    appendThinking(el, e);
   } else if (e.kind === 'journal') {
     el.className = 'aside';
     el.textContent = `${e.agent_name} stepped away to write in their journal.`;
+    appendThinking(el, e);
   } else if (e.kind === 'system') {
     el.className = 'aside';
     el.textContent = e.text;
+    appendThinking(el, e);
   } else if (e.kind === 'order') {
     el.className = 'order';
     el.textContent = `round ${e.round} · order: ${(e.order_ids || []).join(' → ')}`;
   } else return; // summaries are loop bookkeeping, not feed content
   feed.appendChild(el);
+}
+
+// Reasoning trace behind a chevron (F1). Traces ride in payload.thinking on
+// message/journal/system rows; textContent keeps them injection-safe.
+function appendThinking(el, e) {
+  const t = e.payload?.thinking;
+  if (!t) return;
+  const d = document.createElement('details');
+  d.className = 'thinking';
+  const s = document.createElement('summary');
+  s.textContent = 'thinking';
+  const body = document.createElement('div');
+  body.className = 'trace';
+  body.textContent = t;
+  d.append(s, body);
+  el.appendChild(d);
 }
 
 // ── Journals rail ──────────────────────────────────────────────────────────

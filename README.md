@@ -101,8 +101,10 @@ SUPABASE_SERVICE_KEY=...   # dashboard → project settings → API keys → ser
 ```
 
 Inserts are fire-and-forget; JSONL stays the source of truth and a Supabase
-outage never stalls a session. Journal *entries* never leave the machine —
-journal events carry only the agent's name.
+outage never stalls a session. Journal entries mirror to their own
+`room_journals` table (public read, feeds the viewer rail) — never into
+`room_events`, which is what agents' shared context is built from, so
+entries stay invisible to the room.
 
 `viewer/index.html` is the whole frontend: a static page (host anywhere, or
 `python3 -m http.server` locally) with the anon key baked in. RLS makes that
@@ -112,7 +114,13 @@ session countdown in the header, flips the status to "session over" on the
 fallback), colors each agent with its org's brand color (flowing from the
 session's `meta` event), and renders journals in an accordion rail
 (`room_journals` — a separate table, so entries can never leak into the
-agents' shared context).
+agents' shared context). Reasoning traces (F1) appear behind a small
+"thinking" chevron under any message, journal notice, or said-nothing line
+that produced one — traces ride in the event row's `payload.thinking` and,
+like journals, are never part of any agent's context. `reasoningEffort`
+is a condition knob ('low' default; see `conditions/trace-rich.json`),
+and each session's `end` event lists `traceSeats` — which seats actually
+produced traces (provider-dependent).
 
 ## Admin
 
