@@ -100,7 +100,8 @@
   </div>
   <div class="admin" id="adminPanel" style="display:none">
     <label>condition</label>
-    <div class="row"><select id="cfgCondition"></select></div>
+    <div class="row"><select id="cfgCondition"></select><button id="condInfoBtn" title="what this condition changes">ⓘ</button></div>
+    <details id="condInfo"><summary style="display:none"></summary><div id="condInfoBody"></div></details>
     <label>session</label>
     <div class="row">
       <input type="number" id="cfgMinutes" value="30" min="1" style="width:5rem" /> min
@@ -122,10 +123,14 @@
       <button id="startBtn" class="primary">start / queue</button>
       <button id="stopBtn">stop session</button>
     </div>
-    <label>autopilot — rotate conditions forever</label>
+    <label>autopilot — rotate conditions</label>
     <div class="row">
       <input type="text" id="cfgLoopConds" placeholder="house,control" style="flex:1" />
       <input type="number" id="cfgLoopPause" value="10" min="0" style="width:4rem" title="minutes between sessions" /> min gap
+    </div>
+    <div class="row">
+      <input type="number" id="cfgLoopSets" min="1" max="100" placeholder="∞" style="width:4rem" title="full rotations; blank = forever" /> sets
+      <span style="color:var(--dim);font-size:0.75rem">(2 conditions × 5 sets = 10 sessions; blank runs forever)</span>
     </div>
     <div class="row">
       <button id="loopBtn">start autopilot</button>
@@ -440,6 +445,41 @@ $('startBtn').onclick = async () => {
   } catch (err) { flash(err.message); }
 };
 
+// Condition (i): what each named condition changes vs control, generated at
+// deploy time from conditions/*.json (conditions.json sits next to this page).
+let CONDITION_INFO = null;
+async function loadConditionInfo() {
+  if (CONDITION_INFO) return CONDITION_INFO;
+  try { CONDITION_INFO = await (await fetch('conditions.json')).json(); }
+  catch { CONDITION_INFO = []; }
+  return CONDITION_INFO;
+}
+$('condInfoBtn').onclick = async (e) => {
+  e.preventDefault();
+  const box = $('condInfo');
+  if (box.open) { box.open = false; return; }
+  const info = (await loadConditionInfo()).find((c) => c.name === $('cfgCondition').value);
+  const body = $('condInfoBody');
+  body.innerHTML = '';
+  const desc = document.createElement('div');
+  desc.style.cssText = 'font-size:0.8rem;color:var(--dim);margin:0.4rem 0';
+  desc.textContent = info ? info.description : 'No info for this condition (redeploy the viewer to regenerate conditions.json).';
+  body.appendChild(desc);
+  if (info && Object.keys(info.overrides).length) {
+    const pre = document.createElement('pre');
+    pre.style.cssText = 'font-size:0.72rem;background:var(--bg,#101217);border:1px solid var(--line);padding:0.5rem;overflow-x:auto;margin:0';
+    pre.textContent = 'changes vs control:\n' + JSON.stringify(info.overrides, null, 2);
+    body.appendChild(pre);
+  } else if (info) {
+    const none = document.createElement('div');
+    none.style.cssText = 'font-size:0.75rem;color:var(--dim)';
+    none.textContent = 'no overrides — this IS the control state';
+    body.appendChild(none);
+  }
+  box.open = true;
+};
+$('cfgCondition').addEventListener('change', () => { $('condInfo').open = false; });
+
 $('loopBtn').onclick = async () => {
   const conditions = $('cfgLoopConds').value.split(',').map((s) => s.trim()).filter(Boolean);
   try {
@@ -448,7 +488,11 @@ $('loopBtn').onclick = async () => {
       minutes: Number($('cfgMinutes').value) || 30,
       delaySeconds: Number($('cfgDelay').value) || 8,
       shuffle: { kind: $('cfgShuffle').value },
-      loop: { conditions: conditions.length ? conditions : undefined, pauseMinutes: Number($('cfgLoopPause').value) || 10 },
+      loop: {
+        conditions: conditions.length ? conditions : undefined,
+        pauseMinutes: Number($('cfgLoopPause').value) || 10,
+        sets: Number($('cfgLoopSets').value) > 0 ? Number($('cfgLoopSets').value) : undefined,
+      },
     }});
     flash('autopilot on — rotating ' + (conditions.length ? conditions.join(', ') : $('cfgCondition').value));
   } catch (err) { flash(err.message); }

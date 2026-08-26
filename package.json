@@ -12,7 +12,8 @@
     "batch": "tsx src/batch.ts",
     "analyze": "tsx src/analyze.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test --test-concurrency=1 tests/*.test.ts"
+    "test": "node --import tsx --test --test-concurrency=1 tests/*.test.ts",
+    "export": "tsx src/export.ts"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

@@ -96,21 +96,23 @@ console.log('Runner up — waiting for admin start commands (polling every 3s).'
 // sessions, until a stop with {scope:'loop'}. Both are in-memory: a runner
 // restart clears them (boot drain above makes that explicit, not silent).
 const queue: (StartPayload | null)[] = [];
-let autopilot: { conditions: string[]; pauseMs: number; base: StartPayload; next: number } | null = null;
+let autopilot: { conditions: string[]; pauseMs: number; base: StartPayload; next: number; maxSessions: number } | null = null;
 let nextAutoAt = 0;
 
 for (;;) {
   for (const cmd of await takeCommands(['start', 'stop', 'say'])) {
     if (cmd.kind === 'start' && cmd.payload?.loop) {
       const conditions = cmd.payload.loop.conditions?.length ? cmd.payload.loop.conditions : [cmd.payload.condition || 'house'];
+      const sets = cmd.payload.loop.sets && cmd.payload.loop.sets > 0 ? Math.min(cmd.payload.loop.sets, 100) : Infinity;
       autopilot = {
         conditions,
         pauseMs: Math.max(0, cmd.payload.loop.pauseMinutes ?? 10) * 60_000,
         base: cmd.payload,
         next: 0,
+        maxSessions: sets * conditions.length,
       };
       nextAutoAt = 0; // first rotation session starts immediately
-      console.log(`Autopilot ON: rotating [${conditions.join(', ')}], ${autopilot.pauseMs / 60000} min between sessions.`);
+      console.log(`Autopilot ON: rotating [${conditions.join(', ')}], ${autopilot.pauseMs / 60000} min gap, ${Number.isFinite(autopilot.maxSessions) ? `${autopilot.maxSessions} sessions total` : 'forever'}.`);
     } else if (cmd.kind === 'start') {
       queue.push(cmd.payload);
       console.log(`Queued start (${cmd.payload?.condition || 'house'}) — position ${queue.length}.`);
@@ -132,6 +134,10 @@ for (;;) {
     const cond = autopilot.conditions[autopilot.next % autopilot.conditions.length];
     autopilot.next++;
     payload = { ...autopilot.base, condition: cond, batch: undefined, loop: undefined, fromAutopilot: true };
+    if (autopilot.next >= autopilot.maxSessions) {
+      console.log(`Autopilot: final rotation session (${autopilot.next}/${autopilot.maxSessions}) — autopilot ends after it.`);
+      autopilot = null;
+    }
   }
 
   if (payload !== undefined) {
