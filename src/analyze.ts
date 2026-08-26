@@ -273,24 +273,70 @@ export function mimicry(msgs: Msg[]) {
 
 // ── Turn dynamics (§2.4) ───────────────────────────────────────────────────
 
+/** Count mentions of each OTHER agent in a text. Matches the name's first
+ *  word: agents shorten versioned names ("Gemini", not "Gemini 3.7"), and
+ *  first words are unique across the roster. */
+export function countMentions(text: string, selfId: string, agents: { id: string; name: string }[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const a of agents) {
+    if (a.id === selfId) continue;
+    const escaped = a.name.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const n = count(text, new RegExp(`\\b${escaped}\\b`, 'g'));
+    if (n) out[a.id] = n;
+  }
+  return out;
+}
+
 export function addressMatrix(msgs: Msg[], agents: { id: string; name: string }[]) {
   const out: Record<string, Record<string, number>> = {};
   for (const m of msgs) {
-    for (const a of agents) {
-      if (a.id === m.agentId) continue;
-      // Match on the name's first word: agents shorten versioned names in
-      // address ("Gemini", not "Gemini 3.7"), and first words are unique
-      // across the roster.
-      const short = a.name.split(' ')[0];
-      const escaped = short.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const n = count(m.text, new RegExp(`\\b${escaped}\\b`, 'g'));
-      if (n) {
-        out[m.agentId] = out[m.agentId] ?? {};
-        out[m.agentId][a.id] = (out[m.agentId][a.id] ?? 0) + n;
-      }
+    for (const [target, n] of Object.entries(countMentions(m.text, m.agentId, agents))) {
+      out[m.agentId] = out[m.agentId] ?? {};
+      out[m.agentId][target] = (out[m.agentId][target] ?? 0) + n;
     }
   }
   return out;
+}
+
+/** Cross-channel social orientation (Corina 2026-08-26): how often an agent
+ *  refers to the others in each channel, normalized per 1k words because
+ *  channel volumes differ wildly. Interpretation note baked in: chat
+ *  mentions are mostly VOCATIVE (talking to), thinking/journal mentions are
+ *  REFERENTIAL (thinking about) — the contrast is the point. */
+export function mentionsByChannel(
+  agents: { id: string; name: string }[],
+  channels: Record<'chat' | 'thinking' | 'journal', Map<string, string[]>>,
+) {
+  const per = (agentId: string, texts: string[]) => {
+    const all = texts.join(' ');
+    const w = words(all).length;
+    const targets = countMentions(all, agentId, agents);
+    const total = Object.values(targets).reduce((a, b) => a + b, 0);
+    return texts.length ? { mentions: total, per1kWords: w ? round2((total / w) * 1000) : 0, words: w, targets } : null;
+  };
+  const given = agents.map((a) => ({
+    agentId: a.id,
+    chat: per(a.id, channels.chat.get(a.id) ?? []),
+    thinking: per(a.id, channels.thinking.get(a.id) ?? []),
+    journal: per(a.id, channels.journal.get(a.id) ?? []),
+  }));
+  // Attention RECEIVED: who the room talks/thinks/journals ABOUT — total
+  // mentions of each target per channel, and how many DISTINCT speakers
+  // mentioned them (6 mentions from one obsessive ≠ 6 from six agents).
+  const received = agents.map((t) => {
+    const perChannel = (ch: 'chat' | 'thinking' | 'journal') => {
+      let mentions = 0;
+      const speakers = new Set<string>();
+      for (const s of agents) {
+        if (s.id === t.id) continue;
+        const n = countMentions((channels[ch].get(s.id) ?? []).join(' '), s.id, agents)[t.id] ?? 0;
+        if (n) { mentions += n; speakers.add(s.id); }
+      }
+      return { mentions, bySpeakers: speakers.size };
+    };
+    return { agentId: t.id, chat: perChannel('chat'), thinking: perChannel('thinking'), journal: perChannel('journal') };
+  });
+  return { given, received };
 }
 
 // ── Per-session analysis ───────────────────────────────────────────────────
@@ -391,6 +437,15 @@ export async function analyzeSession(dir: string) {
     journals: journalStats,
     threeChannel,
     address: addressMatrix(s.msgs, s.agents),
+    mentions: mentionsByChannel(s.agents, {
+      chat: groupTexts(s.msgs.map((m) => [m.agentId, m.text])),
+      thinking: groupTexts([
+        ...s.msgs.filter((m) => m.thinking).map((m) => [m.agentId, m.thinking!] as [string, string]),
+        ...s.journals.filter((j) => (j as JournalEntry & { thinking?: string }).thinking)
+          .map((j) => [j.agentId, (j as JournalEntry & { thinking?: string }).thinking!] as [string, string]),
+      ]),
+      journal: groupTexts(s.journals.map((j) => [j.agentId, j.text])),
+    }),
   };
 
   writeFileSync(join(dir, 'metrics.json'), JSON.stringify(report, null, 2));
@@ -459,6 +514,11 @@ async function analyzeBatch(manifestPath: string) {
 // ── Helpers & CLI ──────────────────────────────────────────────────────────
 
 function mean(xs: number[]): number | null { return xs.length ? round4(xs.reduce((a, b) => a + b, 0) / xs.length) : null; }
+function groupTexts(pairs: [string, string][]): Map<string, string[]> {
+  const m = new Map<string, string[]>();
+  for (const [id, t] of pairs) (m.get(id) ?? m.set(id, []).get(id)!).push(t);
+  return m;
+}
 function count(s: string, re: RegExp): number { return (s.match(re) ?? []).length; }
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const round4 = (x: number) => Math.round(x * 10000) / 10000;
