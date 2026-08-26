@@ -197,6 +197,35 @@ events without the room changing:
   public message the way journals do?)
 - exact token accounting per turn.
 
+### 2.7 Robustness layer (added 2026-08-26)
+
+- **Permutation null (BUILT)**: each agent's round labels are shuffled
+  among its own messages (texts and counts intact, temporal structure
+  broken) and the convergence gap recomputed 500× (seeded — same session,
+  same null). `metrics.json` now reports the gap WITH `null: {mean, lo95,
+  hi95, p}`; no headline gap is quoted without its band. Bootstrap CIs
+  for the three-channel numbers ride the same machinery later.
+- **Non-roster judge (SKETCHED — src/judge.ts)**: `openai/gpt-5.6-sol`
+  (verified on OpenRouter 2026-08-26; no OpenAI seat in the core roster —
+  caveat: Luna is in the EXTENDED pool, so an OpenAI seat joining any
+  batch forces a judge change for that batch). Judge model + rubric
+  version pinned and stamped into every label; temperature 0, every item
+  judged twice with self-agreement reported; validated against a ~50-item
+  hand-labeled calibration set (Corina labels once) with per-task
+  agreement ≥0.8 required before any label is used. Tasks: `meta_talk`
+  (so the gap can be computed with/without meta rounds, §6.1),
+  `speech_act` (propose/assent/challenge/reflect), `journal_orientation`
+  (performed vs note-to-self — §2.5's qualitative companion). Judge
+  output is labels riding beside the embedding metrics, never an input to
+  them.
+- **Cross-channel mentions (BUILT)**: per agent per channel
+  (chat/thinking/journal), mentions of others per 1k words (vocative in
+  chat, referential in private channels — the contrast is the metric) +
+  attention RECEIVED per target with distinct-speaker counts.
+- **Sensitivity appendix (planned)**: rerun headline numbers under varied
+  window sizes/trim and a second embedding model on a subsample; a
+  conclusion that flips with the knob is a finding about the knob.
+
 ## 3. Experimental axes
 
 Hold constant across all conditions: welcome message, max output tokens,

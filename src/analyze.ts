@@ -168,6 +168,69 @@ function meanInter(ms: EmbeddedMsg[], win: [number, number]): number | null {
   return mean(sims);
 }
 
+// ── Permutation null (robustness) ─────────────────────────────────────────
+// Shuffle each agent's ROUND LABELS among its own messages: every agent
+// keeps its exact texts and message count, but temporal structure breaks.
+// Recomputing the gap under many shuffles yields the null distribution —
+// "what gap sizes does this session produce when nothing evolves?" — so
+// the observed gap gets an error band and a p-value instead of standing
+// alone. Seeded PRNG: same session ⇒ same null, always.
+
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const PERMUTATIONS = Number(process.env.ROOM_PERMS) > 0 ? Number(process.env.ROOM_PERMS) : 500;
+
+function gapOf(ms: EmbeddedMsg[], win: Windows): number | null {
+  const iE = meanIntra(ms, win.early), iL = meanIntra(ms, win.late);
+  const eE = meanInter(ms, win.early), eL = meanInter(ms, win.late);
+  return iE !== null && iL !== null && eE !== null && eL !== null ? eL - iL - (eE - iE) : null;
+}
+
+export function permutationNull(ems: EmbeddedMsg[], win: Windows, observed: number | null) {
+  if (observed === null) return null;
+  const rng = mulberry32(0x726f6f6d); // 'room'
+  const byAgent = new Map<string, EmbeddedMsg[]>();
+  for (const m of ems) (byAgent.get(m.agentId) ?? byAgent.set(m.agentId, []).get(m.agentId)!).push(m);
+  const nulls: number[] = [];
+  for (let i = 0; i < PERMUTATIONS; i++) {
+    const permuted: EmbeddedMsg[] = [];
+    for (const ms of byAgent.values()) {
+      const rounds = ms.map((m) => m.round);
+      for (let k = rounds.length - 1; k > 0; k--) {
+        const j = Math.floor(rng() * (k + 1));
+        [rounds[k], rounds[j]] = [rounds[j], rounds[k]];
+      }
+      ms.forEach((m, idx) => permuted.push({ ...m, round: rounds[idx] }));
+    }
+    const g = gapOf(permuted, win);
+    if (g !== null) nulls.push(g);
+  }
+  if (!nulls.length) return null;
+  nulls.sort((a, b) => a - b);
+  const q = (p: number) => nulls[Math.min(nulls.length - 1, Math.floor(p * nulls.length))];
+  // The null is NOT zero-centered (window structure biases the gap even
+  // without temporal order), so the test is positional: two-sided p from
+  // the observed value's percentile in the null, add-one smoothed.
+  const below = nulls.filter((g) => g <= observed).length;
+  const above = nulls.filter((g) => g >= observed).length;
+  return {
+    permutations: nulls.length,
+    mean: round4(nulls.reduce((a, b) => a + b, 0) / nulls.length),
+    lo95: round4(q(0.025)),
+    hi95: round4(q(0.975)),
+    percentile: round4(below / nulls.length),
+    p: round4(Math.min(1, (2 * Math.min(below + 1, above + 1)) / (nulls.length + 1))),
+  };
+}
+
 /** Pairwise late-window agent-centroid similarity — the §3.1 clique view. */
 function pairwiseLate(ms: EmbeddedMsg[], win: [number, number], agents: string[]): Record<string, number> {
   const cents = new Map<string, Vec | null>(
@@ -273,24 +336,70 @@ export function mimicry(msgs: Msg[]) {
 
 // ── Turn dynamics (§2.4) ───────────────────────────────────────────────────
 
+/** Count mentions of each OTHER agent in a text. Matches the name's first
+ *  word: agents shorten versioned names ("Gemini", not "Gemini 3.7"), and
+ *  first words are unique across the roster. */
+export function countMentions(text: string, selfId: string, agents: { id: string; name: string }[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const a of agents) {
+    if (a.id === selfId) continue;
+    const escaped = a.name.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const n = count(text, new RegExp(`\\b${escaped}\\b`, 'g'));
+    if (n) out[a.id] = n;
+  }
+  return out;
+}
+
 export function addressMatrix(msgs: Msg[], agents: { id: string; name: string }[]) {
   const out: Record<string, Record<string, number>> = {};
   for (const m of msgs) {
-    for (const a of agents) {
-      if (a.id === m.agentId) continue;
-      // Match on the name's first word: agents shorten versioned names in
-      // address ("Gemini", not "Gemini 3.7"), and first words are unique
-      // across the roster.
-      const short = a.name.split(' ')[0];
-      const escaped = short.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const n = count(m.text, new RegExp(`\\b${escaped}\\b`, 'g'));
-      if (n) {
-        out[m.agentId] = out[m.agentId] ?? {};
-        out[m.agentId][a.id] = (out[m.agentId][a.id] ?? 0) + n;
-      }
+    for (const [target, n] of Object.entries(countMentions(m.text, m.agentId, agents))) {
+      out[m.agentId] = out[m.agentId] ?? {};
+      out[m.agentId][target] = (out[m.agentId][target] ?? 0) + n;
     }
   }
   return out;
+}
+
+/** Cross-channel social orientation (Corina 2026-08-26): how often an agent
+ *  refers to the others in each channel, normalized per 1k words because
+ *  channel volumes differ wildly. Interpretation note baked in: chat
+ *  mentions are mostly VOCATIVE (talking to), thinking/journal mentions are
+ *  REFERENTIAL (thinking about) — the contrast is the point. */
+export function mentionsByChannel(
+  agents: { id: string; name: string }[],
+  channels: Record<'chat' | 'thinking' | 'journal', Map<string, string[]>>,
+) {
+  const per = (agentId: string, texts: string[]) => {
+    const all = texts.join(' ');
+    const w = words(all).length;
+    const targets = countMentions(all, agentId, agents);
+    const total = Object.values(targets).reduce((a, b) => a + b, 0);
+    return texts.length ? { mentions: total, per1kWords: w ? round2((total / w) * 1000) : 0, words: w, targets } : null;
+  };
+  const given = agents.map((a) => ({
+    agentId: a.id,
+    chat: per(a.id, channels.chat.get(a.id) ?? []),
+    thinking: per(a.id, channels.thinking.get(a.id) ?? []),
+    journal: per(a.id, channels.journal.get(a.id) ?? []),
+  }));
+  // Attention RECEIVED: who the room talks/thinks/journals ABOUT — total
+  // mentions of each target per channel, and how many DISTINCT speakers
+  // mentioned them (6 mentions from one obsessive ≠ 6 from six agents).
+  const received = agents.map((t) => {
+    const perChannel = (ch: 'chat' | 'thinking' | 'journal') => {
+      let mentions = 0;
+      const speakers = new Set<string>();
+      for (const s of agents) {
+        if (s.id === t.id) continue;
+        const n = countMentions((channels[ch].get(s.id) ?? []).join(' '), s.id, agents)[t.id] ?? 0;
+        if (n) { mentions += n; speakers.add(s.id); }
+      }
+      return { mentions, bySpeakers: speakers.size };
+    };
+    return { agentId: t.id, chat: perChannel('chat'), thinking: perChannel('thinking'), journal: perChannel('journal') };
+  });
+  return { given, received };
 }
 
 // ── Per-session analysis ───────────────────────────────────────────────────
@@ -369,7 +478,13 @@ export async function analyzeSession(dir: string) {
       intraEarly: round4n(intraEarly), intraLate: round4n(intraLate),
       interEarly: round4n(interEarly), interLate: round4n(interLate),
       gap,
+      null: permutationNull(ems, win, gap),
       pairwiseLate: pairwiseLate(ems, win.late, agents),
+      // §6.1 length confound, made visible: longer texts regress toward
+      // the topic centroid, so similarity rising alongside rising length
+      // is suspect. Read these two before reading the gap.
+      meanWordsEarly: mean(ems.filter((m) => inWin(m.round, win.early) && !m.truncated).map((m) => words(m.text).length)),
+      meanWordsLate: mean(ems.filter((m) => inWin(m.round, win.late) && !m.truncated).map((m) => words(m.text).length)),
     },
     styleByAgent: Object.fromEntries(agents.map((a) => {
       const mine = s.msgs.filter((m) => m.agentId === a && !m.truncated);
@@ -391,6 +506,15 @@ export async function analyzeSession(dir: string) {
     journals: journalStats,
     threeChannel,
     address: addressMatrix(s.msgs, s.agents),
+    mentions: mentionsByChannel(s.agents, {
+      chat: groupTexts(s.msgs.map((m) => [m.agentId, m.text])),
+      thinking: groupTexts([
+        ...s.msgs.filter((m) => m.thinking).map((m) => [m.agentId, m.thinking!] as [string, string]),
+        ...s.journals.filter((j) => (j as JournalEntry & { thinking?: string }).thinking)
+          .map((j) => [j.agentId, (j as JournalEntry & { thinking?: string }).thinking!] as [string, string]),
+      ]),
+      journal: groupTexts(s.journals.map((j) => [j.agentId, j.text])),
+    }),
   };
 
   writeFileSync(join(dir, 'metrics.json'), JSON.stringify(report, null, 2));
@@ -436,16 +560,17 @@ async function analyzeBatch(manifestPath: string) {
     `${results.length} sessions · cross-session baseline (inter, agents who never met):`,
     `early ${fmt(baseline.early)} · late ${fmt(baseline.late)}`,
     '',
-    '| session | condition | rounds | msgs (trunc) | journals | gap | interLate | vs baseline |',
-    '|---|---|---|---|---|---|---|---|',
+    '| session | condition | rounds | msgs (trunc) | journals | gap | null 95% | p | interLate | vs baseline |',
+    '|---|---|---|---|---|---|---|---|---|---|',
   ];
   for (const { report } of results) {
     const c = report.convergence;
     const beat = c.interLate !== null && baseline.late !== null ? fmt(c.interLate - baseline.late) : '—';
+    const nullBand = c.null ? `[${c.null.lo95}, ${c.null.hi95}]` : '—';
     lines.push(
       `| ${report.sessionId} | ${report.condition}${report.adminTouched ? ' ⚠dirty' : ''} | ${report.rounds}` +
       ` | ${report.counts.messages} (${report.counts.truncated}) | ${report.counts.journals}` +
-      ` | ${fmt(c.gap)} | ${fmt(c.interLate)} | ${beat} |`,
+      ` | ${fmt(c.gap)} | ${nullBand} | ${c.null ? c.null.p : '—'} | ${fmt(c.interLate)} | ${beat} |`,
     );
   }
   lines.push('', 'gap = (interLate − intraLate) − (interEarly − intraEarly). Positive = the room moved toward one voice beyond what the shared prompt induces. "vs baseline" > 0 means within-session convergence beats agents who never met (the genre control). Per-agent details: each session\'s metrics.json.');
@@ -459,6 +584,11 @@ async function analyzeBatch(manifestPath: string) {
 // ── Helpers & CLI ──────────────────────────────────────────────────────────
 
 function mean(xs: number[]): number | null { return xs.length ? round4(xs.reduce((a, b) => a + b, 0) / xs.length) : null; }
+function groupTexts(pairs: [string, string][]): Map<string, string[]> {
+  const m = new Map<string, string[]>();
+  for (const [id, t] of pairs) (m.get(id) ?? m.set(id, []).get(id)!).push(t);
+  return m;
+}
 function count(s: string, re: RegExp): number { return (s.match(re) ?? []).length; }
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const round4 = (x: number) => Math.round(x * 10000) / 10000;

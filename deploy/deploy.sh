@@ -21,6 +21,7 @@ if [[ $TARGET == all || $TARGET == viewer ]]; then
   echo "── viewer → $NS/the-room (static, public)"
   mkdir -p "$STAGE/viewer"
   cp viewer/index.html "$STAGE/viewer/index.html"
+  npx tsx src/conditions-info.ts > "$STAGE/viewer/conditions.json"
   cat > "$STAGE/viewer/README.md" <<'EOF'
 ---
 title: the-room

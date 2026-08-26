@@ -15,11 +15,13 @@ export interface StartPayload {
    *  INTERLEAVED across conditions (§6.1 — never sequential blocks).
    *  conditions defaults to [condition]; name defaults to a timestamp. */
   batch?: { count?: number; conditions?: string[]; name?: string };
-  /** Autopilot: cycle these conditions round-robin FOREVER (pause minutes
-   *  between sessions) until a stop with {scope:'loop'} arrives. Queued
-   *  starts slot in ahead of the rotation. Rides inside `start` because
-   *  the room-admin edge function whitelists kinds start|stop|say. */
-  loop?: { conditions?: string[]; pauseMinutes?: number };
+  /** Autopilot: cycle these conditions round-robin (pause minutes between
+   *  sessions) until a stop with {scope:'loop'} — or, when `sets` is given,
+   *  until that many FULL rotations have run (2 conditions × sets 5 = 10
+   *  sessions, then autopilot ends itself). Queued starts slot in ahead of
+   *  the rotation. Rides inside `start` because the room-admin edge
+   *  function whitelists kinds start|stop|say. */
+  loop?: { conditions?: string[]; pauseMinutes?: number; sets?: number };
 }
 
 export interface StopPayload {
