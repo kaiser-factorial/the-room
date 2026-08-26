@@ -75,6 +75,28 @@ test('logprobs capture: telemetry carries them only where the provider returns t
   }
 });
 
+test('journal recall never leaks wall-clock time into agent context', async () => {
+  // The .md writer stamps real ISO timestamps in entry headers; recall must
+  // strip them or countdown-hidden conditions leak the actual time.
+  const config = testConfig({
+    maxRounds: 2,
+    journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } },
+  });
+  const dir = await runStubSession(config, 'journal,plain');
+  const { buildTurnMessages } = await import('../src/context.js');
+  const { readFileSync: rf, readdirSync: rd } = await import('node:fs');
+  const { join: j } = await import('node:path');
+  const raw = rf(j(dir, 'journals', rd(j(dir, 'journals'))[0]), 'utf8');
+  assert.match(raw, /## Round \d+ — \d{4}-/, 'the .md file itself should keep timestamps for analysis');
+  // Recall path: same sanitization runSession applies
+  const recalled = raw.replace(/^(## Round \d+) — \d{4}-\d{2}-\d{2}T[^\n]*$/gm, '$1');
+  const prompt = buildTurnMessages({
+    agent: config.agents[0], config, events: [], summary: '', minutesRemaining: 5, ownJournal: recalled,
+  }).map((m) => m.content).join('\n');
+  assert.ok(!/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(prompt), 'ISO timestamp leaked into the prompt');
+  assert.match(prompt, /## Round \d+/);
+});
+
 test('batch identity is stamped into the meta event', async () => {
   const dir = await runStubSession(testConfig({ maxRounds: 1, batch: { name: 'pilot-x', index: 2, total: 10 } }), 'plain');
   const meta = events(dir).find((e) => e.kind === 'meta');

@@ -45,20 +45,28 @@ function journalSection(config: RoomConfig): string {
   const j = config.journal;
   if (!j.enabled) return '';
   const lines: string[] = [''];
+  // Wording amended 2026-08-25 (pilot phase): the first journal-free run
+  // showed a seat journaling on EVERY spoken turn — the old alongside text
+  // described the [JOURNAL]…[/JOURNAL]+speech composite like a reply
+  // template. The fix frames the journal as a place ("a space to explore
+  // ideas by yourself") without nudging frequency in EITHER direction —
+  // whether and how often to use it is theirs to decide (Corina).
   if (j.mode === 'replace') {
     lines.push(
-      `You also have a private journal. If you would rather reflect than speak this`,
-      `turn, begin your reply with [JOURNAL] and write the entry — the others in`,
-      `the room will never see it` +
+      `You also have a private journal — a space to explore ideas by yourself,`,
+      `if you ever want one. To use it, begin your reply with [JOURNAL] and`,
+      `write the entry — the others in the room will never see it` +
         (j.notice ? `; they only hear that you stepped away to write.` : `, and no one is told you wrote.`),
-      `You may not do both in one turn.`,
+      `You may not journal and speak in the same turn.`,
     );
   } else {
     lines.push(
-      `You also have a private journal. To write in it, put the entry between`,
-      `[JOURNAL] and [/JOURNAL] at the start of your reply; anything after the`,
-      `closing tag is spoken to the room as usual. The others in the room will`,
-      `never see the entry` + (j.notice ? ` — they only hear that you wrote.` : `, and no one is told you wrote.`),
+      `You also have a private journal — a space to explore ideas by yourself,`,
+      `if you ever want one. To write in it, put the entry between [JOURNAL] and`,
+      `[/JOURNAL] at the start of your reply; anything after the closing tag is`,
+      `spoken to the room as usual, and a reply without the tags is simply`,
+      `spoken. The others in the room will never see the entry` +
+        (j.notice ? ` — they only hear that you wrote.` : `, and no one is told you wrote.`),
     );
   }
   if (j.pass.enabled) {

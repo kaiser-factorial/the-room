@@ -192,6 +192,10 @@ function tickClock() {
 }
 
 function render(e) {
+  if (e.seq !== undefined) {
+    if (seenEventSeqs.has(e.seq)) return;
+    seenEventSeqs.add(e.seq);
+  }
   if (e.kind === 'meta') {
     meta = e.payload; ended = false;
     // Condition badge next to the status: condition name + batch position.
@@ -250,8 +254,16 @@ function appendThinking(el, e, before) {
 // ── Journals rail ──────────────────────────────────────────────────────────
 const journalList = $('journalList');
 const journalSections = new Map(); // agent_id -> {details, body, count}
+// Dedup: realtime re-delivers rows after mobile reconnects, which was
+// inflating the live rail (a refresh then showed "fewer" — the true count).
+const seenJournalIds = new Set();
+const seenEventSeqs = new Set();
 
 function renderJournal(j) {
+  if (j.id !== undefined) {
+    if (seenJournalIds.has(j.id)) return;
+    seenJournalIds.add(j.id);
+  }
   let sec = journalSections.get(j.agent_id);
   if (!sec) {
     const details = document.createElement('details');
@@ -288,6 +300,7 @@ async function loadSessions() {
 async function showSession(sessionId) {
   currentSession = sessionId;
   feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear(); $('cond').textContent = '';
+  seenJournalIds.clear(); seenEventSeqs.clear();
   meta = null; ended = false; clock.textContent = '';
   channels.forEach((c) => supabase.removeChannel(c)); channels = [];
 
