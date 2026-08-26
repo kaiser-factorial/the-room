@@ -262,6 +262,34 @@ keeping track of the research program:
 Then **Phase B runs**: none / baseline / silent / free / gated, ≥5
 sessions each, interleaved, at Phase-A controls.
 
+**Status addendum (2026-08-26).** The analysis loop is CLOSED and hosted:
+`export.ts` pulls any session from the Supabase mirror (anon key) into a
+dir `analyze.ts` reads — validated end to end from a remote container
+with real embeddings. Telemetry now sinks (pre-2026-08-26 sessions lack
+it; `EXPORTED.json` flags them). Robustness layer built (§2.7):
+permutation nulls, bootstrap CIs, length-controlled gap, cross-channel
+mentions. Hosted ops grew: batches, autopilot (forever OR N sets), start
+queue, boot drain, condition ⓘ panel. Journal hardened: typo-tolerant
+sentinels, neutral wording, recall time-leak fixed, alongside cap ×2.
+
+**Everything run to date is PILOT data** — configs churned throughout;
+use it for pipeline validation, never as baseline (Corina 2026-08-26).
+
+Open reminders:
+- **Judge calibration labeling (Corina, deliberately deferred)** —
+  `calibration/calibration-set.json` (50 items) awaits hand labels; the
+  §2.7 judge (`openai/gpt-5.6-sol`, sketched in src/judge.ts) is
+  unusable until labeled + agreement ≥0.8. Build-out (judgeItem/
+  judgeSession/calibration CLI) follows the labels.
+- **Rotate the runner's OPENROUTER_API_KEY** — the temporary test key
+  expires; `hf spaces secrets add brick-factorial/the-room-runner -s
+  OPENROUTER_API_KEY=...`.
+- **Phase C slug snapshot** (§9.1) — record earliest-still-served slugs
+  before deprecation eats the comparison.
+- Next builds, per the roadmap: F4 websearch (gates Phase B's `gated`
+  arm) → Phase A pilots on autopilot (length pilot decides D3 duration)
+  → F6 dashboard.
+
 ## Parked extensions (2026-08-25, Corina — see EXPERIMENT_DESIGN §9)
 
 Recorded here so they're in the build queue's peripheral vision; neither

@@ -144,6 +144,7 @@ structure to find.
 
 ```bash
 npm run batch -- --name pilot --count 5 house control   # interleaved sessions + manifest
+npm run export -- <sessionId> | --all                    # Supabase mirror → local session dir
 npm run analyze -- sessions/<id>                         # one session → metrics.json
 npm run analyze -- --batch batches/pilot.json            # batch → report.md + baseline
 ```
@@ -155,6 +156,16 @@ journal metrics, §2.4 turn dynamics, and the §2.5 three-channel comparison
 free; `ROOM_STUB=1` dry-runs the pipeline offline. Filters are baked in:
 admin-dirty tails dropped, truncated messages excluded from style and
 window stats, final rounds trimmed from the late window.
+
+Robustness (§2.7): the gap ships with a seeded permutation null (95% band
++ positional p; `ROOM_PERMS` overrides 500), three-channel pairs carry
+bootstrap CIs (`ROOM_BOOTS`), and a length-CONTROLLED parallel gap
+(messages clipped to 120 words, re-embedded) tests the length confound
+per session. `export.ts` needs only the public anon key — hosted sessions
+are analyzable from anywhere; sessions before 2026-08-26 lack telemetry
+in the mirror (flagged in `EXPORTED.json`). The §2.7 judge
+(`openai/gpt-5.6-sol`, `src/judge.ts`) is sketched but UNUSABLE until
+`calibration/calibration-set.json` is hand-labeled (pending, Corina).
 
 ## Live viewer
 
