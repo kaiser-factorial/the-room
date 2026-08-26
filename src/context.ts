@@ -93,14 +93,24 @@ function journalSection(config: RoomConfig): string {
 function searchSection(config: RoomConfig): string {
   const s = config.search;
   if (!s.enabled) return '';
-  const lines = [
-    ``,
-    `You can also look something up on the web. To search, reply with`,
-    `[SEARCH: your query] — that turn is spent searching, and the results come`,
-    `back to you privately at the start of your next turn. The others never see`,
-    `your query or the results` +
-      (s.notice ? `; they only hear that you looked something up.` : `, and no one is told you searched.`),
-  ];
+  const lines =
+    s.mode === 'alongside'
+      ? [
+          ``,
+          `You can also look something up on the web. To search, begin your reply`,
+          `with [SEARCH: your query] on its own line; anything after it is spoken`,
+          `to the room as usual. The results come back to you privately at the`,
+          `start of your next turn. The others never see your query or the results` +
+            (s.notice ? `; they only hear that you looked something up.` : `, and no one is told you searched.`),
+        ]
+      : [
+          ``,
+          `You can also look something up on the web. To search, reply with`,
+          `[SEARCH: your query] — that turn is spent searching, and the results come`,
+          `back to you privately at the start of your next turn. The others never see`,
+          `your query or the results` +
+            (s.notice ? `; they only hear that you looked something up.` : `, and no one is told you searched.`),
+        ];
   if (s.gated) {
     lines.push(
       `Searching is unlocked by writing in your journal: each entry you write`,

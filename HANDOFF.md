@@ -111,10 +111,13 @@ journals-received.
 
 ## Next up (the queue — roadmap artifact has the full rationale)
 
-**F4 websearch — BUILT 2026-08-26** (`[SEARCH: query]` replaces the turn,
-results private next turn, `search-tool` + `gated` conditions, OpenRouter
-web plugin on the existing key; viewer/sink/export wired; suite now 63
-tests). Redeploy viewer + runner to take it live. Next: **Phase A pilots
+**F4 websearch — BUILT + DEPLOYED 2026-08-26** (`[SEARCH: query]`, results
+private next turn; conditions `search-tool` (costs the turn),
+`search-free` (alongside — added after live rooms showed the turn price
+suppresses tool use), `gated`; OpenRouter web plugin on the existing key;
+viewer/sink/export wired; suite now 65 tests). Known §2.5 caveat, measured
+same day: Grok's traces are ~200-char xAI SUMMARIES ending in "…" —
+boilerplate, flag grok in three-channel comparisons. Next: **Phase A pilots
 on autopilot** (length pilot 30/60/90 decides D3 duration; roster-hidden
 vs house; journal-free rerun under fixed prompt) → **F6 dashboard** →
 **Phase B** (the registered journal experiment). After B: thought

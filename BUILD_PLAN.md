@@ -315,9 +315,20 @@ jumps F1–F6, and both gate on F2 like everything else.
   track. Serves both the §3.2b task axis (registered, standard metrics)
   and exploratory "build anything" sessions (flagged out of Phase-B
   stats). Decide turn economics (replace vs. free) with the same structure
-  as the journal config. Countdown's `told-once` state (swapped in for
-  'vague', 2026-08-25 — already implemented) is crossed with the task
-  condition only.
+  as the journal config — F4's `mode: replace|alongside` knob now covers
+  this for search and is the template. Countdown's `told-once` state
+  (swapped in for 'vague', 2026-08-25 — already implemented) is crossed
+  with the task condition only.
+  **Spec sharpened (Corina 2026-08-26)**: a `tools-full` condition
+  bundling websearch + a small SHARED filesystem (all seats read/write the
+  same few files — the first genuinely shared artifact surface) + a
+  pyodide sandbox (port from joint-session, repo reachable). Tool budget
+  is its own knob with two shapes: **one tool call per model per round**
+  (baseline) vs. **one tool call per ROOM per round** — scarcity forces
+  the room to negotiate who gets the tool, and the negotiation (or the
+  fight) is the phenomenon. Shared-filesystem writes are room-visible by
+  design (unlike journals/search results); pyodide stdout/stderr private
+  to the caller, journal-class, with shared files the way to publish.
 - **Phase C. Roster generations.** Same control condition on each family's
   earliest still-served model vs. the current roster (contemporaneous
   baseline batch, per the standing roster rule — no new axis). Action item

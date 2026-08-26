@@ -244,12 +244,16 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       } else if (parsed.kind === 'journal') {
         saveJournal(agent, round, parsed.entry, thinking);
       } else if (parsed.kind === 'search') {
-        // F4: the turn is spent searching. Results (or the gated-refusal
-        // note) return privately on the requester's next turn; the room at
-        // most hears the notice line. Query/results never enter anyone
-        // else's context (privacy invariant, tests/privacy.test.ts).
+        // F4: replace mode spends the turn on the search; alongside mode
+        // (`search-free`) also speaks parsed.spoken as a normal message.
+        // Results (or the gated-refusal note) return privately on the
+        // requester's next turn; the room at most hears the notice line.
+        // Query/results never enter anyone else's context (privacy
+        // invariant, tests/search.test.ts). One turn, one trace: attach it
+        // to the spoken message when there is one, else the search event.
+        const searchThinking = parsed.spoken ? undefined : thinking;
         if (config.search.gated && !searchCredit.has(agent.id)) {
-          record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking });
+          record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking: searchThinking });
           pendingSearch.set(agent.id, `Your search for "${parsed.query}" did not run: searching unlocks after you write in your journal.`);
         } else {
           searchCredit.delete(agent.id);
@@ -257,17 +261,18 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           try {
             results = await webSearch(parsed.query, config.search.maxResults);
           } catch (err) {
-            // An errored search still spends the turn — honest to the
-            // requester, invisible to the room (no notice on a failure).
-            record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking });
+            // An errored search is invisible to the room (no notice on a
+            // failure) but honest to the requester.
+            record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking: searchThinking });
             pendingSearch.set(agent.id, `Your search for "${parsed.query}" failed (${(err as Error).message.slice(0, 120)}). You may try again.`);
             results = '';
           }
           if (results) {
-            record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, results, notice: config.search.notice, thinking });
+            record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, results, notice: config.search.notice, thinking: searchThinking });
             pendingSearch.set(agent.id, `Results of your web search for "${parsed.query}":\n${results}`);
           }
         }
+        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'message') {
         record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });
       } else {

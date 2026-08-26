@@ -36,16 +36,22 @@ export interface JournalConfig {
   pass: { enabled: boolean; notice: boolean };
 }
 
-/** Websearch tool (F4, §3.4b). Two condition forms share this config:
- *  the room-tool axis (enabled, ungated) and Phase B's `gated` condition
- *  (enabled + gated: a journal entry unlocks one search). Searching always
- *  REPLACES the turn (same economics as journal 'replace'): the sentinel
- *  is `[SEARCH: query]`, results come back PRIVATELY on the requester's
+/** Websearch tool (F4, §3.4b). Condition forms sharing this config: the
+ *  room-tool axis (`search-tool`: enabled, ungated, costs the turn),
+ *  `search-free` (alongside mode — search + speech in one turn), and
+ *  Phase B's `gated` (a journal entry unlocks one search). The sentinel
+ *  is `[SEARCH: query]`; results come back PRIVATELY on the requester's
  *  next turn, and neither query nor results ever enter another agent's
  *  context (journal-class privacy rule). */
 export interface SearchConfig {
   /** false = search never mentioned (the CONTROL — the closed room). */
   enabled: boolean;
+  /** 'replace' = searching costs the turn (the original F4 economics);
+   *  'alongside' = the sentinel line is followed by a normal spoken
+   *  message — searching at zero conversational cost (`search-free`,
+   *  mirroring journal-free; Corina 2026-08-26: the turn price visibly
+   *  suppressed use — they want to talk). */
+  mode: 'replace' | 'alongside';
   /** true = a journal entry is required to unlock each search (Phase B
    *  `gated`). Credits don't stack: journaling while unlocked is neutral. */
   gated: boolean;

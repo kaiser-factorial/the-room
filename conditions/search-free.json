@@ -1,0 +1,4 @@
+{
+  "description": "Tool axis, zero-cost form (mirrors journal-free): [SEARCH: query] on the first line plus a normal spoken message in the same turn — searching without giving up the chance to talk. Ungated; journal off, as in control.",
+  "search": { "enabled": true, "mode": "alongside", "gated": false, "notice": true, "maxResults": 5 }
+}
