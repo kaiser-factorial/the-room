@@ -111,9 +111,12 @@ journals-received.
 
 ## Next up (the queue — roadmap artifact has the full rationale)
 
-**F4 websearch** (gates Phase B's `gated` arm) → **Phase A pilots on
-autopilot** (length pilot 30/60/90 decides D3 duration; roster-hidden vs
-house; journal-free rerun under fixed prompt) → **F6 dashboard** →
+**F4 websearch — BUILT 2026-08-26** (`[SEARCH: query]` replaces the turn,
+results private next turn, `search-tool` + `gated` conditions, OpenRouter
+web plugin on the existing key; viewer/sink/export wired; suite now 63
+tests). Redeploy viewer + runner to take it live. Next: **Phase A pilots
+on autopilot** (length pilot 30/60/90 decides D3 duration; roster-hidden
+vs house; journal-free rerun under fixed prompt) → **F6 dashboard** →
 **Phase B** (the registered journal experiment). After B: thought
 broadcast (§9.3), F5 Talkie, journal-as-tool, F4½ sandbox, Phase C,
 surprisal/score.ts.

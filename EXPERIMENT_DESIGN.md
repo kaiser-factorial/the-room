@@ -358,9 +358,11 @@ Two very different uses — keep them distinct:
   the incentive bought quantity at the cost of interiority — that's a
   finding, not a failure.
 
-Mechanics when built: sentinel (`[SEARCH: query]`), results returned only
-to the requesting agent, search events logged (and visible in the viewer,
-chevron-style).
+Mechanics (BUILT 2026-08-26, F4): sentinel `[SEARCH: query]` replaces the
+turn; results return only to the requesting agent, privately at their next
+turn; search events are logged and viewer-visible (chevron-style), the room
+at most hears a notice line. Gated form: a journal entry unlocks one
+search; credits don't stack; denied attempts are private and inaudible.
 
 ### 3.5 Countdown visibility
 

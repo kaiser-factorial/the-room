@@ -36,6 +36,25 @@ export interface JournalConfig {
   pass: { enabled: boolean; notice: boolean };
 }
 
+/** Websearch tool (F4, §3.4b). Two condition forms share this config:
+ *  the room-tool axis (enabled, ungated) and Phase B's `gated` condition
+ *  (enabled + gated: a journal entry unlocks one search). Searching always
+ *  REPLACES the turn (same economics as journal 'replace'): the sentinel
+ *  is `[SEARCH: query]`, results come back PRIVATELY on the requester's
+ *  next turn, and neither query nor results ever enter another agent's
+ *  context (journal-class privacy rule). */
+export interface SearchConfig {
+  /** false = search never mentioned (the CONTROL — the closed room). */
+  enabled: boolean;
+  /** true = a journal entry is required to unlock each search (Phase B
+   *  `gated`). Credits don't stack: journaling while unlocked is neutral. */
+  gated: boolean;
+  /** "[X looked something up on the web.]" line to the room. */
+  notice: boolean;
+  /** How many results the backend returns to the requester. */
+  maxResults: number;
+}
+
 export interface SamplingConfig {
   temperature: number;
   topP?: number;
@@ -66,6 +85,7 @@ export interface RoomConfig {
    *  countdown line each turn. */
   countdown: 'hidden' | 'told-once' | 'visible';
   journal: JournalConfig;
+  search: SearchConfig;
   /** Who the prompt says is in the room (Corina 2026-08-25). 'named' =
    *  full roster with names+versions (the original control wording,
    *  including its "others: X (you)" quirk — frozen for comparability);
@@ -134,6 +154,12 @@ export type RoomEvent =
   | { kind: 'message'; ts: string; round: number; agentId: string; agentName: string; text: string; telemetry?: TurnTelemetry; thinking?: string }
   | { kind: 'journal'; ts: string; round: number; agentId: string; agentName: string; thinking?: string }
   | { kind: 'system'; ts: string; round: number; text: string; agentId?: string; thinking?: string }
+  /** F4 websearch. `query`/`results` are requester-private (journal-class):
+   *  context.ts renders only the notice line, and only when `notice` is
+   *  true and the search ran. Humans see everything (viewer chevron).
+   *  denied = gated search attempted without a journal credit (never
+   *  audible; the requester learns privately on their next turn). */
+  | { kind: 'search'; ts: string; round: number; agentId: string; agentName: string; query: string; results?: string; denied?: boolean; notice: boolean; thinking?: string }
   | { kind: 'order'; ts: string; round: number; order: string[] }
   | { kind: 'summary'; ts: string; round: number; text: string }
   | { kind: 'meta'; ts: string; round: number; payload: SessionMeta }

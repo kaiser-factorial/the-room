@@ -1,0 +1,4 @@
+{
+  "description": "Tool axis (§3.4b): websearch open to everyone, ungated — an explicit perturbation of the closed room (the room can converge on the news instead of on each other). Journal stays off, as in control.",
+  "search": { "enabled": true, "gated": false, "notice": true, "maxResults": 5 }
+}

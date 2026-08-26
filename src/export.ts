@@ -54,6 +54,15 @@ function toEvent(r: EventRow): RoomEvent {
       return { kind: 'journal', ...base, agentId: r.agent_id!, agentName: r.agent_name ?? r.agent_id!, ...extra } as RoomEvent;
     case 'system':
       return { kind: 'system', ...base, text: r.text ?? '', ...(r.agent_id ? { agentId: r.agent_id } : {}), ...extra } as RoomEvent;
+    case 'search':
+      return {
+        kind: 'search', ...base, agentId: r.agent_id!, agentName: r.agent_name ?? r.agent_id!,
+        query: (r.payload?.query as string) ?? '',
+        ...(r.payload?.results ? { results: r.payload.results as string } : {}),
+        ...(r.payload?.denied ? { denied: true } : {}),
+        notice: Boolean(r.payload?.notice),
+        ...extra,
+      } as RoomEvent;
     case 'order':
       return { kind: 'order', ...base, order: r.order_ids ?? [] };
     case 'summary':

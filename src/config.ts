@@ -56,6 +56,13 @@ export const config: RoomConfig = {
     pass: { enabled: false, notice: false },
   },
 
+  search: {
+    enabled: false, // control = the closed room; 'search-tool'/'gated' enable
+    gated: false,
+    notice: true,
+    maxResults: 5,
+  },
+
   // Control keeps the original named roster (comparability with every
   // session run so far); 'count'/'none' are the discovery conditions.
   rosterDisclosure: 'named',

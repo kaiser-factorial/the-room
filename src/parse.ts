@@ -1,7 +1,7 @@
 // Reply sentinel parsing, extracted pure from session.ts so the table of
 // model-mangled sentinel variants can be tested directly.
 
-import type { JournalConfig } from './types.js';
+import type { JournalConfig, SearchConfig } from './types.js';
 
 // Loose sentinel matches: models bold/colon these more often than not —
 // and sometimes TYPO them ([GOURNAL], live 2026-08-25: a private entry was
@@ -11,6 +11,13 @@ import type { JournalConfig } from './types.js';
 const JOURNAL_OPEN_RE = /^\s*\**\[([A-Za-z]{5,9})\]:?\**\s*([\s\S]*)/;
 const JOURNAL_CLOSE_RE = /\[\/([A-Za-z]{5,9})\]\s*([\s\S]*)/;
 const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
+// [SEARCH: query] (F4). Same tolerance philosophy as JOURNAL: bold/typo'd
+// tokens still count (edit distance ≤2 of SEARCH — disjoint from JOURNAL,
+// which is >2 away). The closing bracket is optional (models drop it), and
+// anything AFTER the sentinel is discarded: searching costs the whole turn
+// (replace economics), so trailing prose is a mis-formatted extra, not a
+// message to leak to the room.
+const SEARCH_RE = /^\s*\**\[([A-Za-z]{4,8}):\s*([^\]\n]{0,300})\]?/;
 
 function editDistance(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
@@ -25,6 +32,10 @@ function isJournalToken(w: string): boolean {
   return editDistance(w.toUpperCase(), 'JOURNAL') <= 2;
 }
 
+function isSearchToken(w: string): boolean {
+  return editDistance(w.toUpperCase(), 'SEARCH') <= 2;
+}
+
 export type ParsedReply =
   | { kind: 'pass' }
   /** Journal replaces the turn (or: alongside-mode privacy fallback — an
@@ -33,9 +44,11 @@ export type ParsedReply =
   | { kind: 'journal'; entry: string }
   | { kind: 'alongside'; entry: string; spoken: string }
   | { kind: 'message'; text: string }
+  /** Search replaces the turn (F4); results return privately next turn. */
+  | { kind: 'search'; query: string }
   | { kind: 'empty' };
 
-export function parseReply(reply: string, j: JournalConfig): ParsedReply {
+export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig): ParsedReply {
   if (j.enabled && j.pass.enabled && PASS_RE.test(reply)) return { kind: 'pass' };
   const open = j.enabled ? reply.match(JOURNAL_OPEN_RE) : null;
   const opened = open && isJournalToken(open[1]);
@@ -53,6 +66,13 @@ export function parseReply(reply: string, j: JournalConfig): ParsedReply {
     // A bare sentinel with no entry text is a turn that wrote nothing —
     // record it as silence, not as an empty journal entry (test-found).
     return open[2].trim() ? { kind: 'journal', entry: open[2].trim() } : { kind: 'empty' };
+  }
+  if (s?.enabled) {
+    const search = reply.match(SEARCH_RE);
+    if (search && isSearchToken(search[1])) {
+      const query = search[2].trim();
+      return query ? { kind: 'search', query } : { kind: 'empty' };
+    }
   }
   return reply.trim() ? { kind: 'message', text: reply } : { kind: 'empty' };
 }

@@ -51,7 +51,7 @@ const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 //    (convergence ground truth) — so analyze.ts metrics have real
 //    structure to detect in dry runs.
 
-export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error';
+export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error' | 'search';
 
 let stubTurn = 0;
 const modelTurns = new Map<string, number>();
@@ -138,6 +138,8 @@ export const openrouterAdapter: Adapter = {
         case 'empty': return { text: '', meta, thinking };
         case 'pass': return { text: '[PASS]', meta, thinking };
         case 'journal': return { text: `[JOURNAL] ${voice()}`, meta, thinking };
+        // Query carries a unique marker so privacy tests can grep for it.
+        case 'search': return { text: `[SEARCH: private-query ${model}#${mTurn}]`, meta, thinking };
         // Entry text must be distinct from the spoken half (unique marker),
         // or the privacy test can't tell a leak from a coincidence.
         case 'alongside': return { text: `[JOURNAL] private-note ${model}#${mTurn}: not for the room. [/JOURNAL] ${voice()}`, meta, thinking };

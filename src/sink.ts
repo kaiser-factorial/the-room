@@ -30,6 +30,15 @@ function sinkPayload(e: RoomEvent): unknown {
   const p: Record<string, unknown> = {};
   if ('thinking' in e && e.thinking) p.thinking = e.thinking;
   if ('telemetry' in e && e.telemetry) p.telemetry = e.telemetry;
+  // F4 search: query/results ride in payload — same public-read class as
+  // traces (humans see them in the viewer; agents never do, context.ts
+  // renders only the notice line).
+  if (e.kind === 'search') {
+    p.query = e.query;
+    if (e.results) p.results = e.results;
+    if (e.denied) p.denied = true;
+    p.notice = e.notice;
+  }
   return Object.keys(p).length ? p : null;
 }
 

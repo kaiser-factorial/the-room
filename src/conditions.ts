@@ -21,6 +21,7 @@ export interface ConditionSpec {
   sampling?: Partial<RoomConfig['sampling']>;
   countdown?: RoomConfig['countdown'];
   journal?: Partial<RoomConfig['journal']> & { pass?: RoomConfig['journal']['pass'] };
+  search?: Partial<RoomConfig['search']>;
   rosterDisclosure?: RoomConfig['rosterDisclosure'];
   reasoningEffort?: RoomConfig['reasoningEffort'];
   captureLogprobs?: boolean;
@@ -52,7 +53,12 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     const raw = readFileSync(join(CONDITIONS_DIR, `${conditionName}.json`), 'utf8');
     spec = JSON.parse(raw) as ConditionSpec;
   }
-  const merged: ConditionSpec = { ...spec, ...overrides, journal: { ...spec.journal, ...overrides?.journal } };
+  const merged: ConditionSpec = {
+    ...spec,
+    ...overrides,
+    journal: { ...spec.journal, ...overrides?.journal },
+    search: { ...spec.search, ...overrides?.search },
+  };
 
   const cfg: RoomConfig = {
     ...baseConfig,
@@ -61,6 +67,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     sampling: { ...baseConfig.sampling, ...merged.sampling },
     countdown: merged.countdown ?? baseConfig.countdown,
     journal: { ...baseConfig.journal, ...merged.journal, pass: { ...baseConfig.journal.pass, ...merged.journal?.pass } },
+    search: { ...baseConfig.search, ...merged.search },
     rosterDisclosure: merged.rosterDisclosure ?? baseConfig.rosterDisclosure,
     reasoningEffort: merged.reasoningEffort ?? baseConfig.reasoningEffort,
     captureLogprobs: merged.captureLogprobs ?? baseConfig.captureLogprobs,
@@ -113,6 +120,7 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
     sampling: cfg.sampling,
     countdown: cfg.countdown,
     journal: cfg.journal,
+    search: cfg.search,
     rosterDisclosure: cfg.rosterDisclosure,
     reasoningEffort: cfg.reasoningEffort,
     captureLogprobs: cfg.captureLogprobs,
