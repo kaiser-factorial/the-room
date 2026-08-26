@@ -168,6 +168,69 @@ function meanInter(ms: EmbeddedMsg[], win: [number, number]): number | null {
   return mean(sims);
 }
 
+// ── Permutation null (robustness) ─────────────────────────────────────────
+// Shuffle each agent's ROUND LABELS among its own messages: every agent
+// keeps its exact texts and message count, but temporal structure breaks.
+// Recomputing the gap under many shuffles yields the null distribution —
+// "what gap sizes does this session produce when nothing evolves?" — so
+// the observed gap gets an error band and a p-value instead of standing
+// alone. Seeded PRNG: same session ⇒ same null, always.
+
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const PERMUTATIONS = Number(process.env.ROOM_PERMS) > 0 ? Number(process.env.ROOM_PERMS) : 500;
+
+function gapOf(ms: EmbeddedMsg[], win: Windows): number | null {
+  const iE = meanIntra(ms, win.early), iL = meanIntra(ms, win.late);
+  const eE = meanInter(ms, win.early), eL = meanInter(ms, win.late);
+  return iE !== null && iL !== null && eE !== null && eL !== null ? eL - iL - (eE - iE) : null;
+}
+
+export function permutationNull(ems: EmbeddedMsg[], win: Windows, observed: number | null) {
+  if (observed === null) return null;
+  const rng = mulberry32(0x726f6f6d); // 'room'
+  const byAgent = new Map<string, EmbeddedMsg[]>();
+  for (const m of ems) (byAgent.get(m.agentId) ?? byAgent.set(m.agentId, []).get(m.agentId)!).push(m);
+  const nulls: number[] = [];
+  for (let i = 0; i < PERMUTATIONS; i++) {
+    const permuted: EmbeddedMsg[] = [];
+    for (const ms of byAgent.values()) {
+      const rounds = ms.map((m) => m.round);
+      for (let k = rounds.length - 1; k > 0; k--) {
+        const j = Math.floor(rng() * (k + 1));
+        [rounds[k], rounds[j]] = [rounds[j], rounds[k]];
+      }
+      ms.forEach((m, idx) => permuted.push({ ...m, round: rounds[idx] }));
+    }
+    const g = gapOf(permuted, win);
+    if (g !== null) nulls.push(g);
+  }
+  if (!nulls.length) return null;
+  nulls.sort((a, b) => a - b);
+  const q = (p: number) => nulls[Math.min(nulls.length - 1, Math.floor(p * nulls.length))];
+  // The null is NOT zero-centered (window structure biases the gap even
+  // without temporal order), so the test is positional: two-sided p from
+  // the observed value's percentile in the null, add-one smoothed.
+  const below = nulls.filter((g) => g <= observed).length;
+  const above = nulls.filter((g) => g >= observed).length;
+  return {
+    permutations: nulls.length,
+    mean: round4(nulls.reduce((a, b) => a + b, 0) / nulls.length),
+    lo95: round4(q(0.025)),
+    hi95: round4(q(0.975)),
+    percentile: round4(below / nulls.length),
+    p: round4(Math.min(1, (2 * Math.min(below + 1, above + 1)) / (nulls.length + 1))),
+  };
+}
+
 /** Pairwise late-window agent-centroid similarity — the §3.1 clique view. */
 function pairwiseLate(ms: EmbeddedMsg[], win: [number, number], agents: string[]): Record<string, number> {
   const cents = new Map<string, Vec | null>(
@@ -415,6 +478,7 @@ export async function analyzeSession(dir: string) {
       intraEarly: round4n(intraEarly), intraLate: round4n(intraLate),
       interEarly: round4n(interEarly), interLate: round4n(interLate),
       gap,
+      null: permutationNull(ems, win, gap),
       pairwiseLate: pairwiseLate(ems, win.late, agents),
     },
     styleByAgent: Object.fromEntries(agents.map((a) => {
