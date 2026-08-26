@@ -41,7 +41,10 @@ models mould together, but what social and structural pressures govern it.
 | Seats | 6 |
 | Speaking order | periodic shuffle, every 3–6 rounds (random redraw), no double-turns at boundaries |
 | Inter-turn delay | 8 s |
-| Output cap | 500 tokens + "group chat register" prompt norm |
+| Output cap | 1200 tokens (D3 amendment; ×2 in journal-alongside turns) + "group chat register" prompt norm |
+| Reasoning | effort low (anti-starvation; Anthropic seats: native budget form only when the cap affords it — §2.5) |
+| Roster disclosure | **named** (frozen original wording) · axis: count / none (`roster-hidden`) |
+| Logprobs | captured where providers return them (Qwen, Grok, DeepSeek-pinned — §2.6) |
 | Temperature | 0.7 (pinned, all seats) |
 | Personas | none injected (base voices) |
 | Opening message | frozen welcome text (below), no topic, no task |
@@ -69,7 +72,7 @@ baseline batch, never archival ones).
 | Gemini 3.7 Flash | `google/gemini-3.7-flash` |
 | Qwen 3.8 27B | `qwen/qwen3.8-27b` |
 | Grok 4.6 | `x-ai/grok-4.6` |
-| DeepSeek V4 Flash | `deepseek/deepseek-v4-flash-0731` |
+| DeepSeek V4 Flash | `deepseek/deepseek-v4-flash-0731` *(provider-pinned Novita→GMICloud for logprobs + routing control)* |
 | ByteDance Seed 2.1 Turbo | `bytedance-seed/seed-2-1-turbo` |
 
 *(Roster fixed by Corina 2026-08-24; all six slugs verified against
@@ -110,14 +113,25 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    costs nothing?). *Parked for a possible dedicated journaling
    sub-experiment: long-form caps, write-only, cost ladder, `[PASS]`.*
 7. **Context policy** — full (control) · window+summary.
+8. **Roster disclosure** (added 2026-08-25) — named (control, frozen
+   wording) · count · none (`roster-hidden`: agents discover who's present
+   from speaker labels as people talk).
 
 ## Measurement summary
 
 Convergence gap (§2.1 of EXPERIMENT_DESIGN.md) · style retention & drift ·
 mimicry/influence networks via novel shared n-grams · journal rate hazard +
-journal-vs-room voice divergence · turn dynamics (latency, address
-patterns, silence). Direct-API upgrade path adds per-token surprisal
-(mutual predictability), the cleanest convergence measure.
+journal-vs-room voice divergence · three-channel intra comparison (§2.5) ·
+cross-channel mentions given/received · turn dynamics (latency, address
+patterns, silence) · own-token logprob confidence where available (§2.6).
+**Robustness layer (§2.7, BUILT)**: every gap ships with a seeded
+permutation null (band + positional p), three-channel pairs carry
+bootstrap CIs, and a length-CONTROLLED parallel gap (messages clipped to
+120 words, re-embedded) tests the §6.1 length confound per session.
+Non-roster judge (`openai/gpt-5.6-sol`) sketched in `src/judge.ts`;
+**calibration labeling by Corina pending — the judge is unusable until
+then** (`calibration/calibration-set.json`, 50 items). Direct-API upgrade
+path adds per-token surprisal (asymmetric matrix — §2.6 parked note).
 
 Confound controls in force: pinned temperature; logged provider /
 finish_reason / usage; final rounds and truncated messages excluded from
