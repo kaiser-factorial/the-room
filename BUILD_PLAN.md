@@ -224,10 +224,23 @@ Stub-verified end to end; first real run needs the laptop's `.env`.
 - Longer-session defaults (60–120 min) still gated on the Phase-A length
   pilot, not by fiat; the admin panel's minutes field covers pilots.
 
-**F4. Websearch tool (§3.4b).** Sentinel `[SEARCH: query]`; results
-returned only to the requester; logged + viewer-visible. Ships in two
-condition forms: room-tool axis and journal-gated (`gated` condition for
-Phase B).
+**F4. Websearch tool (§3.4b). — BUILT 2026-08-26**
+- Sentinel `[SEARCH: query]` (typo-tolerant like [JOURNAL], edit distance
+  ≤2; disjoint from journal tokens). Search REPLACES the turn; results
+  return privately at the requester's next turn as a "[Private, for you
+  alone]" block, consumed on the first completed turn. Query/results never
+  enter any other agent's context (journal-class rule, enforced in
+  tests/search.test.ts); the room at most hears "[X looked something up on
+  the web.]" (`search.notice`).
+- Two condition forms as planned: `search-tool` (ungated tool axis) and
+  `gated` (Phase B: a journal entry unlocks one search; credits don't
+  stack; denied attempts are never audible and the requester learns
+  privately).
+- Backend: OpenRouter `web` plugin on `ROOM_SEARCH_MODEL` (default
+  gemini-2.5-flash, non-roster) — reuses the one OPENROUTER_API_KEY, no
+  new secret. Stubbed deterministically under ROOM_STUB.
+- `search` events carry query/results in the sink payload (public-read
+  like traces), export.ts reconstructs them, viewer renders chevron-style.
 
 **F5. Talkie (ZeroGPU Gradio Space + gradio adapter)** with latency
 mitigations: per-turn timeout degrading to "said nothing", optional

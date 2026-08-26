@@ -162,7 +162,7 @@ const CATALOG = [
 // Must match conditions/*.json (redeploy viewer when adding presets).
 // Offline fallback only — the live list comes from conditions.json,
 // generated at deploy time from conditions/*.json.
-const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich'];
+const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'gated'];
 const ADMIN_COLOR = '#e8e6e1';
 
 const supabase = createClient(SUPABASE_URL, ANON_KEY);
@@ -228,6 +228,23 @@ function render(e) {
   } else if (e.kind === 'journal') {
     el.className = 'aside';
     el.textContent = `${e.agent_name} stepped away to write in their journal.`;
+    appendThinking(el, e);
+  } else if (e.kind === 'search') {
+    // F4 websearch. The room at most heard the notice line; humans get the
+    // query + results behind a chevron (same class as thinking traces).
+    el.className = 'aside';
+    el.textContent = e.payload?.denied
+      ? `${e.agent_name} reached for the web, but no results came back.`
+      : `${e.agent_name} looked something up on the web.`;
+    const d = document.createElement('details');
+    d.className = 'thinking';
+    const s = document.createElement('summary');
+    s.textContent = 'search';
+    const body = document.createElement('div');
+    body.className = 'trace';
+    body.textContent = `[${e.payload?.query || ''}]` + (e.payload?.results ? `\n\n${e.payload.results}` : '');
+    d.append(s, body);
+    el.appendChild(d);
     appendThinking(el, e);
   } else if (e.kind === 'system') {
     el.className = 'aside';

@@ -1,0 +1,5 @@
+{
+  "description": "Phase B journaling-incentive arm (§3.4b): house journal, plus websearch unlocked one-for-one by journal entries. If gated journals drift toward chat-voice on the three-channel metric, the perk bought quantity at the cost of interiority — a finding, not a failure.",
+  "journal": { "enabled": true, "notice": true, "mode": "replace", "recall": true },
+  "search": { "enabled": true, "gated": true, "notice": true, "maxResults": 5 }
+}

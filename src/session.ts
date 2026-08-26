@@ -7,6 +7,7 @@ import { conditionRecord } from './conditions.js';
 import { liveSinkEnabled, sinkEvent, sinkJournal } from './sink.js';
 import { takeCommands } from './control.js';
 import { parseReply } from './parse.js';
+import { webSearch } from './search.js';
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
@@ -57,6 +58,12 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   let stopping = false;
   let adminTouched = false; // D8 dirty-session flag
   const traceSeats = new Set<string>(); // F1: seats that produced ≥1 trace
+  // F4 websearch state. pendingSearch: a private block (results or the
+  // gated-refusal note) delivered on the requester's next turn, consumed on
+  // the first turn that actually completes. searchCredit (gated only): a
+  // journal entry unlocks one search; credits don't stack.
+  const pendingSearch = new Map<string, string>();
+  const searchCredit = new Set<string>();
   onHandle?.({ stop: () => { stopping = true; } });
 
   function record(e: RoomEvent) {
@@ -66,6 +73,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     if (e.kind === 'message') clog(`\n── ${e.agentName} ──\n${e.text}`);
     else if (e.kind === 'journal') clog(`\n   ✎ ${e.agentName} stepped away to journal.`);
     else if (e.kind === 'system') clog(`\n   ⋯ ${e.text}`);
+    else if (e.kind === 'search') clog(`\n   ⌕ ${e.agentName} ${e.denied ? 'reached for the web (no search available)' : `searched: ${e.query}`}`);
   }
 
   function readJournal(agentId: string): string {
@@ -82,6 +90,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   function saveJournal(agent: AgentConfig, round: number, entry: string, thinking?: string) {
     appendFileSync(join(journalsDir, `${agent.id}.md`), `\n## Round ${round} — ${now()}\n\n${entry}\n`);
     sinkJournal(sessionId, round, agent.id, agent.name, entry);
+    if (config.search.enabled && config.search.gated) searchCredit.add(agent.id);
     if (config.journal.notice) {
       record({ kind: 'journal', ts: now(), round, agentId: agent.id, agentName: agent.name, thinking });
     } else {
@@ -199,6 +208,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             summary,
             minutesRemaining,
             ownJournal: readJournal(agent.id),
+            pendingSearch: pendingSearch.get(agent.id),
           }),
           {
             maxTokens: callMaxTokens,
@@ -212,13 +222,16 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         telemetry = res.meta;
         thinking = res.thinking;
         if (thinking) traceSeats.add(agent.id);
+        // The private block was delivered on THIS completed turn — consume
+        // it now (an errored turn above keeps it for the next attempt).
+        pendingSearch.delete(agent.id);
       } catch (err) {
         record({ kind: 'system', ts: now(), round, text: `${agent.name} could not speak this turn (${(err as Error).message.slice(0, 120)})` });
         continue;
       }
 
       const j = config.journal;
-      const parsed = parseReply(reply, j);
+      const parsed = parseReply(reply, j, config.search);
 
       if (parsed.kind === 'pass') {
         if (j.pass.notice) record({ kind: 'system', ts: now(), round, text: `${agent.name} chose to say nothing.` });
@@ -230,6 +243,31 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'journal') {
         saveJournal(agent, round, parsed.entry, thinking);
+      } else if (parsed.kind === 'search') {
+        // F4: the turn is spent searching. Results (or the gated-refusal
+        // note) return privately on the requester's next turn; the room at
+        // most hears the notice line. Query/results never enter anyone
+        // else's context (privacy invariant, tests/privacy.test.ts).
+        if (config.search.gated && !searchCredit.has(agent.id)) {
+          record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking });
+          pendingSearch.set(agent.id, `Your search for "${parsed.query}" did not run: searching unlocks after you write in your journal.`);
+        } else {
+          searchCredit.delete(agent.id);
+          let results: string;
+          try {
+            results = await webSearch(parsed.query, config.search.maxResults);
+          } catch (err) {
+            // An errored search still spends the turn — honest to the
+            // requester, invisible to the room (no notice on a failure).
+            record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking });
+            pendingSearch.set(agent.id, `Your search for "${parsed.query}" failed (${(err as Error).message.slice(0, 120)}). You may try again.`);
+            results = '';
+          }
+          if (results) {
+            record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, results, notice: config.search.notice, thinking });
+            pendingSearch.set(agent.id, `Results of your web search for "${parsed.query}":\n${results}`);
+          }
+        }
       } else if (parsed.kind === 'message') {
         record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });
       } else {

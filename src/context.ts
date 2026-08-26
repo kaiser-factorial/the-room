@@ -4,7 +4,17 @@ import { personaText } from './personas.js';
 
 /** Room events an agent can "hear": messages, journal notices, system lines. */
 export function audibleEvents(events: RoomEvent[]): RoomEvent[] {
-  return events.filter((e) => e.kind === 'message' || e.kind === 'journal' || e.kind === 'system');
+  // Search events are audible only as their notice line — and only when the
+  // condition says the room hears searches and the search actually ran
+  // (denied attempts are never audible). Query/results never render (F4
+  // privacy rule, types.ts).
+  return events.filter(
+    (e) =>
+      e.kind === 'message' ||
+      e.kind === 'journal' ||
+      e.kind === 'system' ||
+      (e.kind === 'search' && e.notice && !e.denied),
+  );
 }
 
 /** Rough token estimate (chars/4) — good enough to budget the window;
@@ -17,6 +27,7 @@ function renderEvent(e: RoomEvent): string {
   if (e.kind === 'message') return `${e.agentName}: ${e.text}`;
   if (e.kind === 'journal') return `[${e.agentName} stepped away to write in their journal.]`;
   if (e.kind === 'system') return `[${e.text}]`;
+  if (e.kind === 'search') return `[${e.agentName} looked something up on the web.]`;
   return '';
 }
 
@@ -79,6 +90,26 @@ function journalSection(config: RoomConfig): string {
   return lines.join('\n');
 }
 
+function searchSection(config: RoomConfig): string {
+  const s = config.search;
+  if (!s.enabled) return '';
+  const lines = [
+    ``,
+    `You can also look something up on the web. To search, reply with`,
+    `[SEARCH: your query] — that turn is spent searching, and the results come`,
+    `back to you privately at the start of your next turn. The others never see`,
+    `your query or the results` +
+      (s.notice ? `; they only hear that you looked something up.` : `, and no one is told you searched.`),
+  ];
+  if (s.gated) {
+    lines.push(
+      `Searching is unlocked by writing in your journal: each entry you write`,
+      `allows one search afterwards.`,
+    );
+  }
+  return lines.join('\n');
+}
+
 function countdownSection(config: RoomConfig, minutesRemaining: number): string {
   switch (config.countdown) {
     case 'visible':
@@ -106,8 +137,11 @@ export function buildTurnMessages(opts: {
   summary: string;
   minutesRemaining: number;
   ownJournal: string;
+  /** Private block delivered once: last turn's search results (or the
+   *  gated-refusal note). Rendered for the requester ONLY. */
+  pendingSearch?: string;
 }): ChatMessage[] {
-  const { agent, config, events, summary, minutesRemaining, ownJournal } = opts;
+  const { agent, config, events, summary, minutesRemaining, ownJournal, pendingSearch } = opts;
 
   // Roster disclosure (§3.2c): 'named' keeps the original control wording
   // verbatim (quirk included) so pre-knob sessions stay comparable.
@@ -133,6 +167,7 @@ export function buildTurnMessages(opts: {
     `like a group chat. You are not obligated to be helpful, to summarize, or to`,
     `wrap things up; just be in the conversation.`,
     journalSection(config),
+    searchSection(config),
     config.journal.enabled && config.journal.recall && ownJournal
       ? `\nYour journal so far:\n${ownJournal}`
       : '',
@@ -144,6 +179,9 @@ export function buildTurnMessages(opts: {
     transcriptParts.push(`[Earlier in the room (summary)]\n${summary}\n`);
   }
   transcriptParts.push(slice.map(renderEvent).join('\n\n'));
+  if (pendingSearch) {
+    transcriptParts.push(`\n[Private, for you alone — no one else in the room sees this.]\n${pendingSearch}`);
+  }
   transcriptParts.push(`\n[It is now your turn, ${agent.name}.]`);
 
   return [
