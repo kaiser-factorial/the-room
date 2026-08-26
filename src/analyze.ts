@@ -187,6 +187,24 @@ function mulberry32(seed: number) {
 }
 
 const PERMUTATIONS = Number(process.env.ROOM_PERMS) > 0 ? Number(process.env.ROOM_PERMS) : 500;
+const BOOTSTRAPS = Number(process.env.ROOM_BOOTS) > 0 ? Number(process.env.ROOM_BOOTS) : 500;
+/** Length control: messages clipped to their first N words get their own
+ *  embeddings and a parallel gap — §6.1's length confound tested, not
+ *  footnoted. 120 sits below the observed early-window mean. */
+const CLIP_WORDS = 120;
+
+/** Bootstrap CI for cosine(centroid(A), centroid(B)): resample each side
+ *  with replacement, recompute, take the 2.5/97.5 percentiles. Needs ≥3
+ *  texts per side or the resample is theater. */
+export function centroidCosineCI(a: Vec[], b: Vec[], rng: () => number) {
+  if (a.length < 3 || b.length < 3) return null;
+  const draws: number[] = [];
+  const resample = (vs: Vec[]) => centroid(Array.from({ length: vs.length }, () => vs[Math.floor(rng() * vs.length)]))!;
+  for (let i = 0; i < BOOTSTRAPS; i++) draws.push(cosine(resample(a), resample(b)));
+  draws.sort((x, y) => x - y);
+  const q = (p: number) => draws[Math.min(draws.length - 1, Math.floor(p * draws.length))];
+  return { lo95: round4(q(0.025)), hi95: round4(q(0.975)), n: [a.length, b.length] };
+}
 
 function gapOf(ms: EmbeddedMsg[], win: Windows): number | null {
   const iE = meanIntra(ms, win.early), iL = meanIntra(ms, win.late);
@@ -408,16 +426,19 @@ export async function analyzeSession(dir: string) {
   const s = loadSession(dir);
   const win = windowsOf(s.maxRound);
 
+  const clip = (t: string) => t.split(/\s+/).slice(0, CLIP_WORDS).join(' ');
   const texts = [
     ...s.msgs.map((m) => m.text),
     ...s.journals.map((j) => j.text),
     ...s.msgs.filter((m) => m.thinking).map((m) => m.thinking as string),
+    ...s.msgs.map((m) => clip(m.text)),
   ];
   const vecs = await embedAll(texts, join(dir, 'embeddings-cache.json'));
   let k = 0;
   const ems: EmbeddedMsg[] = s.msgs.map((m) => ({ ...m, vec: vecs[k++] }));
   const jvecs = s.journals.map(() => vecs[k++]);
   for (const m of ems) if (m.thinking) m.thinkVec = vecs[k++];
+  const emsClipped: EmbeddedMsg[] = s.msgs.map((m) => ({ ...m, vec: vecs[k++] }));
 
   const agents = s.agents.map((a) => a.id);
   const intraEarly = meanIntra(ems, win.early), intraLate = meanIntra(ems, win.late);
@@ -443,21 +464,28 @@ export async function analyzeSession(dir: string) {
     };
   });
 
-  // §2.5 three-channel intra comparison
+  // §2.5 three-channel intra comparison — point estimates WITH bootstrap
+  // 95% CIs (resample each channel's texts; a centroid from 5 journal
+  // entries is a noisy object and the CI says how noisy).
+  const bootRng = mulberry32(0x62303074); // 'b00t'
   const threeChannel = agents.map((a) => {
-    const chat = centroid(ems.filter((m) => m.agentId === a && !m.truncated).map((m) => m.vec));
-    const think = centroid(ems.filter((m) => m.agentId === a && m.thinkVec).map((m) => m.thinkVec!));
+    const chatVecs = ems.filter((m) => m.agentId === a && !m.truncated).map((m) => m.vec);
+    const thinkVecs = ems.filter((m) => m.agentId === a && m.thinkVec).map((m) => m.thinkVec!);
     const js = s.journals.filter((j) => j.agentId === a);
-    const jc = centroid(js.map((j) => jvecs[s.journals.indexOf(j)]));
+    const jVecs = js.map((j) => jvecs[s.journals.indexOf(j)]);
+    const chat = centroid(chatVecs), think = centroid(thinkVecs), jc = centroid(jVecs);
     // matched turns: chat vs its own same-turn trace
     const matched = ems.filter((m) => m.agentId === a && m.thinkVec && !m.truncated)
       .map((m) => cosine(m.vec, m.thinkVec!));
     return {
       agentId: a,
       chatVsThinking: chat && think ? round4(cosine(chat, think)) : null,
+      chatVsThinkingCI: centroidCosineCI(chatVecs, thinkVecs, bootRng),
       chatVsThinkingMatched: mean(matched),
       chatVsJournal: chat && jc ? round4(cosine(chat, jc)) : null,
+      chatVsJournalCI: centroidCosineCI(chatVecs, jVecs, bootRng),
       thinkingVsJournal: think && jc ? round4(cosine(think, jc)) : null,
+      thinkingVsJournalCI: centroidCosineCI(thinkVecs, jVecs, bootRng),
       traceTurns: matched.length,
     };
   });
@@ -485,6 +513,18 @@ export async function analyzeSession(dir: string) {
       // is suspect. Read these two before reading the gap.
       meanWordsEarly: mean(ems.filter((m) => inWin(m.round, win.early) && !m.truncated).map((m) => words(m.text).length)),
       meanWordsLate: mean(ems.filter((m) => inWin(m.round, win.late) && !m.truncated).map((m) => words(m.text).length)),
+      // Length CONTROLLED (not just noted): the same gap over embeddings of
+      // messages clipped to their first CLIP_WORDS words. Clipped ≈ raw ⇒
+      // length isn't driving the gap; divergence ⇒ it was.
+      lengthControlled: {
+        clipWords: CLIP_WORDS,
+        intraEarly: round4n(meanIntra(emsClipped, win.early)),
+        intraLate: round4n(meanIntra(emsClipped, win.late)),
+        interEarly: round4n(meanInter(emsClipped, win.early)),
+        interLate: round4n(meanInter(emsClipped, win.late)),
+        gap: round4n(gapOf(emsClipped, win)),
+        null: permutationNull(emsClipped, win, gapOf(emsClipped, win)),
+      },
     },
     styleByAgent: Object.fromEntries(agents.map((a) => {
       const mine = s.msgs.filter((m) => m.agentId === a && !m.truncated);
