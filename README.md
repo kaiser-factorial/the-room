@@ -50,6 +50,28 @@ plugin on `ROOM_SEARCH_MODEL` (default `google/gemini-2.5-flash`) — same
 API key as the room, no extra secret. `ROOM_STUB=1` returns deterministic
 fake results.
 
+## Tools (F4½)
+
+`tools-full` adds a shared filesystem and a python sandbox on top of free
+search; `tools-scarce` is the same bench with ONE tool action per round for
+the whole room (first taker wins, losers are refused privately).
+`[WRITE: name] contents [/WRITE]` creates/overwrites a shared file —
+room-public, shown to every seat each turn, saved under
+`sessions/<id>/shared/` and mirrored. `[RUN] code [/RUN]` executes python
+in a fresh pyodide sandbox (worker thread, `pythonTimeoutSeconds`
+wall-clock cap, no network, reads shared files); code and output are
+private to the caller — sharing a result means writing it to a file. Both
+are alongside-style: text after the closing tag is spoken.
+
+## Grok via direct xAI (full traces)
+
+Set `XAI_API_KEY` and the Grok seat switches from OpenRouter to api.x.ai
+(`adapter: 'xai'`), which returns the model's full `reasoning_content`
+instead of OpenRouter's ~200-char summaries (§2.5 caveat). Keyless
+environments keep the OpenRouter path unchanged. Add the secret to the
+runner Space the same way as the others (`deploy.sh` pushes it when
+present in the env).
+
 ## Design decisions (the four questions)
 
 **How to call each model?** v1 is OpenRouter-only (`src/openrouter.ts`), but

@@ -2,12 +2,14 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { join } from 'node:path';
 import { SUMMARIZER_MODEL } from './config.js';
 import { openrouterAdapter } from './openrouter.js';
+import { adapterFor } from './adapters.js';
 import { audibleEvents, buildSummaryPrompt, buildTurnMessages, contextSlice } from './context.js';
 import { conditionRecord } from './conditions.js';
 import { liveSinkEnabled, sinkEvent, sinkJournal } from './sink.js';
 import { takeCommands } from './control.js';
 import { parseReply } from './parse.js';
 import { webSearch } from './search.js';
+import { runPython } from './sandbox.js';
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
@@ -58,12 +60,20 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   let stopping = false;
   let adminTouched = false; // D8 dirty-session flag
   const traceSeats = new Set<string>(); // F1: seats that produced ≥1 trace
-  // F4 websearch state. pendingSearch: a private block (results or the
-  // gated-refusal note) delivered on the requester's next turn, consumed on
-  // the first turn that actually completes. searchCredit (gated only): a
-  // journal entry unlocks one search; credits don't stack.
-  const pendingSearch = new Map<string, string>();
+  // F4/F4½ tool state. pendingPrivate: a private block (search results,
+  // python output, or a refusal note) delivered on the caller's next turn,
+  // consumed on the first turn that actually completes. searchCredit
+  // (gated only): a journal entry unlocks one search; credits don't stack.
+  // sharedFiles: the room's shared filesystem (public, mirrored to
+  // sessions/<id>/shared/). roomToolRound: the round whose single per-room
+  // tool action has been taken (tools.budget === 'per-room').
+  const pendingPrivate = new Map<string, string>();
   const searchCredit = new Set<string>();
+  const sharedFiles = new Map<string, string>();
+  let roomToolRound = 0;
+  const FILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+  const MAX_FILE_CHARS = 16_000;
+  const MAX_FILES = 20;
   onHandle?.({ stop: () => { stopping = true; } });
 
   function record(e: RoomEvent) {
@@ -74,6 +84,8 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     else if (e.kind === 'journal') clog(`\n   ✎ ${e.agentName} stepped away to journal.`);
     else if (e.kind === 'system') clog(`\n   ⋯ ${e.text}`);
     else if (e.kind === 'search') clog(`\n   ⌕ ${e.agentName} ${e.denied ? 'reached for the web (no search available)' : `searched: ${e.query}`}`);
+    else if (e.kind === 'file') clog(`\n   ▤ ${e.agentName} ${e.denied ? `write denied (${e.name})` : `wrote shared file: ${e.name}`}`);
+    else if (e.kind === 'run') clog(`\n   ▶ ${e.agentName} ${e.denied ? 'run denied' : 'ran code'}`);
   }
 
   function readJournal(agentId: string): string {
@@ -199,7 +211,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       let telemetry;
       let thinking: string | undefined;
       try {
-        const res = await openrouterAdapter.send(
+        const res = await adapterFor(agent).send(
           agent.model,
           buildTurnMessages({
             agent,
@@ -208,7 +220,8 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             summary,
             minutesRemaining,
             ownJournal: readJournal(agent.id),
-            pendingSearch: pendingSearch.get(agent.id),
+            privateBlock: pendingPrivate.get(agent.id),
+            sharedFiles: [...sharedFiles].map(([name, content]) => ({ name, content })),
           }),
           {
             maxTokens: callMaxTokens,
@@ -224,14 +237,22 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         if (thinking) traceSeats.add(agent.id);
         // The private block was delivered on THIS completed turn — consume
         // it now (an errored turn above keeps it for the next attempt).
-        pendingSearch.delete(agent.id);
+        pendingPrivate.delete(agent.id);
       } catch (err) {
         record({ kind: 'system', ts: now(), round, text: `${agent.name} could not speak this turn (${(err as Error).message.slice(0, 120)})` });
         continue;
       }
 
       const j = config.journal;
-      const parsed = parseReply(reply, j, config.search);
+      const parsed = parseReply(reply, j, config.search, config.tools);
+
+      // Per-room tool budget (F4½): one tool action per round for the whole
+      // room, across search/write/run. A losing attempt is denied privately
+      // and inaudibly; any spoken half of the turn still lands.
+      const roomBudgetSpent = config.tools.budget === 'per-room' && roomToolRound === round;
+      // Only an action that actually RUNS consumes the round's budget — a
+      // gated refusal or an invalid write doesn't waste the room's one slot.
+      const spendRoomBudget = () => { if (config.tools.budget === 'per-room') roomToolRound = round; };
 
       if (parsed.kind === 'pass') {
         if (j.pass.notice) record({ kind: 'system', ts: now(), round, text: `${agent.name} chose to say nothing.` });
@@ -252,11 +273,15 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         // invariant, tests/search.test.ts). One turn, one trace: attach it
         // to the spoken message when there is one, else the search event.
         const searchThinking = parsed.spoken ? undefined : thinking;
-        if (config.search.gated && !searchCredit.has(agent.id)) {
+        if (roomBudgetSpent) {
           record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking: searchThinking });
-          pendingSearch.set(agent.id, `Your search for "${parsed.query}" did not run: searching unlocks after you write in your journal.`);
+          pendingPrivate.set(agent.id, `Your search for "${parsed.query}" did not run: the room's one tool action for this round was already taken.`);
+        } else if (config.search.gated && !searchCredit.has(agent.id)) {
+          record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking: searchThinking });
+          pendingPrivate.set(agent.id, `Your search for "${parsed.query}" did not run: searching unlocks after you write in your journal.`);
         } else {
           searchCredit.delete(agent.id);
+          spendRoomBudget();
           let results: string;
           try {
             results = await webSearch(parsed.query, config.search.maxResults);
@@ -264,13 +289,52 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             // An errored search is invisible to the room (no notice on a
             // failure) but honest to the requester.
             record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking: searchThinking });
-            pendingSearch.set(agent.id, `Your search for "${parsed.query}" failed (${(err as Error).message.slice(0, 120)}). You may try again.`);
+            pendingPrivate.set(agent.id, `Your search for "${parsed.query}" failed (${(err as Error).message.slice(0, 120)}). You may try again.`);
             results = '';
           }
           if (results) {
             record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, results, notice: config.search.notice, thinking: searchThinking });
-            pendingSearch.set(agent.id, `Results of your web search for "${parsed.query}":\n${results}`);
+            pendingPrivate.set(agent.id, `Results of your web search for "${parsed.query}":\n${results}`);
           }
+        }
+        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+      } else if (parsed.kind === 'write') {
+        // F4½ shared-file write: contents are room-public; the transcript
+        // carries only the notice line, everyone reads the file itself.
+        const toolThinking = parsed.spoken ? undefined : thinking;
+        const invalid = !FILE_NAME_RE.test(parsed.name)
+          ? `"${parsed.name}" is not a valid file name (letters, digits, ., _, -; max 64 chars).`
+          : parsed.content.length > MAX_FILE_CHARS
+            ? `the contents exceed the ${MAX_FILE_CHARS}-character file limit.`
+            : !sharedFiles.has(parsed.name) && sharedFiles.size >= MAX_FILES
+              ? `the room already holds ${MAX_FILES} shared files.`
+              : roomBudgetSpent
+                ? `the room's one tool action for this round was already taken.`
+                : null;
+        if (invalid) {
+          record({ kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name: parsed.name.slice(0, 80), content: '', denied: true, notice: config.tools.notice, thinking: toolThinking });
+          pendingPrivate.set(agent.id, `Your write to "${parsed.name.slice(0, 80)}" did not happen: ${invalid}`);
+        } else {
+          spendRoomBudget();
+          sharedFiles.set(parsed.name, parsed.content);
+          const sharedDir = join(sessionDir, 'shared');
+          mkdirSync(sharedDir, { recursive: true });
+          writeFileSync(join(sharedDir, parsed.name), parsed.content);
+          record({ kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name: parsed.name, content: parsed.content, notice: config.tools.notice, thinking: toolThinking });
+        }
+        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+      } else if (parsed.kind === 'run') {
+        // F4½ python: code + output private to the caller (journal-class);
+        // output returns like search results, in the next private block.
+        const toolThinking = parsed.spoken ? undefined : thinking;
+        if (roomBudgetSpent) {
+          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, denied: true, notice: config.tools.notice, thinking: toolThinking });
+          pendingPrivate.set(agent.id, `Your code did not run: the room's one tool action for this round was already taken.`);
+        } else {
+          spendRoomBudget();
+          const output = await runPython(parsed.code, Object.fromEntries(sharedFiles), config.tools.pythonTimeoutSeconds);
+          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output, notice: config.tools.notice, thinking: toolThinking });
+          pendingPrivate.set(agent.id, `Output of the code you ran:\n${output}`);
         }
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'message') {

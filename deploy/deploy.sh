@@ -70,7 +70,7 @@ Session JSONL here is ephemeral — Supabase is the durable record for
 hosted sessions.
 EOF
   SECRET_ARGS=()
-  for key in OPENROUTER_API_KEY SUPABASE_URL SUPABASE_SERVICE_KEY; do
+  for key in OPENROUTER_API_KEY SUPABASE_URL SUPABASE_SERVICE_KEY XAI_API_KEY; do
     if [[ -n "${!key:-}" ]]; then SECRET_ARGS+=(--secrets "$key=${!key}"); else echo "   NOTE: $key not in env — set it later with: hf spaces secrets add $NS/the-room-runner $key=..."; fi
   done
   hf repos create "$NS/the-room-runner" --type space --space-sdk docker --private --exist-ok "${SECRET_ARGS[@]}"

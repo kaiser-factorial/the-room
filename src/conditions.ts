@@ -22,6 +22,7 @@ export interface ConditionSpec {
   countdown?: RoomConfig['countdown'];
   journal?: Partial<RoomConfig['journal']> & { pass?: RoomConfig['journal']['pass'] };
   search?: Partial<RoomConfig['search']>;
+  tools?: Partial<RoomConfig['tools']>;
   rosterDisclosure?: RoomConfig['rosterDisclosure'];
   reasoningEffort?: RoomConfig['reasoningEffort'];
   captureLogprobs?: boolean;
@@ -58,6 +59,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     ...overrides,
     journal: { ...spec.journal, ...overrides?.journal },
     search: { ...spec.search, ...overrides?.search },
+    tools: { ...spec.tools, ...overrides?.tools },
   };
 
   const cfg: RoomConfig = {
@@ -68,6 +70,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     countdown: merged.countdown ?? baseConfig.countdown,
     journal: { ...baseConfig.journal, ...merged.journal, pass: { ...baseConfig.journal.pass, ...merged.journal?.pass } },
     search: { ...baseConfig.search, ...merged.search },
+    tools: { ...baseConfig.tools, ...merged.tools },
     rosterDisclosure: merged.rosterDisclosure ?? baseConfig.rosterDisclosure,
     reasoningEffort: merged.reasoningEffort ?? baseConfig.reasoningEffort,
     captureLogprobs: merged.captureLogprobs ?? baseConfig.captureLogprobs,
@@ -111,6 +114,7 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
     agents: cfg.agents.map((a) => ({
       id: a.id,
       model: a.model,
+      adapter: a.adapter,
       personaId: a.personaId ?? 'base',
       personaText: personaText(a.personaId),
       providerOrder: a.providerOrder ?? null,
@@ -121,6 +125,7 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
     countdown: cfg.countdown,
     journal: cfg.journal,
     search: cfg.search,
+    tools: cfg.tools,
     rosterDisclosure: cfg.rosterDisclosure,
     reasoningEffort: cfg.reasoningEffort,
     captureLogprobs: cfg.captureLogprobs,

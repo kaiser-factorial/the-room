@@ -1,0 +1,5 @@
+{
+  "description": "F4½ full tool bench: zero-cost websearch (alongside), a shared filesystem everyone reads ([WRITE: name]…[/WRITE], room-public), and a private pyodide python sandbox ([RUN]…[/RUN], output caller-private). One tool action per seat per turn; journal off, as in control.",
+  "search": { "enabled": true, "mode": "alongside", "gated": false, "notice": true, "maxResults": 5 },
+  "tools": { "files": true, "python": true, "budget": "per-seat", "notice": true, "pythonTimeoutSeconds": 10 }
+}

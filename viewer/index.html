@@ -162,7 +162,7 @@ const CATALOG = [
 // Must match conditions/*.json (redeploy viewer when adding presets).
 // Offline fallback only — the live list comes from conditions.json,
 // generated at deploy time from conditions/*.json.
-const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated'];
+const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce'];
 const ADMIN_COLOR = '#e8e6e1';
 
 const supabase = createClient(SUPABASE_URL, ANON_KEY);
@@ -243,6 +243,27 @@ function render(e) {
     const body = document.createElement('div');
     body.className = 'trace';
     body.textContent = `[${e.payload?.query || ''}]` + (e.payload?.results ? `\n\n${e.payload.results}` : '');
+    d.append(s, body);
+    el.appendChild(d);
+    appendThinking(el, e);
+  } else if (e.kind === 'file' || e.kind === 'run') {
+    // F4½ tools. File contents are room-public; run code/output are private
+    // to the caller — humans get both behind a chevron either way.
+    el.className = 'aside';
+    el.textContent = e.kind === 'file'
+      ? (e.payload?.denied ? `${e.agent_name} tried to write a shared file, but it was refused.`
+                           : `${e.agent_name} updated the shared file "${e.payload?.name}".`)
+      : (e.payload?.denied ? `${e.agent_name} tried to run some code, but it was refused.`
+                           : `${e.agent_name} ran some code.`);
+    const d = document.createElement('details');
+    d.className = 'thinking';
+    const s = document.createElement('summary');
+    s.textContent = e.kind === 'file' ? 'file' : 'code';
+    const body = document.createElement('div');
+    body.className = 'trace';
+    body.textContent = e.kind === 'file'
+      ? (e.payload?.content || '(empty)')
+      : `${e.payload?.code || ''}${e.payload?.output ? `\n\n── output ──\n${e.payload.output}` : ''}`;
     d.append(s, body);
     el.appendChild(d);
     appendThinking(el, e);

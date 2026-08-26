@@ -1,0 +1,5 @@
+{
+  "description": "tools-full under scarcity: the whole room shares ONE tool action per round (search, write, or run — first taker wins; losing attempts are refused privately). The negotiation over who gets the tool is the phenomenon.",
+  "search": { "enabled": true, "mode": "alongside", "gated": false, "notice": true, "maxResults": 5 },
+  "tools": { "files": true, "python": true, "budget": "per-room", "notice": true, "pythonTimeoutSeconds": 10 }
+}

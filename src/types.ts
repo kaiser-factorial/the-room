@@ -5,8 +5,10 @@ export interface AgentConfig {
   name: string;
   /** OpenRouter model id (or harness-specific id once adapters exist). */
   model: string;
-  /** Which provider adapter to use. v1 ships "openrouter" only. */
-  adapter: 'openrouter';
+  /** Which provider adapter to use. 'xai' = direct xAI API (full Grok
+   *  reasoning traces vs. OpenRouter's ~200-char summaries — §2.5); the
+   *  grok seat flips to it when XAI_API_KEY is set (config.ts). */
+  adapter: 'openrouter' | 'xai';
   /** Per-seat OpenRouter provider pinning — overrides sampling.providerOrder
    *  for this seat only. Routing-drift control (§6.1) and the logprobs
    *  unlock (§2.6): the same slug returns logprobs on some providers and
@@ -61,6 +63,31 @@ export interface SearchConfig {
   maxResults: number;
 }
 
+/** F4½ tools (rooms-that-build; BUILD_PLAN parked spec, Corina 2026-08-26).
+ *  Shared filesystem: [WRITE: name]…[/WRITE] — contents are ROOM-PUBLIC by
+ *  design (the first shared artifact surface; every agent sees all shared
+ *  files each turn). Python: [RUN]…[/RUN] — pyodide sandbox, fresh
+ *  interpreter per run (a shared interpreter would leak state across
+ *  agents); code and stdout/stderr are PRIVATE to the caller
+ *  (journal-class), publishing happens via shared files. Both are
+ *  alongside-style: text after the closing tag is spoken as usual. */
+export interface ToolsConfig {
+  /** Shared filesystem writes. */
+  files: boolean;
+  /** Pyodide python sandbox. */
+  python: boolean;
+  /** 'per-seat' = each seat may take one tool action per turn (the parser
+   *  yields at most one anyway); 'per-room' = ONE tool action per round
+   *  for the whole room — scarcity forces the room to negotiate who gets
+   *  the tool, and the negotiation is the phenomenon. Search counts as a
+   *  tool action under the per-room budget when search is enabled. */
+  budget: 'per-seat' | 'per-room';
+  /** Room hears "[X updated the shared file …]" / "[X ran some code.]". */
+  notice: boolean;
+  /** Wall-clock cap per python run; the worker is terminated past it. */
+  pythonTimeoutSeconds: number;
+}
+
 export interface SamplingConfig {
   temperature: number;
   topP?: number;
@@ -92,6 +119,7 @@ export interface RoomConfig {
   countdown: 'hidden' | 'told-once' | 'visible';
   journal: JournalConfig;
   search: SearchConfig;
+  tools: ToolsConfig;
   /** Who the prompt says is in the room (Corina 2026-08-25). 'named' =
    *  full roster with names+versions (the original control wording,
    *  including its "others: X (you)" quirk — frozen for comparability);
@@ -166,6 +194,14 @@ export type RoomEvent =
    *  denied = gated search attempted without a journal credit (never
    *  audible; the requester learns privately on their next turn). */
   | { kind: 'search'; ts: string; round: number; agentId: string; agentName: string; query: string; results?: string; denied?: boolean; notice: boolean; thinking?: string }
+  /** F4½ shared-file write. `content` is room-public (rendered into every
+   *  agent's shared-files block, viewer-visible); the transcript line the
+   *  room hears is only the notice. denied = budget/invalid-name refusal
+   *  (inaudible; the writer learns privately). */
+  | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; denied?: boolean; notice: boolean; thinking?: string }
+  /** F4½ python run. `code`/`output` are caller-private (journal-class) —
+   *  never rendered into any context except the caller's private block. */
+  | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; denied?: boolean; notice: boolean; thinking?: string }
   | { kind: 'order'; ts: string; round: number; order: string[] }
   | { kind: 'summary'; ts: string; round: number; text: string }
   | { kind: 'meta'; ts: string; round: number; payload: SessionMeta }

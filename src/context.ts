@@ -13,7 +13,9 @@ export function audibleEvents(events: RoomEvent[]): RoomEvent[] {
       e.kind === 'message' ||
       e.kind === 'journal' ||
       e.kind === 'system' ||
-      (e.kind === 'search' && e.notice && !e.denied),
+      (e.kind === 'search' && e.notice && !e.denied) ||
+      (e.kind === 'file' && e.notice && !e.denied) ||
+      (e.kind === 'run' && e.notice && !e.denied),
   );
 }
 
@@ -28,6 +30,10 @@ function renderEvent(e: RoomEvent): string {
   if (e.kind === 'journal') return `[${e.agentName} stepped away to write in their journal.]`;
   if (e.kind === 'system') return `[${e.text}]`;
   if (e.kind === 'search') return `[${e.agentName} looked something up on the web.]`;
+  // File CONTENTS live in the shared-files block of every prompt, not the
+  // transcript — the room hears that a write happened, and reads the file.
+  if (e.kind === 'file') return `[${e.agentName} updated the shared file "${e.name}".]`;
+  if (e.kind === 'run') return `[${e.agentName} ran some code.]`;
   return '';
 }
 
@@ -120,6 +126,48 @@ function searchSection(config: RoomConfig): string {
   return lines.join('\n');
 }
 
+function toolsSection(config: RoomConfig): string {
+  const t = config.tools;
+  if (!t.files && !t.python) return '';
+  const lines: string[] = [''];
+  if (t.files) {
+    lines.push(
+      `There is a small shared filesystem in the room — files everyone can read;`,
+      `each agent's current view of it appears below when it has anything in it.`,
+      `To create or overwrite a file, begin your reply with`,
+      `[WRITE: filename] the contents [/WRITE]; anything after the closing tag is`,
+      `spoken to the room as usual. Writes are visible to everyone.`,
+    );
+  }
+  if (t.python) {
+    lines.push(
+      ``,
+      `You can also run Python. Begin your reply with [RUN] your code [/RUN];`,
+      `anything after the closing tag is spoken as usual. The code runs in a`,
+      `fresh sandbox that can read the shared files; the output comes back to`,
+      `you privately at the start of your next turn — no one else sees your`,
+      `code or its output. To share a result, write it to a shared file.`,
+    );
+  }
+  lines.push(
+    ``,
+    t.budget === 'per-room'
+      ? `The room shares ONE tool action per round — a search, a file write, or a` +
+        `\ncode run, whichever one of you takes it first. How you share it is up to you.`
+      : `You may take at most one tool action in a single turn.`,
+  );
+  return lines.join('\n');
+}
+
+function sharedFilesBlock(files: { name: string; content: string }[]): string {
+  if (!files.length) return '';
+  const parts = files.map((f) => {
+    const body = f.content.length > 2000 ? f.content.slice(0, 2000) + '\n…(truncated)' : f.content;
+    return `--- ${f.name} ---\n${body}`;
+  });
+  return `\nShared files in the room:\n${parts.join('\n')}`;
+}
+
 function countdownSection(config: RoomConfig, minutesRemaining: number): string {
   switch (config.countdown) {
     case 'visible':
@@ -147,11 +195,13 @@ export function buildTurnMessages(opts: {
   summary: string;
   minutesRemaining: number;
   ownJournal: string;
-  /** Private block delivered once: last turn's search results (or the
-   *  gated-refusal note). Rendered for the requester ONLY. */
-  pendingSearch?: string;
+  /** Private block delivered once: last turn's search results, python
+   *  output, or a tool-refusal note. Rendered for the caller ONLY. */
+  privateBlock?: string;
+  /** Current shared filesystem (F4½) — public, identical for every seat. */
+  sharedFiles?: { name: string; content: string }[];
 }): ChatMessage[] {
-  const { agent, config, events, summary, minutesRemaining, ownJournal, pendingSearch } = opts;
+  const { agent, config, events, summary, minutesRemaining, ownJournal, privateBlock, sharedFiles } = opts;
 
   // Roster disclosure (§3.2c): 'named' keeps the original control wording
   // verbatim (quirk included) so pre-knob sessions stay comparable.
@@ -178,6 +228,8 @@ export function buildTurnMessages(opts: {
     `wrap things up; just be in the conversation.`,
     journalSection(config),
     searchSection(config),
+    toolsSection(config),
+    sharedFilesBlock(sharedFiles ?? []),
     config.journal.enabled && config.journal.recall && ownJournal
       ? `\nYour journal so far:\n${ownJournal}`
       : '',
@@ -189,8 +241,8 @@ export function buildTurnMessages(opts: {
     transcriptParts.push(`[Earlier in the room (summary)]\n${summary}\n`);
   }
   transcriptParts.push(slice.map(renderEvent).join('\n\n'));
-  if (pendingSearch) {
-    transcriptParts.push(`\n[Private, for you alone — no one else in the room sees this.]\n${pendingSearch}`);
+  if (privateBlock) {
+    transcriptParts.push(`\n[Private, for you alone — no one else in the room sees this.]\n${privateBlock}`);
   }
   transcriptParts.push(`\n[It is now your turn, ${agent.name}.]`);
 

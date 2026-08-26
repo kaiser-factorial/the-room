@@ -308,6 +308,17 @@ Open reminders:
 Recorded here so they're in the build queue's peripheral vision; neither
 jumps F1–F6, and both gate on F2 like everything else.
 
+- **F4½ — BUILT 2026-08-26** (same day it was sharpened; moved out of
+  parked). `tools-full` / `tools-scarce` conditions: shared filesystem
+  (`[WRITE: name]…[/WRITE]`, room-public, mirrored to sessions/<id>/shared/
+  and the mirror), pyodide python (`[RUN]…[/RUN]`, fresh interpreter per
+  run in a worker thread, wall-clock timeout, reads shared files, output
+  caller-private — publish via [WRITE]), tool budget knob per-seat vs
+  per-ROOM per round (a refused action never spends the room's slot).
+  Also same day: **xAI direct adapter** (`adapter: 'xai'`, api.x.ai) — the
+  Grok seat flips to it when XAI_API_KEY is set, restoring FULL reasoning
+  traces vs. OpenRouter's ~200-char summaries (§2.5 caveat).
+  Original parked spec kept below for the record:
 - **F4½. Sandbox tools (rooms-that-build).** Sandboxed Python/HTML
   playground (port from joint-session), artifacts shared into room
   context, tool traces private (journal-class rule). Rides F4's sentinel/
