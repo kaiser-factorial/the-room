@@ -480,6 +480,11 @@ export async function analyzeSession(dir: string) {
       gap,
       null: permutationNull(ems, win, gap),
       pairwiseLate: pairwiseLate(ems, win.late, agents),
+      // §6.1 length confound, made visible: longer texts regress toward
+      // the topic centroid, so similarity rising alongside rising length
+      // is suspect. Read these two before reading the gap.
+      meanWordsEarly: mean(ems.filter((m) => inWin(m.round, win.early) && !m.truncated).map((m) => words(m.text).length)),
+      meanWordsLate: mean(ems.filter((m) => inWin(m.round, win.late) && !m.truncated).map((m) => words(m.text).length)),
     },
     styleByAgent: Object.fromEntries(agents.map((a) => {
       const mine = s.msgs.filter((m) => m.agentId === a && !m.truncated);
@@ -555,16 +560,17 @@ async function analyzeBatch(manifestPath: string) {
     `${results.length} sessions · cross-session baseline (inter, agents who never met):`,
     `early ${fmt(baseline.early)} · late ${fmt(baseline.late)}`,
     '',
-    '| session | condition | rounds | msgs (trunc) | journals | gap | interLate | vs baseline |',
-    '|---|---|---|---|---|---|---|---|',
+    '| session | condition | rounds | msgs (trunc) | journals | gap | null 95% | p | interLate | vs baseline |',
+    '|---|---|---|---|---|---|---|---|---|---|',
   ];
   for (const { report } of results) {
     const c = report.convergence;
     const beat = c.interLate !== null && baseline.late !== null ? fmt(c.interLate - baseline.late) : '—';
+    const nullBand = c.null ? `[${c.null.lo95}, ${c.null.hi95}]` : '—';
     lines.push(
       `| ${report.sessionId} | ${report.condition}${report.adminTouched ? ' ⚠dirty' : ''} | ${report.rounds}` +
       ` | ${report.counts.messages} (${report.counts.truncated}) | ${report.counts.journals}` +
-      ` | ${fmt(c.gap)} | ${fmt(c.interLate)} | ${beat} |`,
+      ` | ${fmt(c.gap)} | ${nullBand} | ${c.null ? c.null.p : '—'} | ${fmt(c.interLate)} | ${beat} |`,
     );
   }
   lines.push('', 'gap = (interLate − intraLate) − (interEarly − intraEarly). Positive = the room moved toward one voice beyond what the shared prompt induces. "vs baseline" > 0 means within-session convergence beats agents who never met (the genre control). Per-agent details: each session\'s metrics.json.');
