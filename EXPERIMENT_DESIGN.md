@@ -141,6 +141,16 @@ Caveats to log per session:
 - **Effort knob**: reasoning effort low (the anti-starvation default)
   yields thin traces. A trace-rich condition wants medium effort + a
   bigger cap — that's a condition parameter, not a global.
+- **Grok's traces are TEASERS, not reasoning (measured 2026-08-26,
+  mirror check on session 08-24-42)**: every Grok trace caps at ~200
+  chars ending in a literal `...`, finish=stop — xAI exposes only a
+  truncated reasoning *summary* via OpenRouter, and the snippets are
+  formulaic restatements of the system prompt ("keep it conversational,
+  like a group chat…"). Treat Grok's thinking channel as summary-class:
+  its chat~thinking similarity (the 0.72 pilot outlier) is partly an
+  artifact of comparing chat against boilerplate, not evidence about its
+  interior register. Flag `grok` in three-channel outputs; a real fix
+  needs a direct xAI-API adapter, not an OpenRouter knob.
 
 Viewer: traces render behind an expandable chevron per message; like
 journals, they are NEVER in any other agent's context (and, unlike
@@ -363,6 +373,14 @@ turn; results return only to the requesting agent, privately at their next
 turn; search events are logged and viewer-visible (chevron-style), the room
 at most hears a notice line. Gated form: a journal entry unlocks one
 search; credits don't stack; denied attempts are private and inaudible.
+
+**Cost axis (Corina 2026-08-26, from watching live rooms)**: the turn
+price visibly suppresses use — they clearly want to talk, and a tool that
+silences you for a round is a tool you don't reach for. So search ships in
+both economics, mirroring the journal's: `search-tool` (replace — costs
+the turn) and `search-free` (alongside — `[SEARCH: query]` on the first
+line, normal speech after it). Usage-rate delta between the two is itself
+a measurement (price elasticity of the room's curiosity).
 
 ### 3.5 Countdown visibility
 

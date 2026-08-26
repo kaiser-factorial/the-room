@@ -41,8 +41,11 @@ Conditions with `search.enabled` give every seat `[SEARCH: query]` — the
 turn is spent searching, results come back privately at the requester's
 next turn, and the room at most hears the notice line (query/results are
 journal-class private; the viewer shows them behind a chevron). Presets:
-`search-tool` (ungated tool axis) and `gated` (Phase B: each journal entry
-unlocks one search; credits don't stack). Backend: OpenRouter's `web`
+`search-tool` (ungated, search costs the turn), `search-free` (ungated,
+`mode: alongside` — the sentinel line is followed by a normal spoken
+message, so searching costs nothing conversationally), and `gated`
+(Phase B: each journal entry unlocks one search; credits don't stack).
+Backend: OpenRouter's `web`
 plugin on `ROOM_SEARCH_MODEL` (default `google/gemini-2.5-flash`) — same
 API key as the room, no extra secret. `ROOM_STUB=1` returns deterministic
 fake results.

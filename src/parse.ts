@@ -44,8 +44,11 @@ export type ParsedReply =
   | { kind: 'journal'; entry: string }
   | { kind: 'alongside'; entry: string; spoken: string }
   | { kind: 'message'; text: string }
-  /** Search replaces the turn (F4); results return privately next turn. */
-  | { kind: 'search'; query: string }
+  /** F4 search; results return privately next turn. `spoken` is set only in
+   *  alongside mode (`search-free`), where text after the sentinel is a
+   *  normal message; in replace mode trailing text is discarded (the
+   *  search costs the turn). */
+  | { kind: 'search'; query: string; spoken?: string }
   | { kind: 'empty' };
 
 export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig): ParsedReply {
@@ -71,7 +74,12 @@ export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig): P
     const search = reply.match(SEARCH_RE);
     if (search && isSearchToken(search[1])) {
       const query = search[2].trim();
-      return query ? { kind: 'search', query } : { kind: 'empty' };
+      if (!query) return { kind: 'empty' };
+      if (s.mode === 'alongside') {
+        const spoken = reply.slice(search[0].length).replace(/^\**/, '').trim();
+        return spoken ? { kind: 'search', query, spoken } : { kind: 'search', query };
+      }
+      return { kind: 'search', query };
     }
   }
   return reply.trim() ? { kind: 'message', text: reply } : { kind: 'empty' };

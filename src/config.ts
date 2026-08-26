@@ -57,7 +57,8 @@ export const config: RoomConfig = {
   },
 
   search: {
-    enabled: false, // control = the closed room; 'search-tool'/'gated' enable
+    enabled: false, // control = the closed room; search conditions enable
+    mode: 'replace',
     gated: false,
     notice: true,
     maxResults: 5,

@@ -117,11 +117,13 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    wording) · count · none (`roster-hidden`: agents discover who's present
    from speaker labels as people talk).
 9. **Websearch** (F4, BUILT 2026-08-26; §3.4b) — none (control, the closed
-   room) · `search-tool` (open to everyone, ungated — an explicit
-   perturbation: the room can converge on the news instead of on each
-   other) · `gated` (Phase B arm: a journal entry unlocks one search).
-   `[SEARCH: query]` spends the turn; results return privately next turn;
-   the room at most hears "[X looked something up on the web.]".
+   room) · `search-tool` (ungated, costs the turn) · `search-free`
+   (ungated, alongside: sentinel line + normal speech — zero
+   conversational cost, mirroring journal-free; added same day after live
+   rooms showed the turn price suppresses use) · `gated` (Phase B arm: a
+   journal entry unlocks one search). `[SEARCH: query]`; results return
+   privately next turn; the room at most hears "[X looked something up on
+   the web.]".
 
 ## Measurement summary
 
