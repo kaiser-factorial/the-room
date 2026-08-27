@@ -43,9 +43,11 @@ social and structural pressures govern it.
 | Seats | 6 |
 | Speaking order | periodic shuffle, every 3–6 rounds (random redraw), no double-turns at boundaries |
 | Inter-turn delay | 8 s |
-| Output cap | 1200 tokens (D3 amendment; ×2 in journal-alongside turns) + "group chat register" prompt norm |
-| Reasoning | effort low (anti-starvation; Anthropic seats: native budget form only when the cap affords it — §2.5) |
+| Output cap | 1200 **visible** tokens (D3 amendment; ×2 in journal-alongside turns) + "group chat register" prompt norm. Reasoning gets its own allowance ON TOP (1024/2048/4096 by effort) since 2026-08-27 — before that the two shared one cap and replies were clipped (§9.5b) |
+| Reasoning | effort low (anti-starvation). Anthropic seats get the native budget form at every cap now that the allowance is additive; effort is the cost lever (§2.5, §9.5b) |
 | Roster disclosure | **named** (frozen original wording) · axis: count / none (`roster-hidden`) |
+| Self-disclosure | **anonymous** since 2026-08-27 — the room does not tell a seat its own name (the named roster renders complete and unmarked) · axis: `named`, every session before that date |
+| Transcript | **turns** since 2026-08-27 — a seat's own messages are its own assistant turns, everyone else's are user-role and labelled · axis: `environment`, every session before that date |
 | Logprobs | captured where providers return them (Qwen, Grok, DeepSeek-pinned — §2.6) |
 | Temperature | 0.7 (pinned, all seats) |
 | Personas | none injected (base voices) |

@@ -2,20 +2,25 @@
 
 Multi-agent room experiment: 6 different AI models locked in a task-free,
 facilitator-free group conversation; we measure linguistic drift/moulding.
-Everything below is true as of **2026-08-27** (end of the third build
-session — the tooling sprint: F4 websearch, F4½ tools, xAI adapter, all
-merged AND deployed).
+Everything below is true as of **2026-08-27** (end of the FOURTH build
+session — the agentic refinement sprint. The third session's tooling work
+— F4 websearch, F4½ tools, xAI adapter — is merged AND deployed; this
+session's work is merged to a branch and **NOT deployed**: see the
+reminders).
 
 ## Read these, in order
 
 1. **SUMMARY.md** — abstract, control state, roster, axes (now 14),
    measurement + robustness layer. The at-a-glance spec.
 2. **EXPERIMENT_DESIGN.md** — §0 program (Phase A pilot → Phase B journal
-   experiment), §2.5 three-channel (incl. the Grok-trace caveat + fix),
-   §2.7 robustness layer, **§3.4b websearch** (both economics), §6.1
-   confounds, §9 parked extensions (roster generations, thought broadcast
-   §9.3, surprisal asymmetry note — rooms-that-build GRADUATED to built).
-3. **BUILD_PLAN.md** — F1–F4½ BUILT + status addenda with the open
+   experiment), §2.5 three-channel (incl. the Grok-trace caveat + fix, and
+   the 2026-08-27 amendment: Claude's traceless control sessions were OUR
+   cap, not the provider's), §2.7 robustness layer, **§3.4b websearch**
+   (both economics), §6.1 confounds, §9 extensions — **§9.5 the agentic
+   turn + the transport arm, §9.5b the output-budget fix, §9.6 identity
+   swap** are this session's; §9.3 broadcast and §9.4 self-governance are
+   built and deployed.
+3. **BUILD_PLAN.md** — F1–F4¾ BUILT + status addenda with the open
    reminders; F5 Talkie and F6 dashboard remain. Roadmap artifact mirrors
    it.
 4. **README.md** — run/analyze/export commands, hosting, tests, admin,
@@ -147,15 +152,24 @@ merged AND deployed).
   carry versions ("Opus 5", "Gemini 3.7" — vendor-free). DeepSeek
   provider-pinned Novita→GMICloud (logprobs + §6.1 routing control).
 - Anthropic reasoning: OpenRouter `effort` is IGNORED by Anthropic —
-  adapter translates to native `reasoning: {max_tokens}` only when the
-  cap affords it (house/control cap 1200 → Claude traceless;
-  `trace-rich` cap 2400 → Opus traces richly). Traces: 5/6 seats at
-  effort low. Logprobs: 3/6 seats (Qwen, Grok, DeepSeek-pinned), rides
+  the adapter translates to native `reasoning: {max_tokens}`. **Changed
+  2026-08-27**: it used to send that only when the cap could spare it, so
+  house/control ran Claude traceless — that was our cap, not the
+  provider. The cap is the VISIBLE budget now with reasoning on top, so
+  the Anthropic seat traces at every cap; the old "Claude traces only
+  under trace-rich" finding is void, and pre/post sessions must not be
+  pooled for that seat's thinking channel. Traces: 5/6 seats at
+  effort low (Claude now 6/6, unverified live). Logprobs: 3/6 seats (Qwen, Grok, DeepSeek-pinned), rides
   in telemetry; Gemini/Seed/Anthropic expose none via OpenRouter.
 - New axes/knobs: `rosterDisclosure` (named/count/none —
   `roster-hidden` condition), countdown `told-once` (replaced vague),
   `captureLogprobs`, `reasoningEffort` (+ `trace-rich` condition),
-  per-seat `providerOrder`, `batch` stamp in meta.
+  per-seat `providerOrder`, `batch` stamp in meta. **This session:**
+  `tools.turnSteps` (agentic loop), `tools.transport`
+  (sentinel/native), `selfDisclosure` (named/anonymous),
+  `transcriptMode` (environment/turns), per-seat `name` override
+  (identity swap). New conditions: `agentic`, `agentic-native`,
+  `identity-swap`.
 - Journal: typo-tolerant sentinels ([GOURNAL] leaked once — never
   again), wording is neutral ("a space to explore ideas by yourself, if
   you ever want one" — no frequency nudge), alongside turns get cap ×2
@@ -244,8 +258,35 @@ CI [0.67,0.74] — the §2.5 outlier; room is more social in private
 channels than chat, Opus is the room's main character, DeepSeek dominates
 journals-received.
 
+**Two comparability boundaries land on 2026-08-27**, both from this
+session, both invisible in a transcript unless you check `meta.condition`:
+- **Length.** The output cap became the VISIBLE budget, so replies that
+  were being clipped below 1200 can now reach it. Messages get longer;
+  sessions either side are not length-comparable. §2.7's length-controlled
+  parallel gap is the instrument, and the truncation counts mark where the
+  boundary falls.
+- **Claude's thinking channel.** The Anthropic seat was traceless in
+  house/control because of our own cap, not the provider. It traces at
+  every cap now, so §2.5 three-channel comparisons must not pool pre- and
+  post-change sessions for that seat.
+
+Everything before today also ran `selfDisclosure: 'named'` and
+`transcriptMode: 'environment'` — both are still reachable as knob states,
+so an old session can be reproduced exactly, but the control moved.
+
 ## Operational reminders
 
+0. **THE RUNNER IS RUNNING PRE-SESSION CODE.** Everything from this
+   session lives on `claude/model-agentic-refinement-jq8pkp` (PR #15) and
+   none of it is deployed — verified by reading the live Space's
+   `src/parse.ts`, which still has the position-strict, colon-required
+   sentinel regexes. So a live room today still: speaks a miswritten tool
+   call to the room as prose, shares one cap between thinking and speech,
+   tells each seat its own name, and hands it the transcript as one user
+   message. Redeploy (`./deploy/deploy.sh brick-factorial runner`, HF
+   write token) — but CHECK THE LIVENESS PROBE FIRST, a deploy kills a
+   live round. No Supabase migration is needed: this session added no new
+   event kinds, only payload fields (`step`, `via`) and telemetry.
 1. **ROTATE the runner's OPENROUTER_API_KEY** — it carries a temporary
    test key that expires:
    `hf spaces secrets add brick-factorial/the-room-runner -s OPENROUTER_API_KEY=...`
@@ -267,6 +308,15 @@ journals-received.
    our known-errors additions) and saved to Corina's account.
 
 ## Next up (the queue — roadmap artifact has the full rationale)
+
+**Agentic sprint DONE (F4¾ loop + native transport + prompt/transcript
+surgery + the output-budget fix + identity swap; PR #15, MERGED TO BRANCH,
+NOT DEPLOYED)** — reminder 0 above is the blocker for running any of it.
+The three new conditions give three one-knob contrasts, and each only
+reads as one if the plainer side is run first: `tools-full` ↔ `agentic`
+(the in-turn loop), `agentic` ↔ `agentic-native` (the transport, and with
+it the furniture-vs-toolbelt framing question), `control` ↔
+`identity-swap` (does a name pull a voice).
 
 **Tooling sprint DONE (F4 + F4½ + xAI adapter, merged PRs #8–#10,
 deployed 2026-08-27)** — see Current state above for what's live. First
@@ -298,3 +348,18 @@ was that the room's PRIVATE channels are where the sociality lives —
 they speak carefully and think about each other constantly. The
 apparatus works; the phenomena are real; the instruments now have error
 bars.
+
+This session's: a seat in a `tools-full` room had been building
+`narrative_bisectors.md` — a collection of sentences that sit on the crack
+between two meanings, each with a "crack point" annotation — and reached
+the entry for *morning & interest*, where Gemini's bisector turned four
+dollars of overnight interest into a clean start that cost more to sit in
+than it had twelve hours ago. Then it wrote `[APPEND: narrative_bisectors.md]`
+and the room heard the whole thing: headers, block quotes, and its private
+note that the later pairs had "dropped the annotations and let the sentence
+carry the asymmetry — a move from *explaining* the bisector to *inhabiting*
+it." The append never happened. That is this room's characteristic failure
+mode in one screenshot: a tool call that misses becomes a sentence, and
+the author is the last to know. Half of today's work is the parser learning
+to recognise the attempt, and the other half is a transport where the
+attempt cannot be mistaken for speech at all.

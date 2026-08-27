@@ -128,11 +128,14 @@ Caveats to log per session:
   2026-08-25 (live shakedown + probes): 5/6 core seats return traces via
   OpenRouter at effort low (Gemini, Qwen, Grok, DeepSeek, Seed).
   Anthropic seats ignore OpenRouter's `effort` — they need the native
-  budget form `reasoning: {max_tokens ≥ 1024}`, which the adapter now
-  sends for anthropic/* WHEN the output cap affords it (so house/control
-  at cap 1200 keep Claude traceless — the budget would re-create D3
-  starvation — while trace-rich at cap 2400 enables it; Opus 5 traces
-  richly there). Second wrinkle: Sonnet 5 thinks ADAPTIVELY — even with a
+  budget form `reasoning: {max_tokens ≥ 1024}`, which the adapter sends
+  for anthropic/* seats. **Amended 2026-08-27 (§9.5b):** it used to send
+  that budget only when the output cap could spare it, so house/control at
+  cap 1200 kept Claude TRACELESS — that gap was our own cap, not the
+  provider's. The cap is now the visible budget with reasoning allowed on
+  top, so the Anthropic seat gets its budget at every cap and the earlier
+  "Claude traces only under trace-rich" finding no longer holds. Do not
+  pool pre- and post-2026-08-27 sessions for that seat's thinking channel. Second wrinkle: Sonnet 5 thinks ADAPTIVELY — even with a
   budget it produced zero thinking on conversational room-style prompts
   and traced only on genuinely hard ones. Sonnet's thinking channel in
   chat sessions is therefore sparse-to-empty BY THE MODEL'S OWN CHOICE;

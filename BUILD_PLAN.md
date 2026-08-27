@@ -173,7 +173,10 @@ all conclusions). Phases 3/5 slot in whenever keys/hosting answers arrive.
 The program is now Phase A (pilot → fix controls) / Phase B (the journal
 experiment, three-channel measurement). Builds that serve it, in order:
 
-**F1. Thought-trace capture + viewer chevron. — BUILT 2026-08-25**
+**F1. Thought-trace capture + viewer chevron. — BUILT 2026-08-25;
+AMENDED 2026-08-27** (the cap that suppressed Claude's traces in
+house/control was ours, not the provider's — see the output-budget entry
+in Parked extensions and EXPERIMENT_DESIGN §9.5b)
 (reasoning parsed from OpenRouter's `message.reasoning` /
 `reasoning_details`; stored as `thinking` on message/journal/said-nothing
 events in JSONL + `room_events.payload`; `reasoningEffort` condition knob,
