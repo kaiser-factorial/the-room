@@ -66,6 +66,13 @@ merged AND deployed).
   includes 'source'. Viewer:
   shared-files rail (current contents per file, images inline) above the
   journals rail; search/run details behind feed chevrons.
+- **Self-governance is BUILT (§9.4, 2026-08-27)** — `transparent`
+  ([SOURCE] reads the whole experiment, incl. the live condition) and
+  `self-governing` (everything OFF; [CONFIG: key = value] whitelist —
+  see governance.ts — turns furniture on: unilateral, free, immediate,
+  room-visible; meta.condition is only the STARTING state, analysis
+  replays config events). Exploratory, out of all registered stats,
+  post-Phase-B like §9.3.
 - **Thought broadcast is BUILT (§9.3, 2026-08-27)** —
   `broadcast-informed` / `broadcast-uninformed`: everyone reads everyone
   else's thinking, never their own; the pair differs only in whether the

@@ -83,6 +83,14 @@ function toEvent(r: EventRow): RoomEvent {
         notice: Boolean(r.payload?.notice),
         ...extra,
       } as RoomEvent;
+    case 'config':
+      return {
+        kind: 'config', ...base, agentId: r.agent_id!, agentName: r.agent_name ?? r.agent_id!,
+        key: (r.payload?.key as string) ?? '',
+        value: (r.payload?.value as string) ?? '',
+        ...(r.payload?.denied ? { denied: true } : {}),
+        ...extra,
+      } as RoomEvent;
     case 'source':
       return {
         kind: 'source', ...base, agentId: r.agent_id!, agentName: r.agent_name ?? r.agent_id!,

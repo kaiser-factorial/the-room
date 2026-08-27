@@ -1,0 +1,4 @@
+{
+  "description": "§9.4: the room governs itself. EVERYTHING starts OFF — no journal, no search, no files, no python — but [CONFIG: setting = value] can turn any whitelisted knob on (unilateral, immediate, room-visible, free), and [SOURCE] at full scope lets them read the experiment they're in, their own live condition included. Revealed preference for the room's own furniture: what do they build themselves? Exploratory — out of ALL registered stats; meta.condition is only the starting state, analysis must replay the config events.",
+  "tools": { "configurable": true, "sourceCode": true, "sourceScope": "all" }
+}

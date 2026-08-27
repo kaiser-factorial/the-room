@@ -84,6 +84,8 @@ export const config: RoomConfig = {
     pythonInstall: true,
     runPublic: false, // tools conditions flip this — shared-project mode
     sourceCode: false, // tools conditions flip this — [SOURCE] transparency
+    sourceScope: 'tools', // 'all' = §9.4 transparent (the experiment readable)
+    configurable: false, // §9.4 self-governing: [CONFIG] sentinel
   },
 
   // Control keeps the original named roster (comparability with every
