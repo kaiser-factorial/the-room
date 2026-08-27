@@ -77,6 +77,9 @@ export const config: RoomConfig = {
     // delivered next turn). The 'agentic' condition raises it — see
     // agentic.ts for why speaking still ends the turn at any value.
     turnSteps: 1,
+    // 'sentinel' keeps every condition run so far intact; the
+    // 'agentic-native' condition is the one that flips it (F4¾).
+    transport: 'sentinel',
     notice: true,
     // 20s: micropip installs and matplotlib renders happen inside the
     // agent's window (preload has its own cap in sandbox.ts).

@@ -3,11 +3,44 @@
 // Gradio/ZeroGPU for Talkie) — extra telemetry rides in `meta` so the room
 // never has to care which harness produced a turn.
 
+import type { ToolDef } from './tools-schema.js';
 import type { ReasoningEffort, SamplingConfig, TurnTelemetry } from './types.js';
 
+/** One native tool call as the room handles it — provider-shaped fields
+ *  (id, name, raw JSON arguments) flattened, so session.ts never touches
+ *  the wire format. */
+export interface ToolCall {
+  id: string;
+  name: string;
+  /** Raw JSON string, exactly as the provider sent it — parsed (and
+   *  validated) at the action layer so a malformed argument object becomes
+   *  a refusal the agent can read, not a crash. */
+  arguments: string;
+}
+
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  /** Assistant messages replaying a native tool call (F4¾ native transport). */
+  toolCalls?: ToolCall[];
+  /** Tool-result messages: the call this answers. */
+  toolCallId?: string;
+}
+
+/** Room shape → OpenAI wire shape. Both adapters speak the same dialect
+ *  here, so the conversion lives once. */
+export function toWireMessages(messages: ChatMessage[]): Record<string, unknown>[] {
+  return messages.map((m) => {
+    if (m.role === 'tool') return { role: 'tool', tool_call_id: m.toolCallId, content: m.content };
+    if (m.toolCalls?.length) {
+      return {
+        role: m.role,
+        content: m.content,
+        tool_calls: m.toolCalls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.arguments } })),
+      };
+    }
+    return { role: m.role, content: m.content };
+  });
 }
 
 export interface SendOptions {
@@ -20,11 +53,20 @@ export interface SendOptions {
   logprobs?: boolean;
   /** Per-seat provider pinning; overrides sampling.providerOrder. */
   providerOrder?: string[];
+  /** F4¾ native transport: tool definitions offered on this call. Absent =
+   *  the sentinel transport (the model is told about the bench in prose and
+   *  writes a bracket). */
+  tools?: ToolDef[];
 }
 
 export interface SendResult {
   text: string;
   meta: TurnTelemetry;
+  /** Native tool calls the model made on this completion (F4¾). A model may
+   *  return these ALONGSIDE text — that is the whole point of the native
+   *  transport, and the room's rule handles it: the action runs, the text is
+   *  spoken, the turn ends. */
+  toolCalls?: ToolCall[];
   /** Reasoning trace when the provider exposes one (availability varies by
    *  seat — some return summaries, some nothing; log which, §2.5). */
   thinking?: string;
@@ -55,7 +97,10 @@ export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' 
   // F4¾: the SILENT action forms — a sentinel with nothing after it. Under
   // the turn loop these keep the turn going (speaking is what ends it), so
   // they're how a test drives a multi-step turn.
-  | 'run-quiet' | 'write-quiet' | 'source-quiet' | 'badwrite-quiet';
+  | 'run-quiet' | 'write-quiet' | 'source-quiet' | 'badwrite-quiet'
+  // Native-transport-only shapes: a tool the room doesn't offer, and a call
+  // whose required argument is missing.
+  | 'badtool' | 'badargs';
 
 let stubTurn = 0;
 const modelTurns = new Map<string, number>();
@@ -137,6 +182,38 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     ? Array.from({ length: 8 }, (_, i) => -((hashCode(model) + mTurn * 13 + i) % 300) / 100 - 0.01)
     : undefined;
   const meta = { provider: 'stub', finishReason: 'stop', attempts: 1, logprobs: stubLp };
+  // F4¾ native transport: when tools are offered, the action scenarios come
+  // back as structured calls instead of sentinels — same scripts, same
+  // assertions, the other transport. Scenarios that aren't actions (plain,
+  // journal, pass…) fall through to the text forms below, which is right:
+  // the journal is not a tool under either transport.
+  if (opts.tools?.length) {
+    const named = (n: string) => opts.tools!.some((t) => t.function.name === n);
+    const call = (name: string, args: Record<string, unknown>, text = '') => ({
+      text, meta, thinking,
+      toolCalls: [{ id: `stub_${stubTurn}`, name, arguments: JSON.stringify(args) }],
+    });
+    switch (scenario) {
+      case 'search': if (named('search_web')) return call('search_web', { query: `private-query ${model}#${mTurn}` }); break;
+      case 'search-speak': if (named('search_web')) return call('search_web', { query: `private-query ${model}#${mTurn}` }, voice()); break;
+      case 'run': if (named('run_python')) return call('run_python', { code: `print("private-code ${model}#${mTurn}")` }, voice()); break;
+      case 'run-quiet': if (named('run_python')) return call('run_python', { code: `print("private-code ${model}#${mTurn}")` }); break;
+      case 'run-file': if (named('run_python')) return call('run_python', { code: `write_shared("private-code ${model}#${mTurn}")` }); break;
+      case 'run-save': if (named('run_python')) return call('run_python', { code: `print("private-code ${model}#${mTurn}")`, save_output_to: 'runlog.txt', append_output: true }); break;
+      case 'write': if (named('write_file')) return call('write_file', { name: 'notes.md', content: `shared-note ${model}#${mTurn}` }, voice()); break;
+      case 'write-quiet': if (named('write_file')) return call('write_file', { name: 'notes.md', content: `shared-note ${model}#${mTurn}` }); break;
+      case 'append': if (named('write_file')) return call('write_file', { name: 'notes.md', content: `appended-line ${model}#${mTurn}`, append: true }, voice()); break;
+      case 'badwrite': if (named('write_file')) return call('write_file', { name: '../evil.md', content: 'nope' }, voice()); break;
+      case 'badwrite-quiet': if (named('write_file')) return call('write_file', { name: '../evil.md', content: 'nope' }); break;
+      case 'source': if (named('read_source')) return call('read_source', { name: 'sandbox' }, voice()); break;
+      case 'source-quiet': if (named('read_source')) return call('read_source', { name: 'sandbox' }); break;
+      case 'config': if (named('set_config')) return call('set_config', { key: 'journal.enabled', value: 'true' }, voice()); break;
+      case 'badconfig': if (named('set_config')) return call('set_config', { key: 'durationMinutes', value: 'forever' }, voice()); break;
+      // Native-only failure shapes the sentinel transport cannot produce.
+      case 'badtool': return call('summon_kraken', { why: 'curiosity' });
+      case 'badargs': if (named('run_python')) return call('run_python', { code: '' }); break;
+    }
+  }
   switch (scenario) {
     case 'error': throw new Error('stub scripted failure');
     case 'empty': return { text: '', meta, thinking };
@@ -166,9 +243,22 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     // Entry text must be distinct from the spoken half (unique marker),
     // or the privacy test can't tell a leak from a coincidence.
     case 'alongside': return { text: `[JOURNAL] private-note ${model}#${mTurn}: not for the room. [/JOURNAL] ${voice()}`, meta, thinking };
+    // Under the sentinel transport these two have no analogue — a bad tool
+    // name or a missing argument simply isn't expressible — so they behave
+    // as ordinary speech.
+    case 'badtool': case 'badargs': return { text: voice(), meta, thinking };
     case 'truncate': return { text: voice().slice(0, 60), meta: { ...meta, finishReason: 'length' }, thinking };
     default: return { text: voice(), meta, thinking };
   }
+}
+
+/** Wire tool calls → room shape, defensively: providers have been seen to
+ *  omit an id, and a call with no name is dropped rather than guessed at
+ *  (the action layer refuses what it cannot name). */
+export function readToolCalls(raw: { id?: string; function?: { name?: string; arguments?: string } }[]): ToolCall[] {
+  return raw
+    .filter((c) => c.function?.name)
+    .map((c, i) => ({ id: c.id ?? `call_${i}`, name: c.function!.name!, arguments: c.function?.arguments ?? '{}' }));
 }
 
 export const openrouterAdapter: Adapter = {
@@ -179,7 +269,7 @@ export const openrouterAdapter: Adapter = {
 
     const body: Record<string, unknown> = {
       model,
-      messages,
+      messages: toWireMessages(messages),
       max_tokens: opts.maxTokens,
       // Reasoning models burn max_tokens on hidden reasoning and can return
       // EMPTY visible text at the cap (first live run: Seed spoke 1/13
@@ -198,6 +288,7 @@ export const openrouterAdapter: Adapter = {
     }
     const order = opts.providerOrder ?? opts.sampling?.providerOrder;
     if (order?.length) body.provider = { order, allow_fallbacks: false };
+    if (opts.tools?.length) body.tools = opts.tools;
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       const res = await fetch(API_URL, {
@@ -225,6 +316,7 @@ export const openrouterAdapter: Adapter = {
             // blocks (incl. summaries) when the text field is absent.
             reasoning?: string | null;
             reasoning_details?: { text?: string; summary?: string }[];
+            tool_calls?: { id?: string; function?: { name?: string; arguments?: string } }[];
           };
           finish_reason?: string;
         }[];
@@ -245,6 +337,7 @@ export const openrouterAdapter: Adapter = {
       return {
         text: choice?.message?.content?.trim() ?? '',
         thinking,
+        ...(choice?.message?.tool_calls?.length ? { toolCalls: readToolCalls(choice.message.tool_calls) } : {}),
         meta: {
           provider: data.provider,
           finishReason: choice?.finish_reason,

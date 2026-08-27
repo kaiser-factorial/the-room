@@ -152,8 +152,16 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    hears at most one message per seat per turn and every metric keeps its
    unit; a turn spent entirely on actions simply says nothing. Refusals
    are machine-readable ([code]/Fix/Available) and capped at two per
-   turn; per-room budget pins the effective value to 1. The clean
-   contrast is `tools-full` ↔ `agentic`: same bench, one knob.
+   turn; per-room budget pins the effective value to 1.
+   `tools.transport` decides how an action is EXPRESSED: `sentinel`
+   (default everywhere — a bracket in the prose, which a miswritten call
+   turns into speech the room hears) vs `native` (`agentic-native`: the
+   bench also declared as tool definitions, structured calls back, bad
+   arguments refused readably). The room describes its furniture in its own
+   voice under both — only the syntax lines drop out, because the schemas'
+   assistant-with-a-toolbelt framing is the one prior a task-free room
+   excludes. Two one-knob contrasts: `tools-full` ↔ `agentic` (the loop),
+   `agentic` ↔ `agentic-native` (the transport).
 12. **Self-governance** (§9.4, BUILT 2026-08-27; exploratory, out of ALL
    registered stats) — `transparent` (tools-full + [SOURCE] widened to
    the whole experiment incl. [SOURCE: condition], read-only) ·

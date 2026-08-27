@@ -1,0 +1,23 @@
+{
+  "description": "F4¾ transport arm: the `agentic` room exactly (tools-full bench, 4 actions per turn, speaking ends the turn) with the bench also declared as native tool definitions — the seat returns structured tool calls instead of writing [RUN]…[/RUN] in its prose, so a miswritten call can't be spoken to the room and bad arguments come back as a readable refusal. The room still describes its own furniture in its own voice; the schemas carry mechanics only. Pairs with `agentic` as a one-knob contrast (transport), as `agentic` pairs with `tools-full` (the loop). Exploratory, out of registered stats.",
+  "search": {
+    "enabled": true,
+    "mode": "alongside",
+    "gated": false,
+    "notice": true,
+    "maxResults": 5
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "transport": "native",
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": ["numpy", "pandas", "sympy", "networkx", "matplotlib"],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true
+  }
+}

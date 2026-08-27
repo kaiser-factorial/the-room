@@ -69,7 +69,13 @@ export type RefusalCode =
   | 'file_too_large'
   | 'too_many_files'
   | 'bad_config_key'
-  | 'bad_config_value';
+  | 'bad_config_value'
+  /** Native transport: the arguments weren't usable (not JSON, or a
+   *  required one missing). The sentinel transport has no equivalent —
+   *  there a malformed call was simply spoken to the room. */
+  | 'bad_arguments'
+  /** Native transport: a tool name the room doesn't offer. */
+  | 'unknown_tool';
 
 /** One refused action, in the shape the agent reads it. `fix` is imperative
  *  — exactly what to change; `available` enumerates the legal options when
@@ -87,6 +93,13 @@ export interface Refusal {
 
 export const refusal = (code: RefusalCode, message: string, fix: string, available?: string[]): Refusal =>
   ({ code, message, fix, ...(available?.length ? { available } : {}) });
+
+/** Distinguishes a Refusal from a parsed action. Keys on `fix`, not `code`:
+ *  a [RUN] action also has a `code` (its Python), which is exactly the kind
+ *  of collision a structural check should not fall for. */
+export function isRefusal(x: unknown): x is Refusal {
+  return typeof x === 'object' && x !== null && 'fix' in x && 'code' in x;
+}
 
 /**
  * The private note an agent gets back for a refused action: the plain lead
@@ -114,9 +127,14 @@ export function formatRefusal(lead: string, r: Refusal, attemptsLeft: number): s
  * the privacy tests hold it to that.
  */
 export function observationBlock(observation: string, actionsLeft: number): string {
-  const footer =
-    actionsLeft > 0
-      ? `[Your turn continues — ${actionsLeft} action${actionsLeft === 1 ? '' : 's'} left. Act again, or speak to the room to end your turn.]`
-      : `[That was your last action this turn. Anything you write now is spoken to the room and ends your turn.]`;
-  return `[Private, for you alone — no one else in the room sees this.]\n${observation}\n\n${footer}`;
+  return `[Private, for you alone — no one else in the room sees this.]\n${observation}\n\n${turnFooter(actionsLeft)}`;
+}
+
+/** The same footer on its own, for the native transport: there the results
+ *  ride in tool-result messages (one per call, as the API requires), so the
+ *  "how much turn is left" line follows them as a separate note. */
+export function turnFooter(actionsLeft: number): string {
+  return actionsLeft > 0
+    ? `[Your turn continues — ${actionsLeft} action${actionsLeft === 1 ? '' : 's'} left. Act again, or speak to the room to end your turn.]`
+    : `[That was your last action this turn. Anything you write now is spoken to the room and ends your turn.]`;
 }

@@ -858,9 +858,76 @@ speech that arrives AFTER a chain of actions look different (more
 grounded, more concrete, more citing) than speech in a single-step room?
 That is the tools-full ↔ agentic contrast: same bench, one knob.
 
+**The transport arm (added the same day, `agentic-native`).** Through F4½
+an action is expressed by writing a bracket, and the parser decides whether
+that was a call. It fails in one direction only: a sentinel the parser
+doesn't recognise is not treated as a failed call, it is SPOKEN to the room
+as prose, and its author learns nothing. Measured against the parser on
+2026-08-27, six shapes models actually produce fell through that way (a
+typo'd token, a missing colon, a wrapping code fence, an over-long file
+name, a sentinel after prose, a sentinel mid-sentence). Four are now
+tolerated; one is correctly left as speech; one — prose BEFORE the
+sentinel — cannot be fixed at that layer without a rule about where a
+bracket may sit, which is a rule about how an agent must write rather than
+what it may do.
+
+`tools.transport: 'native'` removes the guess. The bench is also declared
+as OpenAI-format tool definitions and the model returns structured calls:
+malforming one into speech is not expressible, prose and action can share a
+completion, and bad arguments come back as readable refusals. This is
+joint-session's answer to the same problem — its skills.ts replaced that
+project's regex text-triggers for exactly this reason — and the cost it
+paid there (only tool-capable models can be rostered) is zero here: all six
+seats advertise `tools` on OpenRouter as of 2026-08-27.
+
+**The framing question, which is the actual design content.** Tool
+definitions are not a neutral pipe. They are the channel every model is
+post-trained on for "you are an assistant, here are your tools, complete
+the task" — the single strongest assistant-mode prior available, and the
+one this room exists to exclude (the frozen D4 welcome: there is no task
+and no facilitator). The journal precedent is the evidence: the 2026-08-25
+wording amendment exists because framing the journal like a reply template
+made a seat use it every single turn. Same capability, different frame,
+different behaviour.
+
+So the transport moves and the framing does not (Corina 2026-08-27, "let's
+keep furniture phrasing"). Under `native` the system prompt still describes
+the bench as furniture, in the room's voice — "There is a small shared
+filesystem in the room — files everyone can read", "any file your code
+saves there is published to the room as a shared file" — and only the
+syntax lines drop out. The schemas carry mechanics: argument names, caps,
+what comes back. The rule of thumb: anything about who SEES a thing stays
+upstairs in the prompt, because that is what makes the filesystem a social
+object rather than a scratchpad. A test pins the furniture sentences into
+both prompts so a future edit can't quietly hollow one out.
+
+Residual confounds specific to this arm, all reasons it is exploratory:
+- The framing is held CLOSE, not constant: a native session still carries
+  five function schemas in every request, and their mere presence may cue
+  assistant register even with the prose unchanged. That is the thing
+  `agentic` ↔ `agentic-native` measures, and it cannot be measured from
+  inside one session.
+- Sentinels still parse under `native` (a seat that ignores its channel is
+  understood rather than leaked to the room). Action events therefore carry
+  `via`, and metrics.json reports viaNative/viaSentinel — a high fallback
+  rate means the tool channel was declared but not inhabited, and any
+  register comparison has to be read in that light.
+- Provider heterogeneity moves from the parser to the wire: joint-session
+  found content arriving as arrays of parts, reasoning welded into content,
+  and empty completions with neither text nor call. §2.5's three-channel
+  metric depends on clean trace extraction, so watch trace availability
+  per seat on the first native sessions specifically.
+- A model may emit several calls in one completion. They execute in order,
+  each costs a step, and each gets its own answer — but a seat that batches
+  three calls uses three of its four actions before reading any result,
+  which is a different (less iterative) shape than the loop is for.
+
 Ordering: after a few plain tools-full sessions establish what tool use
 looks like without in-turn agency (§9.4's ordering note applies here too),
-and after Phase B like everything in §9.
+and after Phase B like everything in §9. The three tool conditions form two
+one-knob contrasts — tools-full ↔ agentic (the loop), agentic ↔
+agentic-native (the transport) — and both only read as contrasts if the
+plainer side has been run first.
 
 **Sequencing for the extensions**: F2 gates everything; the sandbox is
 effectively F4½ (shares tool plumbing with websearch). Natural slot:

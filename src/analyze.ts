@@ -40,7 +40,7 @@ interface Msg {
  *  its 1-based position within its turn (absent in single-step rooms). */
 interface Action {
   round: number; agentId: string; kind: 'search' | 'file' | 'run' | 'source' | 'config';
-  step?: number; denied?: boolean;
+  step?: number; denied?: boolean; via?: 'native' | 'sentinel';
 }
 interface JournalEntry { round: number; agentId: string; text: string }
 
@@ -105,7 +105,7 @@ export function loadSession(dir: string): Session {
     } else if (e.kind === 'system' && /could not speak|said nothing/.test(e.text)) {
       silences.push({ round: e.round, agentId: e.agentId });
     } else if (e.kind === 'search' || e.kind === 'file' || e.kind === 'run' || e.kind === 'source' || e.kind === 'config') {
-      actions.push({ round: e.round, agentId: e.agentId, kind: e.kind, step: e.step, denied: 'denied' in e ? e.denied : undefined });
+      actions.push({ round: e.round, agentId: e.agentId, kind: e.kind, step: e.step, denied: 'denied' in e ? e.denied : undefined, via: e.via });
     }
     if (e.kind === 'message' || e.kind === 'system' || e.kind === 'journal') prevTs = new Date(e.ts).getTime();
   }
@@ -427,6 +427,15 @@ export function toolUse(
       actingTurns: byTurnAll.size,
       // How many turns took 1, 2, 3 … actions — the axis in one line.
       chainLengths: histogram,
+      // Native transport only: did the seats use the tool channel they were
+      // given, or write a bracket anyway? Absent in sentinel rooms, where
+      // there is no channel to fall back FROM.
+      ...(ranAll.some((a) => a.via)
+        ? {
+            viaNative: ranAll.filter((a) => a.via === 'native').length,
+            viaSentinel: ranAll.filter((a) => a.via === 'sentinel').length,
+          }
+        : {}),
     },
     byAgent: Object.fromEntries(agents.map((a) => [a, perAgent(a)])),
   };

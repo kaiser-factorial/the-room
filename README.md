@@ -122,6 +122,45 @@ nothing, and the prompt says that is a fine way to spend one.
 
 The rest of the economics:
 
+### Transport: how a seat expresses an action
+
+`tools.transport` decides how an action is *asked for*. It changes nothing
+about what happens when one lands — both paths produce the same
+`ToolAction` and run the same `executeAction`.
+
+- **`sentinel`** (default; every condition run so far) — the bench is
+  described in prose and the agent writes a bracket. Works identically on
+  every model, and fails in one specific way: see **Miswritten calls**
+  below.
+- **`native`** (`agentic-native`) — the bench is *also* declared as
+  OpenAI-format tool definitions (`src/tools-schema.ts`) and the model
+  returns structured `tool_calls`. A call cannot be malformed into speech;
+  prose and action can share one completion (the room's rule still applies
+  — the action runs, the text is spoken, the turn ends); bad arguments come
+  back as `bad_arguments` / `unknown_tool` refusals with the offered tools
+  as `Available:`. Only ENABLED tools are declared — a tool the model
+  cannot name is a stronger boundary than one that refuses. All six roster
+  seats were verified tool-capable on OpenRouter (2026-08-27).
+
+**The room keeps describing its own furniture either way.** Under `native`
+the prompt still says *"There is a small shared filesystem in the room —
+files everyone can read"* and *"any file your code saves there is published
+to the room"*; only the syntax lines drop out. That paragraph is what makes
+the filesystem a social object rather than a scratchpad, and it is the
+frame the experiment is measured in — moving the bench wholesale into
+schemas would swap it for assistant-with-a-toolbelt framing, the one prior
+a task-free room exists to exclude. The tool definitions carry mechanics
+only (arguments, caps, what comes back). A test pins this: the furniture
+sentences must appear under both transports, the bracket syntax under
+neither but `sentinel`.
+
+Sentinels still parse under `native` (a seat that ignores its tool channel
+is understood rather than leaked to the room), so action events carry
+`via: 'native' | 'sentinel'` there and `metrics.json` reports
+`viaNative`/`viaSentinel` — the fallback rate is the first thing to ask of
+a native session. `[JOURNAL]` and `[PASS]` stay sentinels under both: they
+are not tools, they are the room's own furniture.
+
 - **Miswritten calls.** Two failure paths, and only one used to teach. A
   reply that PARSES as an action and is then rejected (bad file name, over
   the size cap, gated search, unknown config key…) comes back with the
@@ -160,7 +199,13 @@ The rest of the economics:
   (`[Alpha looked something up, ran some code, then updated "plot.py".]`)
   so a working turn doesn't flood five other contexts.
 - A self-governing room can vote itself the loop: `tools.turnSteps` is on
-  the `[CONFIG]` whitelist, bounded 1–8.
+  the `[CONFIG]` whitelist, bounded 1–8. The transport is not on it — which
+  channel the room's tools ride is the experimenter's lever, like
+  `sourceScope`.
+
+The three tool conditions now form two one-knob contrasts:
+`tools-full` ↔ `agentic` isolates the loop, `agentic` ↔ `agentic-native`
+isolates the transport (and with it the framing question).
 
 ## Transparency & self-governance (§9.4)
 

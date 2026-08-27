@@ -17,7 +17,7 @@ import { testConfig, runStubSession, AGENTS } from './helpers.js';
 import type { RoomEvent, ToolsConfig } from '../src/types.js';
 
 const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({
-  files: true, python: true, budget: 'per-seat', turnSteps: 3, notice: true,
+  files: true, python: true, budget: 'per-seat', turnSteps: 3, transport: 'sentinel', notice: true,
   pythonTimeoutSeconds: 10, pythonPackages: ['numpy'], pythonInstall: false,
   runPublic: false, sourceCode: true, sourceScope: 'tools', configurable: false, ...over,
 });
@@ -129,7 +129,10 @@ test('privacy: what an agent learns mid-turn reaches no one else', async () => {
     const msgs = buildTurnMessages({
       agent, config, events, summary: '', minutesRemaining: 5, ownJournal: '',
       // The loop's own steps: this seat's actions and what came back.
-      inTurn: [{ reply: '[RUN]\nprint("mine")\n[/RUN]', observation: observationBlock('Output of the code you ran:\nmine-only', 2) }],
+      inTurn: [
+        { role: 'assistant', content: '[RUN]\nprint("mine")\n[/RUN]' },
+        { role: 'user', content: observationBlock('Output of the code you ran:\nmine-only', 2) },
+      ],
     });
     const text = msgs.map((m) => m.content).join('\n');
     // Its own step is there, as a real assistant turn plus the observation.
@@ -228,6 +231,99 @@ test('toolUse metric: chains, silent working turns, and completions per turn', a
   assert.equal(u.byAgent.beta.actions, 0);
 });
 
+// ── Native transport (F4¾) ────────────────────────────────────────────────
+
+test('native transport: the same actions, expressed as structured calls', async () => {
+  const config = testConfig({ maxRounds: 1, tools: T({ transport: 'native', turnSteps: 3 }) });
+  const dir = await runStubSession(config, 'run-quiet,run-quiet,plain');
+  const events = readTranscript(dir);
+  const runs = events.filter((e) => e.kind === 'run');
+  assert.equal(runs.length, 6, 'three seats × two runs, through the tool channel');
+  assert.ok(runs.every((e) => e.kind === 'run' && e.via === 'native'), 'actions are stamped with the channel they came through');
+  assert.deepEqual(runs.map((e) => (e.kind === 'run' ? e.step : 0)), [1, 2, 1, 2, 1, 2]);
+  assert.equal(events.filter((e) => e.kind === 'message').length, 3, 'still one utterance per seat per turn');
+});
+
+test('native transport: prose and a call in one completion end the turn together', async () => {
+  // The shape the sentinel transport can't express without a position rule:
+  // the model says something to the room AND makes a call in the same reply.
+  const config = testConfig({ maxRounds: 1, tools: T({ transport: 'native', turnSteps: 3 }) });
+  const dir = await runStubSession(config, 'run');
+  const events = readTranscript(dir);
+  assert.equal(events.filter((e) => e.kind === 'run').length, 3, 'one run per seat — speaking ended the turn');
+  assert.equal(events.filter((e) => e.kind === 'message').length, 3);
+});
+
+test('native transport: bad arguments and unknown tools come back readable, not spoken', async () => {
+  const { actionFromToolCall, toolDefs } = await import('../src/tools-schema.js');
+  const cfg = testConfig({
+    tools: T({ transport: 'native', configurable: true }),
+    search: { enabled: true, mode: 'alongside', gated: false, notice: true, maxResults: 5 },
+  });
+  const names = toolDefs(cfg).map((d) => d.function.name);
+  assert.deepEqual(names, ['search_web', 'write_file', 'run_python', 'read_source', 'set_config']);
+
+  const unknown = actionFromToolCall({ id: '1', name: 'summon_kraken', arguments: '{}' }, cfg);
+  assert.equal('code' in unknown && unknown.code, 'unknown_tool');
+  assert.deepEqual('available' in unknown ? unknown.available : [], names, 'the refusal lists what the room does offer');
+
+  const notJson = actionFromToolCall({ id: '2', name: 'run_python', arguments: '{oops' }, cfg);
+  assert.equal('code' in notJson && notJson.code, 'bad_arguments');
+
+  const noCode = actionFromToolCall({ id: '3', name: 'run_python', arguments: '{}' }, cfg);
+  assert.equal('code' in noCode && noCode.code, 'bad_arguments');
+  assert.match(('fix' in noCode ? noCode.fix : ''), /code/);
+
+  // Valid calls become the SAME ToolAction the sentinel parser produces —
+  // one action layer, two ways of asking for it.
+  assert.deepEqual(actionFromToolCall({ id: '4', name: 'run_python', arguments: '{"code":"print(1)"}' }, cfg), { kind: 'run', code: 'print(1)' });
+  assert.deepEqual(actionFromToolCall({ id: '5', name: 'write_file', arguments: '{"name":"a.md","content":"x","append":true}' }, cfg), { kind: 'write', name: 'a.md', content: 'x', append: true });
+  assert.deepEqual(actionFromToolCall({ id: '6', name: 'read_source', arguments: '{}' }, cfg), { kind: 'source' });
+  // Empty content is legitimate (truncating a file), so it must not be
+  // treated as a missing argument.
+  assert.deepEqual(actionFromToolCall({ id: '7', name: 'write_file', arguments: '{"name":"a.md","content":""}' }, cfg), { kind: 'write', name: 'a.md', content: '' });
+});
+
+test('native transport: a call the room does not offer is refused in-session, never spoken', async () => {
+  const config = testConfig({ maxRounds: 1, tools: T({ transport: 'native', turnSteps: 2 }) });
+  const dir = await runStubSession(config, 'badtool,plain');
+  const events = readTranscript(dir);
+  // Nothing was recorded as an action (there is no event kind for a tool
+  // that doesn't exist) and nothing reached the room.
+  for (const e of events) {
+    if ('text' in e && e.text) assert.ok(!e.text.includes('summon_kraken'), 'a bogus tool name reached the room');
+  }
+  assert.equal(events.filter((e) => e.kind === 'message').length, 3, 'each seat still spoke on its next call');
+});
+
+test('native transport: only enabled tools are declared', async () => {
+  const { toolDefs } = await import('../src/tools-schema.js');
+  const bare = testConfig({ tools: T({ transport: 'native', files: false, python: false, sourceCode: false }), search: { enabled: false, mode: 'replace', gated: false, notice: true, maxResults: 5 } });
+  assert.deepEqual(toolDefs(bare), [], 'a tool the model cannot name is a stronger boundary than one that refuses');
+});
+
+test('the furniture stays in the room\'s voice under both transports', () => {
+  const sentinel = testConfig({ tools: T({ transport: 'sentinel' }) });
+  const nativeCfg = testConfig({ tools: T({ transport: 'native' }) });
+  const promptOf = (config: typeof sentinel) =>
+    buildTurnMessages({ agent: AGENTS[0], config, events: [], summary: '', minutesRemaining: 5, ownJournal: '' })[0].content;
+  const s = promptOf(sentinel), n = promptOf(nativeCfg);
+  // The furniture sentences — the ones that make the filesystem a social
+  // object rather than a scratchpad — are in BOTH.
+  for (const sentence of [
+    'There is a small shared filesystem in the room — files everyone can read',
+    'published to the room as a shared file',
+    'Speaking ends your turn',
+  ]) {
+    assert.ok(s.includes(sentence), `sentinel prompt lost: ${sentence}`);
+    assert.ok(n.includes(sentence), `native prompt lost: ${sentence}`);
+  }
+  // Only the SYNTAX drops out: telling a model where to put a bracket when
+  // it has a tool channel would be describing a second way to do it.
+  assert.ok(s.includes('[WRITE: filename]') && s.includes('[RUN] your code [/RUN]'));
+  assert.ok(!n.includes('[WRITE: filename]') && !n.includes('[RUN] your code [/RUN]'));
+});
+
 test('the agentic condition resolves onto the tools bench', async () => {
   const { resolveCondition, conditionRecord } = await import('../src/conditions.js');
   const cfg = resolveCondition('agentic');
@@ -235,4 +331,14 @@ test('the agentic condition resolves onto the tools bench', async () => {
   assert.equal(loopEnabled(cfg), true);
   assert.equal(cfg.tools.files && cfg.tools.python, true);
   assert.equal((conditionRecord(cfg).tools as ToolsConfig).turnSteps, 4, 'turnSteps must be stamped into meta');
+  assert.equal(cfg.tools.transport, 'sentinel', 'the loop arm keeps the original transport');
+
+  // The transport arm differs from it in exactly one knob, so the pair is
+  // readable: agentic ↔ agentic-native isolates the transport, as
+  // tools-full ↔ agentic isolates the loop.
+  const nativeCfg = resolveCondition('agentic-native');
+  assert.equal(nativeCfg.tools.transport, 'native');
+  const { transport: _a, ...restNative } = nativeCfg.tools;
+  const { transport: _b, ...restLoop } = cfg.tools;
+  assert.deepEqual(restNative, restLoop, 'agentic and agentic-native may differ ONLY in transport');
 });

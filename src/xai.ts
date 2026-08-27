@@ -5,7 +5,7 @@
 // adapter on that env; without the key the seat stays on OpenRouter and the
 // summary-class caveat applies).
 
-import { reasoningParam, stubSend, type Adapter } from './openrouter.js';
+import { readToolCalls, reasoningParam, stubSend, toWireMessages, type Adapter } from './openrouter.js';
 
 const API_URL = 'https://api.x.ai/v1/chat/completions';
 
@@ -18,9 +18,11 @@ export const xaiAdapter: Adapter = {
     const body: Record<string, unknown> = {
       // The catalog keeps OpenRouter-style slugs; xAI wants them bare.
       model: model.replace(/^x-ai\//, ''),
-      messages,
+      messages: toWireMessages(messages),
       max_tokens: opts.maxTokens,
     };
+    // xAI speaks the same OpenAI tool dialect (F4¾ native transport).
+    if (opts.tools?.length) body.tools = opts.tools;
     // xAI's reasoning knob is `reasoning_effort` (low|high, no medium) on
     // models that support it; reuse the same effort source as OpenRouter.
     const reasoning = reasoningParam(model, opts.reasoningEffort ?? 'low', opts.maxTokens);
@@ -49,7 +51,11 @@ export const xaiAdapter: Adapter = {
           logprobs?: { content?: { logprob?: number }[] };
           // xAI returns the FULL trace as reasoning_content (the whole
           // point of this adapter vs. OpenRouter's truncated summary).
-          message?: { content?: string | null; reasoning_content?: string | null };
+          message?: {
+            content?: string | null;
+            reasoning_content?: string | null;
+            tool_calls?: { id?: string; function?: { name?: string; arguments?: string } }[];
+          };
           finish_reason?: string;
         }[];
         usage?: { prompt_tokens?: number; completion_tokens?: number };
@@ -61,6 +67,7 @@ export const xaiAdapter: Adapter = {
       return {
         text: choice?.message?.content?.trim() ?? '',
         thinking: choice?.message?.reasoning_content?.trim() || undefined,
+        ...(choice?.message?.tool_calls?.length ? { toolCalls: readToolCalls(choice.message.tool_calls) } : {}),
         meta: {
           provider: 'xai-direct',
           finishReason: choice?.finish_reason,

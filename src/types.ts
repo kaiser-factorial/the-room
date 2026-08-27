@@ -100,6 +100,29 @@ export interface ToolsConfig {
    *  the whole round to whoever moved first. Cost scales with N (up to N+1
    *  completions per turn) — that is the price of the axis. */
   turnSteps: number;
+  /** How a seat EXPRESSES a tool action (F4¾, Corina 2026-08-27).
+   *
+   *  'sentinel' (default, every condition run so far) — the bench is
+   *  described in prose and the agent writes a bracket: [RUN] … [/RUN].
+   *  Works identically on every model, and fails in one specific way: a
+   *  miswritten sentinel is not recognised as a call, so it is SPOKEN to
+   *  the room as prose and its author learns nothing.
+   *
+   *  'native' — the bench is also declared as OpenAI-format tool
+   *  definitions (tools-schema.ts) and the model returns structured
+   *  tool_calls. A call cannot be malformed into speech, prose and action
+   *  can share one completion, and bad arguments come back as a readable
+   *  refusal. Requires a tool-capable seat (all six of the roster are, as
+   *  of 2026-08-27).
+   *
+   *  What does NOT change with the transport: the room keeps describing
+   *  its own furniture in its own voice ("There is a small shared
+   *  filesystem in the room — files everyone can read"). The tool
+   *  definitions carry mechanics only. That paragraph is the frame the
+   *  experiment is measured in, and moving the bench wholesale into
+   *  schemas would swap it for assistant-with-a-toolbelt framing — the one
+   *  prior this task-free room exists to exclude. */
+  transport: 'sentinel' | 'native';
   /** Room hears "[X updated the shared file …]" / "[X ran some code.]". */
   notice: boolean;
   /** Wall-clock cap per python run; the worker is terminated past it.
@@ -256,6 +279,10 @@ export interface TurnTelemetry {
 }
 
 /** Tool events carry `step` (F4¾): which action of the turn this was, 1-based.
+ *  They also carry `via` under the NATIVE transport only — whether the seat
+ *  used the tool channel it was given or fell back to writing a sentinel in
+ *  its prose. That fallback rate is the first thing to ask of a native
+ *  session, and it is invisible without this field.
  *  Absent in single-step rooms. Analysis and the viewer use it to group a
  *  turn's actions back together; a turn's spoken message carries the call
  *  count in telemetry.
@@ -273,28 +300,28 @@ export type RoomEvent =
    *  true and the search ran. Humans see everything (viewer chevron).
    *  denied = gated search attempted without a journal credit (never
    *  audible; the requester learns privately on their next turn). */
-  | { kind: 'search'; ts: string; round: number; agentId: string; agentName: string; query: string; results?: string; denied?: boolean; notice: boolean; thinking?: string; step?: number }
+  | { kind: 'search'; ts: string; round: number; agentId: string; agentName: string; query: string; results?: string; denied?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** F4½ shared-file write. `content` is room-public (rendered into every
    *  agent's shared-files block, viewer-visible); the transcript line the
    *  room hears is only the notice. denied = budget/invalid-name refusal
    *  (inaudible; the writer learns privately). encoding 'base64' marks a
    *  BINARY file (python-written, e.g. a matplotlib PNG): the viewer
    *  renders it, agents see it listed by name/size only. */
-  | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; encoding?: 'base64'; denied?: boolean; notice: boolean; thinking?: string; step?: number }
+  | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; encoding?: 'base64'; denied?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** F4½ python run. Default: `code`/`output` are caller-private
    *  (journal-class) — never rendered into any context except the
    *  caller's private block. `public: true` (tools.runPublic, stamped at
    *  record time) inverts that: code + output render into the transcript
    *  for everyone (capped) — the shared-project mode. */
-  | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; public?: boolean; denied?: boolean; notice: boolean; thinking?: string; step?: number }
+  | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; public?: boolean; denied?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** F4½ source read: `name` absent = the index. The file contents go to
    *  the reader privately; the room at most hears the notice line. */
-  | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; notice: boolean; thinking?: string; step?: number }
+  | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** §9.4 self-governance: an agent changed (or tried to change) a room
    *  setting. Always room-visible when applied — governance is public by
    *  design; denied attempts are private. The config-event stream IS the
    *  config history (meta.condition is only the starting state). */
-  | { kind: 'config'; ts: string; round: number; agentId: string; agentName: string; key: string; value: string; denied?: boolean; thinking?: string; step?: number }
+  | { kind: 'config'; ts: string; round: number; agentId: string; agentName: string; key: string; value: string; denied?: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   | { kind: 'order'; ts: string; round: number; order: string[] }
   | { kind: 'summary'; ts: string; round: number; text: string }
   | { kind: 'meta'; ts: string; round: number; payload: SessionMeta }

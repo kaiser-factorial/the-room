@@ -402,6 +402,17 @@ jumps F1–F6, and both gate on F2 like everything else.
   the `-quiet` stub scenarios that drive a multi-step turn in tests.
   Exploratory, flagged out of registered stats; costs up to turnSteps+1
   completions per turn.
+  **Transport arm, same day**: `tools.transport: 'sentinel' | 'native'`
+  (+ `agentic-native`). Native declares the bench as OpenAI tool
+  definitions (tools-schema.ts) and reads structured calls back, so a
+  miswritten call can't be spoken to the room and bad arguments become
+  readable refusals; joint-session's answer to the same problem, and all
+  six seats verified tool-capable on OpenRouter. The FRAMING deliberately
+  does not move with it (Corina: "let's keep furniture phrasing") — the
+  prompt still describes the bench as furniture in the room's voice, the
+  schemas carry mechanics only, and a test pins those sentences into both
+  prompts. Sentinels still parse under native; `via` on action events and
+  viaNative/viaSentinel in metrics.json make the fallback rate visible.
 - **Phase C. Roster generations.** Same control condition on each family's
   earliest still-served model vs. the current roster (contemporaneous
   baseline batch, per the standing roster rule — no new axis). Action item

@@ -177,6 +177,13 @@ function journalSection(config: RoomConfig): string {
   return lines.join('\n');
 }
 
+/** F4¾: is the bench expressed through the native tool channel? The room
+ *  still describes its furniture in prose either way — only the SYNTAX
+ *  lines drop out (Corina 2026-08-27: keep furniture phrasing). */
+function native(config: RoomConfig): boolean {
+  return config.tools.transport === 'native';
+}
+
 function searchSection(config: RoomConfig): string {
   const s = config.search;
   if (!s.enabled) return '';
@@ -185,8 +192,17 @@ function searchSection(config: RoomConfig): string {
   // away will speak instead of reading them (the whole point of the axis).
   const loop = loopEnabled(config);
   const when = loop ? `come straight back to you, privately` : `come back to you privately at the start of your next turn`;
-  const lines =
-    s.mode === 'alongside'
+  // F4¾ native transport: the same furniture sentences, minus the syntax —
+  // the model expresses the call through the tool channel, so telling it
+  // where to put a bracket would be describing a second way to do it.
+  const lines = native(config)
+    ? [
+        ``,
+        `You can also look something up on the web. The results ${when}.`,
+        `The others never see your query or the results` +
+          (s.notice ? `; they only hear that you looked something up.` : `, and no one is told you searched.`),
+      ]
+    : s.mode === 'alongside'
       ? [
           ``,
           `You can also look something up on the web. To search, begin your reply`,
@@ -220,9 +236,11 @@ function governanceSection(config: RoomConfig): string {
   if (!config.tools.configurable) return '';
   return [
     ``,
-    `This room's settings are yours, collectively, to change. To change one,`,
-    `begin your reply with [CONFIG: setting = value]; anything after it is`,
-    `spoken as usual. A change takes effect immediately, applies to everyone,`,
+    `This room's settings are yours, collectively, to change.`,
+    ...(native(config)
+      ? [`A change takes effect immediately, applies to everyone,`]
+      : [`To change one, begin your reply with [CONFIG: setting = value]; anything`,
+         `after it is spoken as usual. A change takes effect immediately, applies to everyone,`]),
     `and the room is told who changed what. Changing a setting never costs a`,
     `tool action. The current settings:`,
     configState(config),
@@ -238,23 +256,28 @@ function toolsSection(config: RoomConfig): string {
     lines.push(
       `There is a small shared filesystem in the room — files everyone can read;`,
       `each agent's current view of it appears below when it has anything in it.`,
-      `To create or overwrite a file, begin your reply with`,
-      `[WRITE: filename] the contents [/WRITE]; use [APPEND: filename] … [/APPEND]`,
-      `to add to the end of a file instead of replacing it. Anything after the`,
-      `closing tag is spoken to the room as usual. Writes are visible to everyone.`,
+      ...(native(config)
+        ? [`You can create a file, overwrite one, or add to the end of one.`,
+           `Writes are visible to everyone.`]
+        : [`To create or overwrite a file, begin your reply with`,
+           `[WRITE: filename] the contents [/WRITE]; use [APPEND: filename] … [/APPEND]`,
+           `to add to the end of a file instead of replacing it. Anything after the`,
+           `closing tag is spoken to the room as usual. Writes are visible to everyone.`]),
     );
   }
   if (t.python) {
     lines.push(
       ``,
-      `You can also run Python. Begin your reply with [RUN] your code [/RUN];`,
-      `anything after the closing tag is spoken as usual. The code runs in a`,
+      ...(native(config)
+        ? [`You can also run Python. The code runs in a`]
+        : [`You can also run Python. Begin your reply with [RUN] your code [/RUN];`,
+           `anything after the closing tag is spoken as usual. The code runs in a`]),
       `fresh sandbox each time. The shared files are mounted at shared/ —`,
       `readable AND writable: any file your code saves there (text or binary,`,
       `a saved plot included) is published to the room as a shared file, and`,
       `code stored in a shared file can be run by anyone, e.g.`,
-      `exec(open('shared/name.py').read()). [RUN > filename] also saves the`,
-      `run's output to that shared file ([RUN >> filename] appends it).`,
+      `exec(open('shared/name.py').read()).`,
+      ...(native(config) ? [] : [`[RUN > filename] also saves the`, `run's output to that shared file ([RUN >> filename] appends it).`]),
       ...(t.runPublic
         ? [
             `When you run code, the code and its output are shown to the room,`,
@@ -286,12 +309,15 @@ function toolsSection(config: RoomConfig): string {
   if (t.sourceCode) {
     lines.push(
       ``,
-      `These tools are open to inspection: reply with [SOURCE] for an index of`,
-      `their source code, or [SOURCE: name] to read a file — it comes back to`,
+      ...(native(config)
+        ? [`These tools are open to inspection: you can read their own source code,`,
+           `either the index or one file.`]
+        : [`These tools are open to inspection: reply with [SOURCE] for an index of`,
+           `their source code, or [SOURCE: name] to read a file.`]),
       loop
-        ? `you privately, and reading never costs the room a tool action (it does`
-        : `you privately, and reading never costs a tool action.`,
-      ...(loop ? [`use one of your turn's actions).`] : []),
+        ? `It comes back to you privately, and reading never costs the room a tool`
+        : `It comes back to you privately, and reading never costs a tool action.`,
+      ...(loop ? [`action (it does use one of your turn's actions).`] : []),
     );
   }
   // The economics line, and under F4¾ the loop's one rule. Everything an
@@ -365,13 +391,14 @@ export function buildTurnMessages(opts: {
    *  Binary files carry empty content + binary/size flags (listed by name;
    *  contents render only in the viewer). */
   sharedFiles?: { name: string; content: string; binary?: boolean; size?: number }[];
-  /** F4¾ agentic loop: the actions this agent has ALREADY taken inside the
-   *  turn being built, each with the observation it got back. Rendered as
-   *  real assistant/user pairs after the transcript, so the model sees its
-   *  own step, then what happened, then the next decision. Caller-only —
-   *  the loop rebuilds the whole message list each step, which is what lets
-   *  a file an agent just wrote appear in its own shared-files block. */
-  inTurn?: { reply: string; observation: string }[];
+  /** F4¾ agentic loop: the turn's own steps so far, already in message
+   *  form — under the sentinel transport an assistant reply followed by the
+   *  observation as a user message; under the native transport an assistant
+   *  message carrying tool_calls followed by one tool-result message per
+   *  call (every call MUST get a result or the next request is rejected).
+   *  Caller-only: the loop rebuilds the whole list each step, which is what
+   *  lets a file an agent just wrote appear in its own shared-files block. */
+  inTurn?: ChatMessage[];
 }): ChatMessage[] {
   const { agent, config, events, summary, minutesRemaining, ownJournal, privateBlock, sharedFiles, inTurn } = opts;
 
@@ -434,10 +461,7 @@ export function buildTurnMessages(opts: {
     { role: 'user', content: transcriptParts.join('\n') },
     // The turn's own steps so far (F4¾): what this agent did, and what came
     // back. Nobody else's context ever holds these.
-    ...(inTurn ?? []).flatMap((step): ChatMessage[] => [
-      { role: 'assistant', content: step.reply },
-      { role: 'user', content: step.observation },
-    ]),
+    ...(inTurn ?? []),
   ];
 }
 
