@@ -84,8 +84,17 @@ export interface ToolsConfig {
   budget: 'per-seat' | 'per-room';
   /** Room hears "[X updated the shared file …]" / "[X ran some code.]". */
   notice: boolean;
-  /** Wall-clock cap per python run; the worker is terminated past it. */
+  /** Wall-clock cap per python run; the worker is terminated past it.
+   *  Package preloading has its own generous cap — this one starts once
+   *  the interpreter is ready, so it prices only the agent's code. */
   pythonTimeoutSeconds: number;
+  /** Packages PRELOADED into every run and disclosed in the prompt.
+   *  Agents cannot install anything themselves (joint-session lesson:
+   *  in-sandbox imports of unloaded packages just fail, and micropip
+   *  would be a loader-side network hole) — this list is all they get.
+   *  The loader fetches them from the pyodide CDN once per container
+   *  (cached); the agent's code itself still has no network. */
+  pythonPackages: string[];
 }
 
 export interface SamplingConfig {

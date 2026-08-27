@@ -332,7 +332,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           pendingPrivate.set(agent.id, `Your code did not run: the room's one tool action for this round was already taken.`);
         } else {
           spendRoomBudget();
-          const output = await runPython(parsed.code, Object.fromEntries(sharedFiles), config.tools.pythonTimeoutSeconds);
+          const output = await runPython(parsed.code, Object.fromEntries(sharedFiles), config.tools.pythonTimeoutSeconds, config.tools.pythonPackages);
           record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output, notice: config.tools.notice, thinking: toolThinking });
           pendingPrivate.set(agent.id, `Output of the code you ran:\n${output}`);
         }

@@ -75,6 +75,10 @@ export const config: RoomConfig = {
     budget: 'per-seat',
     notice: true,
     pythonTimeoutSeconds: 10,
+    // Preloaded + prompt-disclosed; agents can't install their own
+    // (joint-session lesson). Curated for math/data play without the
+    // heavyweights; matplotlib omitted until shared files can hold binary.
+    pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx'],
   },
 
   // Control keeps the original named roster (comparability with every

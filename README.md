@@ -59,9 +59,13 @@ the whole room (first taker wins, losers are refused privately).
 room-public, shown to every seat each turn, saved under
 `sessions/<id>/shared/` and mirrored. `[RUN] code [/RUN]` executes python
 in a fresh pyodide sandbox (worker thread, `pythonTimeoutSeconds`
-wall-clock cap, no network, reads shared files); code and output are
-private to the caller — sharing a result means writing it to a file. Both
-are alongside-style: text after the closing tag is spoken.
+wall-clock cap starting after startup, reads shared files); code and
+output are private to the caller — sharing a result means writing it to a
+file. The sandbox preloads `tools.pythonPackages` (default numpy, pandas,
+sympy, networkx — disclosed in the prompt); agents cannot install anything
+themselves, and their code has no network (only the package loader touches
+the pyodide CDN, cached per container). Both sentinels are
+alongside-style: text after the closing tag is spoken.
 
 ## Grok via direct xAI (full traces)
 

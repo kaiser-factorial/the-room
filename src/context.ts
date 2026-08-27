@@ -147,6 +147,12 @@ function toolsSection(config: RoomConfig): string {
       `fresh sandbox that can read the shared files; the output comes back to`,
       `you privately at the start of your next turn — no one else sees your`,
       `code or its output. To share a result, write it to a shared file.`,
+      ...(t.pythonPackages.length
+        ? [
+            `The sandbox has the standard library plus ${t.pythonPackages.join(', ')}`,
+            `already available; nothing else can be installed.`,
+          ]
+        : [`The sandbox has the Python standard library only; nothing can be installed.`]),
     );
   }
   lines.push(
