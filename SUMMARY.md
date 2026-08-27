@@ -132,8 +132,13 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    text or binary incl. matplotlib PNGs, is PUBLISHED to the room;
    preloads numpy/pandas/sympy/networkx/matplotlib; micropip on, so
    agents install their own — deliberate, documented outbound-fetch
-   caveat, off-switch `pythonInstall`); one tool action per seat per
-   turn) · `tools-scarce` (same bench, ONE tool action per ROOM per
+   caveat, off-switch `pythonInstall`; `runPublic` on in the tools
+   conditions: code + output spoken to the room — the shared-project /
+   pair-programming mode, shared .py files runnable by anyone; off =
+   the journal-class private variant; [APPEND] for incremental edits,
+   [RUN > f]/[RUN >> f] captures output to a file, [SOURCE] reads the
+   tool layer's own code — free, private, tool-scope only); one tool
+   action per seat per turn) · `tools-scarce` (same bench, ONE tool action per ROOM per
    round — the negotiation over the slot is the phenomenon).
 11. **Thought broadcast** (§9.3, BUILT 2026-08-27; exploratory, tagged
    out of standard §2.5 comparisons) — off (control; F1 privacy rule

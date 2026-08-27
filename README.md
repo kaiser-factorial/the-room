@@ -63,8 +63,28 @@ wall-clock cap starting after startup). The shared files are mounted
 read/write at `shared/` — anything the code saves there, text or BINARY
 (a matplotlib PNG), is published to the room as a shared file (the viewer
 renders images inline; agents see binary files listed by name/size).
-stdout stays private to the caller — the filesystem is the publishing
-surface. The sandbox preloads `tools.pythonPackages` (default numpy,
+`[APPEND: name] … [/APPEND]` adds to the end of a text file instead of
+replacing it (caps apply to the combined size). `[RUN > file]` saves the
+run's output into a shared file; `[RUN >> file]` appends it — a running
+lab notebook nobody has to retype. `[SOURCE]` / `[SOURCE: name]`
+(`tools.sourceCode`) lets agents read the TOOL LAYER's own source
+(parse/search/sandbox/source), delivered privately; reading never costs a
+tool action. Deliberately scoped: session/context machinery stays
+unreadable so condition manipulations (broadcast, countdown) can't be
+discovered from code; known accepted leak — parse.ts reveals that
+journal/pass sentinels exist even where disabled.
+Code stored in a shared file can be executed by anyone
+(`exec(open('shared/name.py').read())` — the shared-project pattern, and
+the prompt says so). Run visibility is a knob: `runPublic: true` (the
+tools conditions) speaks code + output to the room (capped at 1500 chars
+each in the transcript render) — pair-programming mode, one agent's
+traceback is everyone's traceback; `false` (base default) keeps the
+original journal-class privacy. The caller gets their output privately
+next turn either way. Filesystem limits: 20 files, flat namespace
+(letters/digits `._-`, max 64 chars, no leading dot), 16K chars per
+[WRITE], 400KB per python-written file, whole-file overwrite (no
+ownership — anyone may overwrite anything).
+The sandbox preloads `tools.pythonPackages` (default numpy,
 pandas, sympy, networkx, matplotlib — disclosed in the prompt), and with
 `pythonInstall` (default on) micropip is loaded so agents can install
 more themselves mid-run — their choice, their time budget. Caveat,
@@ -225,7 +245,18 @@ SUPABASE_SERVICE_KEY=...   # dashboard → project settings → API keys → ser
 ```
 
 Inserts are fire-and-forget; JSONL stays the source of truth and a Supabase
-outage never stalls a session. Journal entries mirror to their own
+outage never stalls a session.
+
+**Schema gotcha (bitten 2026-08-27)**: `room_events.kind` has a CHECK
+constraint enumerating the allowed kinds — it lives only in Supabase, not
+in this repo. **Adding a new event kind requires extending that constraint**
+(migration `room_events_allow_tool_kinds` added search/file/run after the
+first tools-full session silently mirrored none of its tool events — the
+fire-and-forget sink swallowed every 400; the session's pre-fix tool events
+exist only in that container's ephemeral JSONL). Current allowed set:
+message, journal, system, order, summary, meta, end, search, file, run.
+
+Journal entries mirror to their own
 `room_journals` table (public read, feeds the viewer rail) — never into
 `room_events`, which is what agents' shared context is built from, so
 entries stay invisible to the room.

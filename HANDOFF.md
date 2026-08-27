@@ -53,7 +53,17 @@ merged AND deployed).
   incl. matplotlib PNGs; the viewer renders images inline). Sandbox:
   fresh pyodide per run, preloads numpy/pandas/sympy/networkx/matplotlib,
   micropip ON (agents install their own — deliberate; the installer is an
-  outbound fetch channel, off-switch `pythonInstall: false`). Viewer:
+  outbound fetch channel, off-switch `pythonInstall: false`). Tools
+  conditions run `runPublic: true` (2026-08-27): code + output are spoken
+  to the room — the shared-project / pair-programming mode; the prompt
+  also discloses the exec-a-shared-file pattern. Base default stays
+  private (the knob preserves the journal-class variant). Also:
+  [APPEND: name] (incremental edits), [RUN > f] / [RUN >> f] (output
+  saved/appended to a shared file), and [SOURCE] / [SOURCE: name]
+  (agents read the tool layer's own code — parse/search/sandbox only,
+  free, private; session/context stay unreadable so manipulations can't
+  be discovered from source). The room_events kind constraint already
+  includes 'source'. Viewer:
   shared-files rail (current contents per file, images inline) above the
   journals rail; search/run details behind feed chevrons.
 - **Thought broadcast is BUILT (§9.3, 2026-08-27)** —
@@ -141,6 +151,12 @@ journals-received.
    before deprecation.
 4. Autopilot gap is the cost throttle; JSONL on the Space is ephemeral —
    Supabase is the durable record for hosted sessions.
+4b. **New event kind ⇒ extend the `room_events.kind` CHECK constraint in
+   Supabase** (schema lives only there; the fire-and-forget sink swallows
+   the 400s silently — bitten 2026-08-27, first tools session mirrored no
+   tool events until migration `room_events_allow_tool_kinds`). That
+   session (2026-08-27T13-20-02) is missing its pre-fix tool events in
+   the mirror.
 5. The huggingface-spaces skill is vendored at `.claude/skills/` (with
    our known-errors additions) and saved to Corina's account.
 

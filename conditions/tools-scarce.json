@@ -20,6 +20,8 @@
       "networkx",
       "matplotlib"
     ],
-    "pythonInstall": true
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true
   }
 }

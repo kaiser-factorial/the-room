@@ -18,16 +18,22 @@ const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
 // (replace economics), so trailing prose is a mis-formatted extra, not a
 // message to leak to the room.
 const SEARCH_RE = /^\s*\**\[([A-Za-z]{4,8}):\s*([^\]\n]{0,300})\]?/;
-// F4½ tools. [WRITE: name]…[/WRITE] — shared-file write, contents are
-// room-public by design, so an unterminated block just swallows the rest as
-// content. [RUN]…[/RUN] — python; code and output are PRIVATE (journal-class),
-// so the unterminated form also takes the whole remainder (never leak a
-// half-closed block to the room). Both are alongside-style: text after the
-// closing tag is spoken as usual.
+// F4½ tools. [WRITE: name]…[/WRITE] replaces a shared file's contents;
+// [APPEND: name]…[/APPEND] adds to the end (same regex, token decides —
+// closing tags are interchangeable, models will mix them). Contents are
+// room-public by design, so an unterminated block just swallows the rest
+// as content. [RUN]…[/RUN] — python; [RUN > file] additionally saves the
+// run's output to a shared file, [RUN >> file] appends it (shell-flavored
+// on purpose). The unterminated [RUN form takes the whole remainder
+// (never leak a half-closed block to the room in the private-run mode).
+// All alongside-style: text after the closing tag is spoken as usual.
 const WRITE_OPEN_RE = /^\s*\**\[([A-Za-z]{4,6}):\s*([^\]\n]{1,80})\]\**\s*\n?([\s\S]*)$/;
 const WRITE_CLOSE_RE = /\[\/([A-Za-z]{4,6})\]\s*([\s\S]*)/;
-const RUN_OPEN_RE = /^\s*\**\[RUN\]\**:?\s*\n?([\s\S]*)$/i;
+const RUN_OPEN_RE = /^\s*\**\[RUN(?:\s*(>{1,2})\s*([^\]\n>]{1,80}))?\]\**:?\s*\n?([\s\S]*)$/i;
 const RUN_CLOSE_RE = /\[\/RUN\]\s*([\s\S]*)/i;
+// [SOURCE] / [SOURCE: name] — read the tool layer's own code (F4½
+// transparency). Alongside-style; bare form asks for the index.
+const SOURCE_RE = /^\s*\**\[([A-Za-z]{5,7})(?::\s*([^\]\n]{0,40}))?\]\**\s*\n?([\s\S]*)$/;
 
 function editDistance(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
@@ -50,6 +56,14 @@ function isWriteToken(w: string): boolean {
   return editDistance(w.toUpperCase(), 'WRITE') <= 1;
 }
 
+function isAppendToken(w: string): boolean {
+  return editDistance(w.toUpperCase(), 'APPEND') <= 1;
+}
+
+function isSourceToken(w: string): boolean {
+  return editDistance(w.toUpperCase(), 'SOURCE') <= 1;
+}
+
 export type ParsedReply =
   | { kind: 'pass' }
   /** Journal replaces the turn (or: alongside-mode privacy fallback — an
@@ -63,10 +77,14 @@ export type ParsedReply =
    *  normal message; in replace mode trailing text is discarded (the
    *  search costs the turn). */
   | { kind: 'search'; query: string; spoken?: string }
-  /** F4½ shared-file write (contents room-public); alongside-style. */
-  | { kind: 'write'; name: string; content: string; spoken?: string }
-  /** F4½ python run (code + output private to the caller); alongside-style. */
-  | { kind: 'run'; code: string; spoken?: string }
+  /** F4½ shared-file write (contents room-public); alongside-style.
+   *  append = [APPEND: name] — add to the end instead of replacing. */
+  | { kind: 'write'; name: string; content: string; append?: boolean; spoken?: string }
+  /** F4½ python run; alongside-style. saveTo = [RUN > name] (or >> to
+   *  append): the run's output is also saved to that shared file. */
+  | { kind: 'run'; code: string; saveTo?: { name: string; append: boolean }; spoken?: string }
+  /** F4½ source read (name absent = index); alongside-style. */
+  | { kind: 'source'; name?: string; spoken?: string }
   | { kind: 'empty' };
 
 export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig, t?: ToolsConfig): ParsedReply {
@@ -90,28 +108,39 @@ export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig, t?
   }
   if (t?.files) {
     const w = reply.match(WRITE_OPEN_RE);
-    if (w && isWriteToken(w[1])) {
+    if (w && (isWriteToken(w[1]) || isAppendToken(w[1]))) {
       const name = w[2].trim();
+      const append = isAppendToken(w[1]) ? { append: true as const } : {};
       const close = w[3].match(WRITE_CLOSE_RE);
-      if (close && isWriteToken(close[1])) {
+      if (close && (isWriteToken(close[1]) || isAppendToken(close[1]))) {
         const content = w[3].slice(0, w[3].indexOf(close[0])).trim();
         const spoken = close[2].trim();
-        return spoken ? { kind: 'write', name, content, spoken } : { kind: 'write', name, content };
+        return spoken ? { kind: 'write', name, content, ...append, spoken } : { kind: 'write', name, content, ...append };
       }
-      return { kind: 'write', name, content: w[3].trim() };
+      return { kind: 'write', name, content: w[3].trim(), ...append };
     }
   }
   if (t?.python) {
     const r = reply.match(RUN_OPEN_RE);
     if (r) {
-      const close = r[1].match(RUN_CLOSE_RE);
+      const saveTo = r[2] ? { saveTo: { name: r[2].trim(), append: r[1] === '>>' } } : {};
+      const body = r[3];
+      const close = body.match(RUN_CLOSE_RE);
       if (close) {
-        const code = r[1].slice(0, r[1].search(RUN_CLOSE_RE)).trim();
+        const code = body.slice(0, body.search(RUN_CLOSE_RE)).trim();
         const spoken = close[1].trim();
         if (!code) return { kind: 'empty' };
-        return spoken ? { kind: 'run', code, spoken } : { kind: 'run', code };
+        return spoken ? { kind: 'run', code, ...saveTo, spoken } : { kind: 'run', code, ...saveTo };
       }
-      return r[1].trim() ? { kind: 'run', code: r[1].trim() } : { kind: 'empty' };
+      return body.trim() ? { kind: 'run', code: body.trim(), ...saveTo } : { kind: 'empty' };
+    }
+  }
+  if (t?.sourceCode) {
+    const src = reply.match(SOURCE_RE);
+    if (src && isSourceToken(src[1])) {
+      const name = src[2]?.trim() || undefined;
+      const spoken = src[3].trim();
+      return { kind: 'source', ...(name ? { name } : {}), ...(spoken ? { spoken } : {}) };
     }
   }
   if (s?.enabled) {

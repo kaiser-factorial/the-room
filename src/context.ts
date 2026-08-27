@@ -15,7 +15,8 @@ export function audibleEvents(events: RoomEvent[]): RoomEvent[] {
       e.kind === 'system' ||
       (e.kind === 'search' && e.notice && !e.denied) ||
       (e.kind === 'file' && e.notice && !e.denied) ||
-      (e.kind === 'run' && e.notice && !e.denied),
+      (e.kind === 'run' && e.notice && !e.denied) ||
+      (e.kind === 'source' && e.notice),
   );
 }
 
@@ -33,7 +34,16 @@ function renderEvent(e: RoomEvent): string {
   // File CONTENTS live in the shared-files block of every prompt, not the
   // transcript — the room hears that a write happened, and reads the file.
   if (e.kind === 'file') return `[${e.agentName} updated the shared file "${e.name}".]`;
-  if (e.kind === 'run') return `[${e.agentName} ran some code.]`;
+  if (e.kind === 'run') {
+    // Public runs (shared-project mode) speak code + output to the room,
+    // capped so one big traceback can't flood every context.
+    if (e.public) {
+      const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) + '\n…(truncated)' : s);
+      return `[${e.agentName} ran code:]\n${clip(e.code, 1500)}\n[Output:]\n${clip(e.output ?? '(no output)', 1500)}`;
+    }
+    return `[${e.agentName} ran some code.]`;
+  }
+  if (e.kind === 'source') return `[${e.agentName} read the room's source code.]`;
   return '';
 }
 
@@ -152,8 +162,9 @@ function toolsSection(config: RoomConfig): string {
       `There is a small shared filesystem in the room — files everyone can read;`,
       `each agent's current view of it appears below when it has anything in it.`,
       `To create or overwrite a file, begin your reply with`,
-      `[WRITE: filename] the contents [/WRITE]; anything after the closing tag is`,
-      `spoken to the room as usual. Writes are visible to everyone.`,
+      `[WRITE: filename] the contents [/WRITE]; use [APPEND: filename] … [/APPEND]`,
+      `to add to the end of a file instead of replacing it. Anything after the`,
+      `closing tag is spoken to the room as usual. Writes are visible to everyone.`,
     );
   }
   if (t.python) {
@@ -163,10 +174,20 @@ function toolsSection(config: RoomConfig): string {
       `anything after the closing tag is spoken as usual. The code runs in a`,
       `fresh sandbox each time. The shared files are mounted at shared/ —`,
       `readable AND writable: any file your code saves there (text or binary,`,
-      `a saved plot included) is published to the room as a shared file. Your`,
-      `code's printed output comes back to you privately at the start of your`,
-      `next turn — no one else sees your code or its output; the shared/`,
-      `directory is how you show the room something.`,
+      `a saved plot included) is published to the room as a shared file, and`,
+      `code stored in a shared file can be run by anyone, e.g.`,
+      `exec(open('shared/name.py').read()). [RUN > filename] also saves the`,
+      `run's output to that shared file ([RUN >> filename] appends it).`,
+      ...(t.runPublic
+        ? [
+            `When you run code, the code and its output are shown to the room,`,
+            `and the output also comes back to you at the start of your next turn.`,
+          ]
+        : [
+            `Your code's printed output comes back to you privately at the start`,
+            `of your next turn — no one else sees your code or its output; the`,
+            `shared/ directory is how you show the room something.`,
+          ]),
       ...(t.pythonPackages.length
         ? [`The standard library plus ${t.pythonPackages.join(', ')} are already available.`]
         : [`The Python standard library is available.`]),
@@ -177,6 +198,14 @@ function toolsSection(config: RoomConfig): string {
             `per-run and count toward your time limit (${t.pythonTimeoutSeconds}s).`,
           ]
         : [`Nothing else can be installed.`]),
+    );
+  }
+  if (t.sourceCode) {
+    lines.push(
+      ``,
+      `These tools are open to inspection: reply with [SOURCE] for an index of`,
+      `their source code, or [SOURCE: name] to read a file — it comes back to`,
+      `you privately, and reading never costs a tool action.`,
     );
   }
   lines.push(

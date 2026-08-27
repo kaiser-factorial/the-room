@@ -12,7 +12,7 @@ import type { JournalConfig, RoomEvent, SearchConfig, ToolsConfig } from '../src
 
 const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } };
 const S: SearchConfig = { enabled: true, mode: 'alongside', gated: false, notice: true, maxResults: 5 };
-const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, ...over });
+const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: false, sourceCode: true, ...over });
 
 function readTranscript(dir: string): RoomEvent[] {
   return readFileSync(join(dir, 'transcript.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as RoomEvent);
@@ -111,6 +111,93 @@ test('run-published files: shared/ writes become binary shared files, listed not
   assert.match(prompt, /plot\.png \(binary file, 20 KB\)/);
 });
 
+test('append + run-capture sentinels parse as intended', () => {
+  const a = parseReply('[APPEND: log.md]\nmore\n[/APPEND]\nand speech', J, S, T());
+  assert.deepEqual(a, { kind: 'write', name: 'log.md', content: 'more', append: true, spoken: 'and speech' });
+  // Mixed closing tag still splits; typo'd APPEND still counts.
+  assert.equal(parseReply('[APPEND: a.md] x [/WRITE] talk', J, S, T()).kind, 'write');
+  const typo = parseReply('[APEND: a.md] x [/APEND]', J, S, T());
+  assert.ok(typo.kind === 'write' && typo.append);
+  const save = parseReply('[RUN > out.txt]\nprint(1)\n[/RUN]\nspeech', J, S, T());
+  assert.deepEqual(save, { kind: 'run', code: 'print(1)', saveTo: { name: 'out.txt', append: false }, spoken: 'speech' });
+  const saveAppend = parseReply('[RUN >> log.txt]\nprint(1)\n[/RUN]', J, S, T());
+  assert.deepEqual(saveAppend, { kind: 'run', code: 'print(1)', saveTo: { name: 'log.txt', append: true } });
+  const plain = parseReply('[RUN]\nprint(1)\n[/RUN]', J, S, T());
+  assert.deepEqual(plain, { kind: 'run', code: 'print(1)' });
+});
+
+test('append composes onto the existing file; run >> captures output into a shared file', async () => {
+  const config = testConfig({ maxRounds: 2, tools: T() });
+  // Round 1: everyone writes notes.md; round 2: everyone appends to it.
+  const dir = await runStubSession(config, 'write,write,write,append,append,append');
+  const events = readTranscript(dir);
+  const fileEvents = events.filter((e) => e.kind === 'file' && !e.denied);
+  assert.equal(fileEvents.length, 6);
+  const last = fileEvents[fileEvents.length - 1];
+  assert.ok(last.kind === 'file' && last.content.includes('shared-note') && last.content.includes('appended-line'),
+    'append should keep the original write and add the new line');
+  const onDisk = readFileSync(join(dir, 'shared', 'notes.md'), 'utf8');
+  assert.ok(onDisk.includes('shared-note') && onDisk.includes('appended-line'));
+
+  const config2 = testConfig({ maxRounds: 1, tools: T() });
+  const dir2 = await runStubSession(config2, 'run-save');
+  const events2 = readTranscript(dir2);
+  const runs = events2.filter((e) => e.kind === 'run' && !e.denied);
+  const logs = events2.filter((e) => e.kind === 'file' && !e.denied);
+  assert.equal(runs.length, 3);
+  assert.equal(logs.length, 3, 'each run should publish its captured output');
+  const lastLog = logs[logs.length - 1];
+  assert.ok(lastLog.kind === 'file' && lastLog.name === 'runlog.txt');
+  const outputs = (lastLog.kind === 'file' ? lastLog.content : '').split('\n').filter((l) => l.includes('stub-python-output'));
+  assert.equal(outputs.length, 3, '>> should accumulate all three runs\' outputs');
+});
+
+test('[SOURCE]: parses, delivers privately, never spends the budget, contents stay out of contexts', async () => {
+  const p = parseReply('[SOURCE: sandbox]\nand speech', J, S, T());
+  assert.deepEqual(p, { kind: 'source', name: 'sandbox', spoken: 'and speech' });
+  assert.deepEqual(parseReply('[SOURCE]', J, S, T()), { kind: 'source' });
+  assert.equal(parseReply('[SOURCE: x]', J, S, T({ sourceCode: false })).kind, 'message');
+  const { readSource, sourceIndex } = await import('../src/source.js');
+  assert.ok(readSource('sandbox')!.includes('WORKER_SRC'), 'sandbox source should be readable');
+  assert.equal(readSource('session'), null, 'condition machinery must stay unreadable');
+  assert.match(sourceIndex(), /\[SOURCE: name\]/);
+
+  // Per-room budget: a source read never takes the round's slot.
+  const config = testConfig({ maxRounds: 1, tools: T({ budget: 'per-room' }) });
+  const dir = await runStubSession(config, 'source,run,run');
+  const events = readTranscript(dir);
+  assert.equal(events.filter((e) => e.kind === 'source').length, 1);
+  assert.equal(events.filter((e) => e.kind === 'run' && !e.denied).length, 1, 'the slot should survive a source read');
+  // Source CONTENTS never enter the transcript or any context.
+  for (const e of events) {
+    if ('text' in e && e.text) assert.ok(!e.text.includes('WORKER_SRC'), 'source code leaked into transcript');
+  }
+  for (const agent of AGENTS) {
+    const prompt = buildTurnMessages({ agent, config, events, summary: '', minutesRemaining: 3, ownJournal: '' })
+      .map((m) => m.content).join('\n');
+    assert.ok(!prompt.includes('WORKER_SRC'), `source code leaked into ${agent.id}'s context`);
+    assert.match(prompt, /read the room's source code/, `${agent.id} missing the source notice`);
+  }
+});
+
+test('runPublic: code and output are spoken to the room; caller still gets output privately', async () => {
+  const config = testConfig({ maxRounds: 1, tools: T({ runPublic: true }) });
+  const dir = await runStubSession(config, 'run');
+  const events = readTranscript(dir);
+  const runs = events.filter((e) => e.kind === 'run');
+  assert.equal(runs.length, 3);
+  for (const r of runs) assert.ok(r.kind === 'run' && r.public, 'run event not stamped public');
+  // Everyone's context carries everyone's code + output (incl. their own
+  // event's rendering — public means public).
+  for (const agent of AGENTS) {
+    const prompt = buildTurnMessages({ agent, config, events, summary: '', minutesRemaining: 3, ownJournal: '' })
+      .map((m) => m.content).join('\n');
+    assert.match(prompt, /ran code:/, `${agent.id} missing public run rendering`);
+    assert.match(prompt, /private-code/, `${agent.id} missing the code text`);
+    assert.match(prompt, /stub-python-output/, `${agent.id} missing the output`);
+  }
+});
+
 test('per-room budget: one tool action per round, losers refused inaudibly, speech still lands', async () => {
   const config = testConfig({ maxRounds: 1, tools: T({ budget: 'per-room' }) });
   const dir = await runStubSession(config, 'run');
@@ -143,7 +230,7 @@ test('per-room budget: a denied action does not spend the round slot', async () 
 test('condition presets: tools-full and tools-scarce resolve onto the base config', async () => {
   const { resolveCondition, conditionRecord } = await import('../src/conditions.js');
   const full = resolveCondition('tools-full');
-  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true });
+  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true, sourceCode: true });
   assert.equal(full.search.mode, 'alongside');
   assert.equal(full.journal.enabled, false);
   const scarce = resolveCondition('tools-scarce');

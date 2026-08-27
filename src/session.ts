@@ -10,6 +10,7 @@ import { takeCommands } from './control.js';
 import { parseReply } from './parse.js';
 import { webSearch } from './search.js';
 import { runPython } from './sandbox.js';
+import { readSource, sourceIndex } from './source.js';
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
@@ -106,6 +107,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     else if (e.kind === 'search') clog(`\n   ⌕ ${e.agentName} ${e.denied ? 'reached for the web (no search available)' : `searched: ${e.query}`}`);
     else if (e.kind === 'file') clog(`\n   ▤ ${e.agentName} ${e.denied ? `write denied (${e.name})` : `wrote shared file: ${e.name}`}`);
     else if (e.kind === 'run') clog(`\n   ▶ ${e.agentName} ${e.denied ? 'run denied' : 'ran code'}`);
+    else if (e.kind === 'source') clog(`\n   § ${e.agentName} read the source${e.name ? `: ${e.name}` : ' index'}`);
   }
 
   function readJournal(agentId: string): string {
@@ -324,24 +326,33 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         }
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'write') {
-        // F4½ shared-file write: contents are room-public; the transcript
-        // carries only the notice line, everyone reads the file itself.
+        // F4½ shared-file write/append: contents are room-public; the
+        // transcript carries only the notice line, everyone reads the
+        // file itself. Append composes onto the existing text (the caps
+        // apply to the COMBINED size).
         const toolThinking = parsed.spoken ? undefined : thinking;
+        const existing = parsed.append ? sharedFiles.get(parsed.name) : undefined;
+        const combined =
+          existing && !existing.binary
+            ? `${existing.data.toString('utf8').replace(/\n?$/, '\n')}${parsed.content}`
+            : parsed.content;
         const invalid = !FILE_NAME_RE.test(parsed.name)
           ? `"${parsed.name}" is not a valid file name (letters, digits, ., _, -; max 64 chars).`
-          : parsed.content.length > MAX_FILE_CHARS
-            ? `the contents exceed the ${MAX_FILE_CHARS}-character file limit.`
-            : !sharedFiles.has(parsed.name) && sharedFiles.size >= MAX_FILES
-              ? `the room already holds ${MAX_FILES} shared files.`
-              : roomBudgetSpent
-                ? `the room's one tool action for this round was already taken.`
-                : null;
+          : parsed.append && existing?.binary
+            ? `"${parsed.name}" is a binary file — it can't be appended to.`
+            : combined.length > MAX_FILE_CHARS
+              ? `the contents exceed the ${MAX_FILE_CHARS}-character file limit.`
+              : !sharedFiles.has(parsed.name) && sharedFiles.size >= MAX_FILES
+                ? `the room already holds ${MAX_FILES} shared files.`
+                : roomBudgetSpent
+                  ? `the room's one tool action for this round was already taken.`
+                  : null;
         if (invalid) {
           record({ kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name: parsed.name.slice(0, 80), content: '', denied: true, notice: config.tools.notice, thinking: toolThinking });
-          pendingPrivate.set(agent.id, `Your write to "${parsed.name.slice(0, 80)}" did not happen: ${invalid}`);
+          pendingPrivate.set(agent.id, `Your ${parsed.append ? 'append' : 'write'} to "${parsed.name.slice(0, 80)}" did not happen: ${invalid}`);
         } else {
           spendRoomBudget();
-          publishFile(agent, round, parsed.name, Buffer.from(parsed.content, 'utf8'), toolThinking);
+          publishFile(agent, round, parsed.name, Buffer.from(combined, 'utf8'), toolThinking);
         }
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'run') {
@@ -350,6 +361,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         const toolThinking = parsed.spoken ? undefined : thinking;
         if (roomBudgetSpent) {
           record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, denied: true, notice: config.tools.notice, thinking: toolThinking });
+          // (denied runs stay inaudible in both visibility modes)
           pendingPrivate.set(agent.id, `Your code did not run: the room's one tool action for this round was already taken.`);
         } else {
           spendRoomBudget();
@@ -360,11 +372,26 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             config.tools.pythonPackages,
             config.tools.pythonInstall,
           );
-          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output: res.output, notice: config.tools.notice, thinking: toolThinking });
+          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output: res.output, ...(config.tools.runPublic ? { public: true } : {}), notice: config.tools.notice, thinking: toolThinking });
           // Files the code saved under shared/ are PUBLISHED to the room
           // (that's the point of the writable mount); invalid ones are
           // reported privately, never silently dropped.
           const publishNotes: string[] = [];
+          // [RUN > file] / [RUN >> file]: the output itself becomes (or
+          // extends) a shared file — same publish path, same caps.
+          if (parsed.saveTo) {
+            const { name, append } = parsed.saveTo;
+            const existing = append ? sharedFiles.get(name) : undefined;
+            const combined =
+              existing && !existing.binary
+                ? `${existing.data.toString('utf8').replace(/\n?$/, '\n')}${res.output}`
+                : res.output;
+            if (!FILE_NAME_RE.test(name)) publishNotes.push(`Output was not saved: "${name}" is not a valid file name.`);
+            else if (append && existing?.binary) publishNotes.push(`Output was not saved: "${name}" is a binary file.`);
+            else if (combined.length > MAX_FILE_CHARS) publishNotes.push(`Output was not saved to "${name}": it would exceed the ${MAX_FILE_CHARS}-character file limit.`);
+            else if (!sharedFiles.has(name) && sharedFiles.size >= MAX_FILES) publishNotes.push(`Output was not saved: the room already holds ${MAX_FILES} shared files.`);
+            else publishFile(agent, round, name, Buffer.from(combined, 'utf8'));
+          }
           for (const f of res.files) {
             const data = Buffer.from(f.dataBase64, 'base64');
             if (!FILE_NAME_RE.test(f.name)) publishNotes.push(`"${f.name}" was not published (invalid file name).`);
@@ -374,6 +401,16 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           }
           pendingPrivate.set(agent.id, `Output of the code you ran:\n${res.output}${publishNotes.length ? `\n${publishNotes.join('\n')}` : ''}`);
         }
+        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+      } else if (parsed.kind === 'source') {
+        // F4½ transparency: reading the tools' source is FREE (no budget
+        // check — knowing how the machine works shouldn't cost the room
+        // its action). Contents go to the reader privately; the room at
+        // most hears the notice line.
+        const toolThinking = parsed.spoken ? undefined : thinking;
+        record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...(parsed.name ? { name: parsed.name } : {}), notice: config.tools.notice, thinking: toolThinking });
+        const body = parsed.name ? readSource(parsed.name) : sourceIndex();
+        pendingPrivate.set(agent.id, body ?? `There is no source file named "${parsed.name}".\n${sourceIndex()}`);
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'message') {
         record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });

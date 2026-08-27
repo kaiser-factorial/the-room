@@ -59,6 +59,11 @@
   #fileList .filemeta { color: var(--dim); font-size: 0.72rem; margin-bottom: 0.25rem; }
   #fileList .filebody { white-space: pre-wrap; font-size: 0.82rem; word-break: break-word; }
   #fileList img { max-width: 100%; display: block; margin-top: 0.2rem; }
+  /* Tool-calls rail: per-agent accordion, one inner chevron per call. */
+  #toolList details details { border: none; padding: 0.15rem 0 0.15rem 0.6rem; }
+  #toolList details details summary { font-size: 0.78rem; color: var(--dim); }
+  #toolList .trace { white-space: pre-wrap; font-size: 0.8rem; color: var(--dim); word-break: break-word; }
+  #toolList .trace img { max-width: 100%; }
   .entry { font-size: 0.82rem; color: var(--dim); margin: 0.6rem 0 0.6rem 0.6rem; white-space: pre-wrap; }
   .entry .rnd { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
   #cond { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.06em; margin-right: 0.5em; }
@@ -94,6 +99,7 @@
   <main id="feed"></main>
   <aside id="journals">
     <div id="filesWrap" hidden><h2>shared files</h2><div id="fileList"></div></div>
+    <div id="toolsWrap" hidden><h2>tool calls</h2><div id="toolList"></div></div>
     <h2>journals</h2><div id="journalList"></div>
   </aside>
 </div>
@@ -239,6 +245,7 @@ function render(e) {
   } else if (e.kind === 'search') {
     // F4 websearch. The room at most heard the notice line; humans get the
     // query + results behind a chevron (same class as thinking traces).
+    renderToolCall(e);
     el.className = 'aside';
     el.textContent = e.payload?.denied
       ? `${e.agent_name} reached for the web, but no results came back.`
@@ -257,8 +264,9 @@ function render(e) {
     // F4½ tools. File contents are room-public; run code/output are private
     // to the caller — humans get both behind a chevron either way.
     // File events also feed the shared-files rail (current state, like
-    // the journals rail keeps the entries).
+    // the journals rail keeps the entries); runs feed the tool-calls rail.
     if (e.kind === 'file') renderSharedFile(e);
+    if (e.kind === 'run') renderToolCall(e);
     el.className = 'aside';
     el.textContent = e.kind === 'file'
       ? (e.payload?.denied ? `${e.agent_name} tried to write a shared file, but it was refused.`
@@ -292,6 +300,11 @@ function render(e) {
     }
     d.append(s, body);
     el.appendChild(d);
+    appendThinking(el, e);
+  } else if (e.kind === 'source') {
+    renderToolCall(e);
+    el.className = 'aside';
+    el.textContent = `${e.agent_name} read the room's source code${e.payload?.name ? ` (${e.payload.name})` : ''}.`;
     appendThinking(el, e);
   } else if (e.kind === 'system') {
     el.className = 'aside';
@@ -369,6 +382,45 @@ function renderSharedFile(e) {
   }
 }
 
+// ── Tool-calls rail (F4/F4½) ───────────────────────────────────────────────
+// Per-agent accordion like the journals rail; each call is its own inner
+// chevron (round + verb in the summary, query/results or code/output in
+// the body). Refused calls are listed and marked.
+const toolList = $('toolList');
+const toolSections = new Map(); // agent_id -> {body, count, countEl}
+
+function renderToolCall(e) {
+  $('toolsWrap').hidden = false;
+  let sec = toolSections.get(e.agent_id);
+  if (!sec) {
+    const details = document.createElement('details');
+    const summaryEl = document.createElement('summary');
+    summaryEl.innerHTML = `<span></span> <span class="count"></span>`;
+    summaryEl.querySelector('span').textContent = e.agent_name;
+    summaryEl.querySelector('span').style.color = colorOf(e.agent_id);
+    const body = document.createElement('div');
+    details.append(summaryEl, body);
+    toolList.appendChild(details);
+    sec = { body, count: 0, countEl: summaryEl.querySelector('.count') };
+    toolSections.set(e.agent_id, sec);
+  }
+  const p = e.payload || {};
+  const verb = e.kind === 'search' ? 'searched' : e.kind === 'run' ? 'ran code' : `read source${p.name ? `: ${p.name}` : ''}`;
+  const inner = document.createElement('details');
+  const s = document.createElement('summary');
+  s.textContent = `round ${e.round} · ${verb}${p.denied ? ' (refused)' : ''}`;
+  const body = document.createElement('div');
+  body.className = 'trace';
+  body.textContent = e.kind === 'search'
+    ? `[${p.query || ''}]${p.results ? `\n\n${p.results}` : ''}`
+    : e.kind === 'run'
+      ? `${p.code || ''}${p.output ? `\n\n── output ──\n${p.output}` : ''}`
+      : `(${p.name || 'index'})`;
+  inner.append(s, body);
+  sec.body.appendChild(inner);
+  sec.countEl.textContent = `(${++sec.count})`;
+}
+
 // ── Journals rail ──────────────────────────────────────────────────────────
 const journalList = $('journalList');
 const journalSections = new Map(); // agent_id -> {details, body, count}
@@ -419,6 +471,7 @@ async function showSession(sessionId) {
   currentSession = sessionId;
   feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear(); $('cond').textContent = '';
   fileList.innerHTML = ''; fileSections.clear(); $('filesWrap').hidden = true;
+  toolList.innerHTML = ''; toolSections.clear(); $('toolsWrap').hidden = true;
   seenJournalIds.clear(); seenEventSeqs.clear();
   meta = null; ended = false; clock.textContent = '';
   channels.forEach((c) => supabase.removeChannel(c)); channels = [];
