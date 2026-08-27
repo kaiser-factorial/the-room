@@ -35,8 +35,10 @@ const RUN_CLOSE_RE = /\[\/RUN\]\s*([\s\S]*)/i;
 // transparency). Alongside-style; bare form asks for the index.
 const SOURCE_RE = /^\s*\**\[([A-Za-z]{5,7})(?::\s*([^\]\n]{0,40}))?\]\**\s*\n?([\s\S]*)$/;
 // [CONFIG: key = value] — §9.4 self-governance. Validation happens
-// against the whitelist in governance.ts, not here.
-const CONFIG_RE = /^\s*\**\[([A-Za-z]{5,7}):\s*([A-Za-z.]{3,40})\s*=\s*([A-Za-z-]{2,20})\s*\]\**\s*\n?([\s\S]*)$/;
+// against the whitelist in governance.ts, not here. The value charset
+// carries digits since F4¾ ([CONFIG: tools.turnSteps = 4] — the first
+// numeric knob a room can vote itself).
+const CONFIG_RE = /^\s*\**\[([A-Za-z]{5,7}):\s*([A-Za-z.]{3,40})\s*=\s*([A-Za-z0-9-]{1,20})\s*\]\**\s*\n?([\s\S]*)$/;
 
 function editDistance(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
@@ -95,6 +97,15 @@ export type ParsedReply =
   /** §9.4 self-governance: change a room setting; alongside-style. */
   | { kind: 'config'; key: string; value: string; spoken?: string }
   | { kind: 'empty' };
+
+/** Reply kinds that are an ACTION rather than an utterance — the ones the
+ *  F4¾ turn loop can iterate on. Everything else (a message, a journal
+ *  entry, a pass, an empty reply) ends the turn where it stands. */
+export type ToolAction = Extract<ParsedReply, { kind: 'search' | 'write' | 'run' | 'source' | 'config' }>;
+const TOOL_KINDS = new Set<ParsedReply['kind']>(['search', 'write', 'run', 'source', 'config']);
+export function isToolAction(p: ParsedReply): p is ToolAction {
+  return TOOL_KINDS.has(p.kind);
+}
 
 export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig, t?: ToolsConfig): ParsedReply {
   if (j.enabled && j.pass.enabled && PASS_RE.test(reply)) return { kind: 'pass' };

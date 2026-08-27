@@ -30,6 +30,8 @@ function sinkPayload(e: RoomEvent): unknown {
   const p: Record<string, unknown> = {};
   if ('thinking' in e && e.thinking) p.thinking = e.thinking;
   if ('telemetry' in e && e.telemetry) p.telemetry = e.telemetry;
+  // F4¾: which action of the turn this was (absent in single-step rooms).
+  if ('step' in e && e.step) p.step = e.step;
   // F4 search: query/results ride in payload — same public-read class as
   // traces (humans see them in the viewer; agents never do, context.ts
   // renders only the notice line).

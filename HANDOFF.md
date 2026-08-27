@@ -8,7 +8,7 @@ merged AND deployed).
 
 ## Read these, in order
 
-1. **SUMMARY.md** — abstract, control state, roster, axes (now 12),
+1. **SUMMARY.md** — abstract, control state, roster, axes (now 13),
    measurement + robustness layer. The at-a-glance spec.
 2. **EXPERIMENT_DESIGN.md** — §0 program (Phase A pilot → Phase B journal
    experiment), §2.5 three-channel (incl. the Grok-trace caveat + fix),
@@ -67,6 +67,31 @@ merged AND deployed).
   files (current contents per file, images inline) + tool calls
   (per-agent accordion, one chevron per search/run/source read, refusals
   marked) above the journals rail; everything also in feed chevrons.
+- **The agentic turn is BUILT (F4¾ / §9.5, 2026-08-27, NOT yet deployed)** —
+  `tools.turnSteps`: how many actions a seat may take INSIDE one turn.
+  Every pre-existing condition stays at 1 (one action, result deferred to
+  the caller's next turn — nobody can act on what they just learned). The
+  new `agentic` condition is the tools-full bench at 4: each result comes
+  straight back and the seat acts again on it (search → read → run → fix
+  → run), with the prompt rebuilt from live room state each step, so a
+  file written at step 1 is in the prompt at step 2. **Speaking ends the
+  turn** — actions iterate, utterance is what a turn costs — so the room
+  still hears at most one message per seat per turn and analyze.ts keeps
+  its unit; a turn spent entirely on actions says nothing, and the prompt
+  says that's a fine way to spend one. Refusals are now machine-readable
+  everywhere (`src/agentic.ts`: `[bad_file_name] … Fix: … Available: …`,
+  two per turn and then the turn ends) — adapted from scatter-lab's plan
+  validator, as the bounded loop is from joint-session's runToolLoop
+  (Corina pointed at both mid-session). [SOURCE]/[CONFIG] stay free of the
+  room's tool budget but cost a step; per-room budget (tools-scarce) pins
+  the effective value to 1. Also: `step` on every action event,
+  `telemetry.calls` on the message, a turn's notice-only actions collapsed
+  into ONE line in everyone else's transcript, `tools.turnSteps` on the
+  [CONFIG] whitelist (1–8), a `toolUse` block in metrics.json (chains,
+  silent working turns, completions per turn — exploratory), and `-quiet`
+  stub scenarios. Out of registered stats; costs up to turnSteps+1
+  completions per turn. **Not deployed — the runner needs a redeploy
+  (check the liveness probe first: a deploy kills a live round).**
 - **Self-governance is BUILT + DEPLOYED (§9.4, 2026-08-27)** — `transparent`
   ([SOURCE] reads the whole experiment, incl. the live condition) and
   `self-governing` (everything OFF; [CONFIG: key = value] whitelist —
@@ -82,9 +107,10 @@ merged AND deployed).
   room is told. Trace-rich + journal (the one private channel left).
   §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
   built now, spent later. Tag out of standard §2.5 comparisons.
-- **Code quality**: 85-test suite (`npm test`), incl. the privacy
+- **Code quality**: 97-test suite (`npm test`), incl. the privacy
   invariants (journals/traces/search/run never in another agent's
-  context) and analyze DETECTING planted dynamics in the voice stub.
+  context — now also what an agent learns MID-turn) and analyze DETECTING
+  planted dynamics in the voice stub.
   `ROOM_STUB=1` dry-runs everything incl. all tool paths;
   `ROOM_STUB_SCRIPT` drives failure scenarios.
 
@@ -175,7 +201,11 @@ journals-received.
 **Tooling sprint DONE (F4 + F4½ + xAI adapter, merged PRs #8–#10,
 deployed 2026-08-27)** — see Current state above for what's live. First
 `tools-full` / `tools-scarce` sessions are now one admin-panel click away
-(remember: they're exploratory, flagged out of Phase-B stats). Next:
+(remember: they're exploratory, flagged out of Phase-B stats). **F4¾ (the
+agentic turn) is built on that same bench** — run a couple of plain
+`tools-full` sessions BEFORE `agentic`: tools-full ↔ agentic is the clean
+contrast (same bench, one knob) and it only reads as one if the
+single-step side exists first. Next:
 **Phase A pilots on autopilot** (length pilot 30/60/90 decides D3
 duration; roster-hidden vs house; journal-free rerun under fixed prompt)
 → **F6 dashboard** → **Phase B** (the registered journal experiment,

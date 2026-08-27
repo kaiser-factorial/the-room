@@ -142,7 +142,19 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    tool layer's own code — free, private, tool-scope only); one tool
    action per seat per turn) · `tools-scarce` (same bench, ONE tool action per ROOM per
    round — the negotiation over the slot is the phenomenon).
-11. **Self-governance** (§9.4, BUILT 2026-08-27; exploratory, out of ALL
+11. **Agentic turn** (F4¾, BUILT 2026-08-27; exploratory, out of ALL
+   registered stats) — `tools.turnSteps`: 1 (every other condition — one
+   action per turn, its result delivered at the start of the caller's
+   NEXT turn, so nobody can ever act on what they just learned) ·
+   `agentic` (the tools-full bench at 4 actions per turn, each result fed
+   straight back inside the turn: search → read → run → fix → run, then
+   speak). **Speaking ends the turn** at any value, so the room still
+   hears at most one message per seat per turn and every metric keeps its
+   unit; a turn spent entirely on actions simply says nothing. Refusals
+   are machine-readable ([code]/Fix/Available) and capped at two per
+   turn; per-room budget pins the effective value to 1. The clean
+   contrast is `tools-full` ↔ `agentic`: same bench, one knob.
+12. **Self-governance** (§9.4, BUILT 2026-08-27; exploratory, out of ALL
    registered stats) — `transparent` (tools-full + [SOURCE] widened to
    the whole experiment incl. [SOURCE: condition], read-only) ·
    `self-governing` (EVERYTHING off; [CONFIG: setting = value] against
@@ -152,7 +164,7 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    revealed preference: what furniture does the room build itself?).
    meta.condition is only the starting state — analysis replays the
    config events.
-12. **Thought broadcast** (§9.3, BUILT 2026-08-27; exploratory, tagged
+13. **Thought broadcast** (§9.3, BUILT 2026-08-27; exploratory, tagged
    out of standard §2.5 comparisons) — off (control; F1 privacy rule
    absolute) · `broadcast-informed` · `broadcast-uninformed`: every
    agent's thinking is rendered into the OTHER agents' contexts alongside

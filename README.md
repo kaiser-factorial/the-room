@@ -39,7 +39,8 @@ The JSONL is the source of truth; a viewer UI later just replays it.
 
 Conditions with `search.enabled` give every seat `[SEARCH: query]` — the
 turn is spent searching, results come back privately at the requester's
-next turn, and the room at most hears the notice line (query/results are
+next turn (or straight back inside the turn under the F4¾ loop, below),
+and the room at most hears the notice line (query/results are
 journal-class private; the viewer shows them behind a chevron). Presets:
 `search-tool` (ungated, search costs the turn), `search-free` (ungated,
 `mode: alongside` — the sentinel line is followed by a normal spoken
@@ -69,7 +70,8 @@ run's output into a shared file; `[RUN >> file]` appends it — a running
 lab notebook nobody has to retype. `[SOURCE]` / `[SOURCE: name]`
 (`tools.sourceCode`) lets agents read the TOOL LAYER's own source
 (parse/search/sandbox/source), delivered privately; reading never costs a
-tool action. Deliberately scoped: session/context machinery stays
+tool action (it does use one of the turn's actions when the F4¾ loop is
+on). Deliberately scoped: session/context machinery stays
 unreadable so condition manipulations (broadcast, countdown) can't be
 discovered from code; known accepted leak — parse.ts reveals that
 journal/pass sentinels exist even where disabled.
@@ -80,7 +82,8 @@ tools conditions) speaks code + output to the room (capped at 1500 chars
 each in the transcript render) — pair-programming mode, one agent's
 traceback is everyone's traceback; `false` (base default) keeps the
 original journal-class privacy. The caller gets their output privately
-next turn either way. Filesystem limits: 20 files, flat namespace
+either way — next turn at `turnSteps: 1`, straight back inside the turn
+under the agentic loop below. Filesystem limits: 20 files, flat namespace
 (letters/digits `._-`, max 64 chars, no leading dot), 16K chars per
 [WRITE], 400KB per python-written file, whole-file overwrite (no
 ownership — anyone may overwrite anything).
@@ -92,6 +95,58 @@ accepted deliberately: micropip gives agent code an outbound fetch
 channel (PyPI/CDN/wheel URLs); fine for our own roster on an isolated
 runner, flip it off for any condition seating untrusted code. Both
 sentinels are alongside-style: text after the closing tag is spoken.
+
+## The agentic turn (F4¾)
+
+`tools.turnSteps` decides how many actions a seat may take INSIDE one turn,
+and it is the difference between a room with tools and a room of agents.
+
+- **1** (base default, and what `tools-full` / `tools-scarce` /
+  `search-*` still run) — one action, and its result arrives at the start
+  of the caller's NEXT turn. Nobody can act on what they just learned
+  before speaking: a search is a guess about what will be useful two
+  minutes from now, and a traceback costs a full round-trip to fix.
+- **>1** (`agentic`, which is the tools-full bench at `turnSteps: 4`) —
+  the result comes straight back inside the turn and the agent decides
+  what to do with it. Search, read it, run code on it, read the error,
+  fix it, then speak. Each action is a fresh model call built from the
+  live room state, so a file written in step 1 is in the prompt at step 2.
+
+The rule that keeps the room measurable: **speaking ends the turn.**
+Actions iterate; utterance is what a turn costs. A reply with any spoken
+text is the last thing an agent does in that turn (its result waits for
+the next one), so the room still hears at most one message per seat per
+turn — the unit every convergence, mimicry and address metric in
+`analyze.ts` is built on. A turn spent entirely on actions simply says
+nothing, and the prompt says that is a fine way to spend one.
+
+The rest of the economics:
+
+- Refusals are machine-readable (`src/agentic.ts`): each one comes back as
+  a lead line plus `[code] what failed. Fix: what to do. Available: …`,
+  and a refused action never spends a step or the room's per-round slot.
+  Two refusals in one turn end it — the cap is enforced in code, not
+  requested in prose. Codes: `budget_spent`, `steps_exhausted`,
+  `search_gated`, `search_failed`, `bad_file_name`, `binary_append`,
+  `file_too_large`, `too_many_files`, `bad_config_key`,
+  `bad_config_value`.
+- `[SOURCE]` and `[CONFIG]` stay free of the room's tool budget, but they
+  do use one of the turn's actions — otherwise a seat could read source
+  forever inside a single turn.
+- Under `budget: 'per-room'` (tools-scarce) the effective value is always
+  1: there the room's ONE action per round is the thing being negotiated,
+  and a loop would hand the whole round to whoever moved first.
+- Cost scales with the knob: up to `turnSteps + 1` completions per turn
+  (hard cap `turnSteps + 3` when a seat keeps retrying refused actions).
+  `MAX_TURN_STEPS` = 8 is the ceiling whatever a condition asks for.
+- Every action event carries `step` (1-based); the turn's spoken message
+  carries `telemetry.calls`. The viewer's tool rail shows
+  `round 3 · step 2 · ran code`, and consecutive notice-only actions from
+  one seat collapse into a single transcript line for everybody else
+  (`[Alpha looked something up, ran some code, then updated "plot.py".]`)
+  so a working turn doesn't flood five other contexts.
+- A self-governing room can vote itself the loop: `tools.turnSteps` is on
+  the `[CONFIG]` whitelist, bounded 1–8.
 
 ## Transparency & self-governance (§9.4)
 
@@ -106,8 +161,9 @@ stats):
 - **`self-governing`** — EVERYTHING starts off (no journal, search,
   files, or python); `[CONFIG: setting = value]` changes the room against
   the whitelist in `src/governance.ts` (journal/search/tool toggles,
-  modes, notice flags, budget — never durations, caps, roster, models,
-  the manipulations, or governance itself). Unilateral, immediate, free
+  modes, notice flags, budget, and `tools.turnSteps` bounded 1–8 — never
+  durations, caps, roster, models, the manipulations, or governance
+  itself). Unilateral, immediate, free
   (never a tool action), always room-visible when applied
   (`[X changed the room's settings: …]`), refused privately when not.
   The prompt lists the live value of every alterable knob each turn.
@@ -226,7 +282,12 @@ inter-similarity) in a voice-stub session. The stub adapter is scriptable:
 `ROOM_STUB_SCRIPT=plain,journal,alongside,pass,empty,truncate,error`
 drives one scenario per call; without a script it generates per-agent
 voices with planted convergence and mimicry so dry-run metrics have
-structure to find.
+structure to find. The `-quiet` scenarios (`run-quiet`, `write-quiet`,
+`source-quiet`, `badwrite-quiet`) are actions with nothing spoken after
+them — under the F4¾ loop they keep a turn going, which is how the
+multi-step tests drive one. Because the script is consumed per CALL, a
+looping turn eats several entries: `run-quiet,run-quiet,plain` is one
+two-step turn per seat.
 
 ## Analysis (F2)
 

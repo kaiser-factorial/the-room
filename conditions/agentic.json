@@ -1,0 +1,22 @@
+{
+  "description": "F4¾ agentic turn: the tools-full bench, but a seat may take up to FOUR actions inside one turn and each result comes straight back to it — search, read it, run code on it, fix the error, run again — instead of one action whose result arrives a turn later. Speaking ends the turn, so the room still hears at most one message per seat per turn and every drift metric keeps its unit. Exploratory, out of registered stats; costs up to 5 completions per turn.",
+  "search": {
+    "enabled": true,
+    "mode": "alongside",
+    "gated": false,
+    "notice": true,
+    "maxResults": 5
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": ["numpy", "pandas", "sympy", "networkx", "matplotlib"],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true
+  }
+}

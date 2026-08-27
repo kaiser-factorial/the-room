@@ -2,6 +2,7 @@ import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 import type { ChatMessage } from './openrouter.js';
 import { personaText } from './personas.js';
 import { configState } from './governance.js';
+import { effectiveTurnSteps, loopEnabled } from './agentic.js';
 
 /** Room events an agent can "hear": messages, journal notices, system lines. */
 export function audibleEvents(events: RoomEvent[]): RoomEvent[] {
@@ -67,6 +68,56 @@ function renderEventFor(e: RoomEvent, viewerId: string, broadcast: RoomConfig['t
   return `${authorName} (thinking): ${thinking}\n${base}`;
 }
 
+// F4¾: a multi-step turn can fire several actions, and one notice line each
+// would flood every other agent's context with "[X looked something up.]"
+// three times in a row (the joint-session lesson — its transcript collapses
+// a run of tool-call rows behind one summary). So consecutive NOTICE-ONLY
+// tool events from the same agent in the same round render as one line.
+// Public runs (code + output) never collapse — those are substance, not
+// notice — and nothing collapses under thought broadcast, where each event
+// carries its own trace into the others' contexts (§9.3 must not lose one).
+function noticeVerb(e: RoomEvent): string | null {
+  if (e.kind === 'search') return 'looked something up on the web';
+  if (e.kind === 'file') return `updated the shared file "${e.name}"`;
+  if (e.kind === 'run' && !e.public) return 'ran some code';
+  if (e.kind === 'source') return "read the room's source code";
+  return null;
+}
+
+function joinVerbs(verbs: string[]): string {
+  if (verbs.length === 1) return verbs[0];
+  return `${verbs.slice(0, -1).join(', ')}, then ${verbs[verbs.length - 1]}`;
+}
+
+export function renderTranscript(
+  slice: RoomEvent[],
+  viewerId: string,
+  broadcast: RoomConfig['thinkingBroadcast'],
+): string {
+  const out: string[] = [];
+  for (let i = 0; i < slice.length; i++) {
+    const e = slice[i];
+    const verb = broadcast === 'off' ? noticeVerb(e) : null;
+    if (verb && 'agentName' in e) {
+      const verbs = [verb];
+      let j = i + 1;
+      for (; j < slice.length; j++) {
+        const n = slice[j];
+        const v = noticeVerb(n);
+        if (!v || !('agentName' in n) || n.agentId !== e.agentId || n.round !== e.round) break;
+        verbs.push(v);
+      }
+      if (verbs.length > 1) {
+        out.push(`[${e.agentName} ${joinVerbs(verbs)}.]`);
+        i = j - 1;
+        continue;
+      }
+    }
+    out.push(renderEventFor(e, viewerId, broadcast));
+  }
+  return out.join('\n\n');
+}
+
 /** The verbatim slice for the transcript block. 'full' = everything;
  *  'window' = newest events fitting the token budget. Returns the slice and
  *  how many audible events were left out (for the summary boundary). */
@@ -129,22 +180,26 @@ function journalSection(config: RoomConfig): string {
 function searchSection(config: RoomConfig): string {
   const s = config.search;
   if (!s.enabled) return '';
+  // F4¾: under the turn loop results arrive INSIDE the turn, so the timing
+  // clause has to say so — an agent that believes its results are a turn
+  // away will speak instead of reading them (the whole point of the axis).
+  const loop = loopEnabled(config);
+  const when = loop ? `come straight back to you, privately` : `come back to you privately at the start of your next turn`;
   const lines =
     s.mode === 'alongside'
       ? [
           ``,
           `You can also look something up on the web. To search, begin your reply`,
           `with [SEARCH: your query] on its own line; anything after it is spoken`,
-          `to the room as usual. The results come back to you privately at the`,
-          `start of your next turn. The others never see your query or the results` +
+          `to the room as usual. The results ${when}. The others never see`,
+          `your query or the results` +
             (s.notice ? `; they only hear that you looked something up.` : `, and no one is told you searched.`),
         ]
       : [
           ``,
           `You can also look something up on the web. To search, reply with`,
-          `[SEARCH: your query] — that turn is spent searching, and the results come`,
-          `back to you privately at the start of your next turn. The others never see`,
-          `your query or the results` +
+          `[SEARCH: your query] — that turn is spent searching, and the results`,
+          `${when}. The others never see your query or the results` +
             (s.notice ? `; they only hear that you looked something up.` : `, and no one is told you searched.`),
         ];
   if (s.gated) {
@@ -177,6 +232,7 @@ function governanceSection(config: RoomConfig): string {
 function toolsSection(config: RoomConfig): string {
   const t = config.tools;
   if (!t.files && !t.python) return '';
+  const loop = loopEnabled(config);
   const lines: string[] = [''];
   if (t.files) {
     lines.push(
@@ -202,12 +258,18 @@ function toolsSection(config: RoomConfig): string {
       ...(t.runPublic
         ? [
             `When you run code, the code and its output are shown to the room,`,
-            `and the output also comes back to you at the start of your next turn.`,
+            loop
+              ? `and the output comes straight back to you as well.`
+              : `and the output also comes back to you at the start of your next turn.`,
           ]
         : [
-            `Your code's printed output comes back to you privately at the start`,
-            `of your next turn — no one else sees your code or its output; the`,
-            `shared/ directory is how you show the room something.`,
+            loop
+              ? `Your code's printed output comes straight back to you, privately —`
+              : `Your code's printed output comes back to you privately at the start`,
+            loop
+              ? `no one else sees your code or its output; the shared/ directory is`
+              : `of your next turn — no one else sees your code or its output; the`,
+            loop ? `how you show the room something.` : `shared/ directory is how you show the room something.`,
           ]),
       ...(t.pythonPackages.length
         ? [`The standard library plus ${t.pythonPackages.join(', ')} are already available.`]
@@ -226,15 +288,33 @@ function toolsSection(config: RoomConfig): string {
       ``,
       `These tools are open to inspection: reply with [SOURCE] for an index of`,
       `their source code, or [SOURCE: name] to read a file — it comes back to`,
-      `you privately, and reading never costs a tool action.`,
+      loop
+        ? `you privately, and reading never costs the room a tool action (it does`
+        : `you privately, and reading never costs a tool action.`,
+      ...(loop ? [`use one of your turn's actions).`] : []),
     );
   }
+  // The economics line, and under F4¾ the loop's one rule. Everything an
+  // agent needs to plan a multi-step turn is here: how many actions it has,
+  // that results arrive in between, and that speaking is what ends the turn.
   lines.push(
     ``,
-    t.budget === 'per-room'
-      ? `The room shares ONE tool action per round — a search, a file write, or a` +
-        `\ncode run, whichever one of you takes it first. How you share it is up to you.`
-      : `You may take at most one tool action in a single turn.`,
+    ...(t.budget === 'per-room'
+      ? [
+          `The room shares ONE tool action per round — a search, a file write, or a`,
+          `code run, whichever one of you takes it first. How you share it is up to you.`,
+        ]
+      : loop
+        ? [
+            `You can take up to ${effectiveTurnSteps(config)} actions in a single turn. After each one its`,
+            `result comes straight back to you and you can act again on what you`,
+            `learned — look something up and run code on it, or run code, read the`,
+            `error, and fix it. Speaking ends your turn: anything you say to the`,
+            `room is the last thing you do in it, so act first and speak when you`,
+            `are ready. A turn spent entirely on actions says nothing to the room,`,
+            `which is a fine way to spend one.`,
+          ]
+        : [`You may take at most one tool action in a single turn.`]),
   );
   return lines.join('\n');
 }
@@ -285,8 +365,15 @@ export function buildTurnMessages(opts: {
    *  Binary files carry empty content + binary/size flags (listed by name;
    *  contents render only in the viewer). */
   sharedFiles?: { name: string; content: string; binary?: boolean; size?: number }[];
+  /** F4¾ agentic loop: the actions this agent has ALREADY taken inside the
+   *  turn being built, each with the observation it got back. Rendered as
+   *  real assistant/user pairs after the transcript, so the model sees its
+   *  own step, then what happened, then the next decision. Caller-only —
+   *  the loop rebuilds the whole message list each step, which is what lets
+   *  a file an agent just wrote appear in its own shared-files block. */
+  inTurn?: { reply: string; observation: string }[];
 }): ChatMessage[] {
-  const { agent, config, events, summary, minutesRemaining, ownJournal, privateBlock, sharedFiles } = opts;
+  const { agent, config, events, summary, minutesRemaining, ownJournal, privateBlock, sharedFiles, inTurn } = opts;
 
   // Roster disclosure (§3.2c): 'named' keeps the original control wording
   // verbatim (quirk included) so pre-knob sessions stay comparable.
@@ -336,7 +423,7 @@ export function buildTurnMessages(opts: {
   if (config.contextPolicy === 'window' && summary) {
     transcriptParts.push(`[Earlier in the room (summary)]\n${summary}\n`);
   }
-  transcriptParts.push(slice.map((e) => renderEventFor(e, agent.id, config.thinkingBroadcast)).join('\n\n'));
+  transcriptParts.push(renderTranscript(slice, agent.id, config.thinkingBroadcast));
   if (privateBlock) {
     transcriptParts.push(`\n[Private, for you alone — no one else in the room sees this.]\n${privateBlock}`);
   }
@@ -345,6 +432,12 @@ export function buildTurnMessages(opts: {
   return [
     { role: 'system', content: system },
     { role: 'user', content: transcriptParts.join('\n') },
+    // The turn's own steps so far (F4¾): what this agent did, and what came
+    // back. Nobody else's context ever holds these.
+    ...(inTurn ?? []).flatMap((step): ChatMessage[] => [
+      { role: 'assistant', content: step.reply },
+      { role: 'user', content: step.observation },
+    ]),
   ];
 }
 

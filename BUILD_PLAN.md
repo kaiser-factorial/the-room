@@ -383,6 +383,25 @@ jumps F1–F6, and both gate on F2 like everything else.
   fight) is the phenomenon. Shared-filesystem writes are room-visible by
   design (unlike journals/search results); pyodide stdout/stderr private
   to the caller, journal-class, with shared files the way to publish.
+- **F4¾ — BUILT 2026-08-27** (the agentic turn; EXPERIMENT_DESIGN §9.5).
+  `tools.turnSteps` decides how many actions a seat may take INSIDE one
+  turn: 1 (every pre-existing condition — one action, result deferred to
+  the caller's next turn) vs >1 (`agentic` = the tools-full bench at 4 —
+  each result comes straight back and the seat acts again on it). The
+  loop rebuilds the prompt from live room state each step, so a file
+  written at step 1 is in the prompt at step 2. **Speaking ends the
+  turn** — actions iterate, utterance is what a turn costs — so the room
+  still hears at most one message per seat per turn and analyze.ts keeps
+  its unit. Refusals became machine-readable (`src/agentic.ts`:
+  code/message/fix/available, two per turn then the turn ends), adapted
+  from scatter-lab's plan validator; the bounded loop with its hard call
+  cap is adapted from joint-session's runToolLoop. Also: `step` on every
+  action event, `telemetry.calls` on the turn's message, a turn's
+  notice-only actions collapsed into one transcript line for everyone
+  else, `tools.turnSteps` on the [CONFIG] whitelist (bounded 1–8), and
+  the `-quiet` stub scenarios that drive a multi-step turn in tests.
+  Exploratory, flagged out of registered stats; costs up to turnSteps+1
+  completions per turn.
 - **Phase C. Roster generations.** Same control condition on each family's
   earliest still-served model vs. the current roster (contemporaneous
   baseline batch, per the standing roster rule — no new axis). Action item

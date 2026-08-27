@@ -32,6 +32,15 @@ const SEED_ROUNDS = 5;      // n-grams present here are "native", not room cultu
 interface Msg {
   round: number; ts: string; agentId: string; agentName: string; text: string;
   truncated: boolean; thinking?: string; logprobs?: number[];
+  /** F4¾: model completions this turn (absent = 1, the single-call turn). */
+  calls?: number;
+}
+
+/** F4¾: one tool action, the unit the agentic loop iterates on. `step` is
+ *  its 1-based position within its turn (absent in single-step rooms). */
+interface Action {
+  round: number; agentId: string; kind: 'search' | 'file' | 'run' | 'source' | 'config';
+  step?: number; denied?: boolean;
 }
 interface JournalEntry { round: number; agentId: string; text: string }
 
@@ -40,6 +49,7 @@ interface Session {
   condition: Record<string, unknown>;
   agents: { id: string; name: string }[];
   msgs: Msg[];                 // admin-dirty tail already dropped
+  actions: Action[];           // F4¾ tool actions, in order
   journals: JournalEntry[];
   silences: { round: number; agentId?: string }[];
   latencies: Map<string, number[]>;  // agentId -> seconds per turn (network-contaminated; §6.1)
@@ -76,6 +86,7 @@ export function loadSession(dir: string): Session {
   const clean = adminRound === undefined ? events : events.filter((e) => e.round < adminRound && e.round >= 0);
 
   const msgs: Msg[] = [];
+  const actions: Action[] = [];
   const silences: Session['silences'] = [];
   const latencies = new Map<string, number[]>();
   let prevTs: number | null = null;
@@ -84,7 +95,7 @@ export function loadSession(dir: string): Session {
       msgs.push({
         round: e.round, ts: e.ts, agentId: e.agentId, agentName: e.agentName, text: e.text,
         truncated: e.telemetry?.finishReason === 'length', thinking: e.thinking,
-        logprobs: e.telemetry?.logprobs,
+        logprobs: e.telemetry?.logprobs, calls: e.telemetry?.calls,
       });
       if (prevTs !== null) {
         const arr = latencies.get(e.agentId) ?? [];
@@ -93,6 +104,8 @@ export function loadSession(dir: string): Session {
       }
     } else if (e.kind === 'system' && /could not speak|said nothing/.test(e.text)) {
       silences.push({ round: e.round, agentId: e.agentId });
+    } else if (e.kind === 'search' || e.kind === 'file' || e.kind === 'run' || e.kind === 'source' || e.kind === 'config') {
+      actions.push({ round: e.round, agentId: e.agentId, kind: e.kind, step: e.step, denied: 'denied' in e ? e.denied : undefined });
     }
     if (e.kind === 'message' || e.kind === 'system' || e.kind === 'journal') prevTs = new Date(e.ts).getTime();
   }
@@ -120,7 +133,7 @@ export function loadSession(dir: string): Session {
     id: basename(dir), dir,
     condition: meta.payload.condition,
     agents: meta.payload.agents.map((a) => ({ id: a.id, name: a.name })),
-    msgs, journals, silences, latencies,
+    msgs, actions, journals, silences, latencies,
     adminTouched: adminRound !== undefined || (end?.kind === 'end' && end.payload.adminTouched),
     maxRound: Math.max(0, ...clean.map((e) => e.round)),
   };
@@ -357,6 +370,68 @@ export function mimicry(msgs: Msg[]) {
 /** Count mentions of each OTHER agent in a text. Matches the name's first
  *  word: agents shorten versioned names ("Gemini", not "Gemini 3.7"), and
  *  first words are unique across the roster. */
+/**
+ * F4¾ tool use, per agent and per room. Exploratory — none of this is a
+ * registered statistic (EXPERIMENT_DESIGN §9.5); it exists so an agentic
+ * session can be READ: how long the chains got, how often a seat worked a
+ * whole turn without saying anything, and what a turn cost in completions.
+ *
+ * A turn is (round, agentId) — one per agent per round by construction.
+ * `denied` actions are counted separately and never as work: a refusal
+ * never spends a step or the room's slot.
+ */
+export function toolUse(
+  actions: Action[],
+  msgs: Msg[],
+  agents: string[],
+): Record<string, unknown> {
+  const spokeIn = new Set(msgs.map((m) => `${m.round}:${m.agentId}`));
+  const perAgent = (id: string) => {
+    const mine = actions.filter((a) => a.agentId === id);
+    const ran = mine.filter((a) => !a.denied);
+    const byTurn = new Map<number, number>();
+    for (const a of ran) byTurn.set(a.round, (byTurn.get(a.round) ?? 0) + 1);
+    const chains = [...byTurn.values()];
+    const myMsgs = msgs.filter((m) => m.agentId === id);
+    return {
+      actions: ran.length,
+      refused: mine.length - ran.length,
+      byKind: Object.fromEntries(
+        (['search', 'file', 'run', 'source', 'config'] as const)
+          .map((k) => [k, ran.filter((a) => a.kind === k).length])
+          .filter(([, n]) => (n as number) > 0),
+      ),
+      actingTurns: chains.length,
+      multiStepTurns: chains.filter((n) => n > 1).length,
+      maxChain: chains.length ? Math.max(...chains) : 0,
+      meanActionsPerActingTurn: mean(chains),
+      // The shape only the loop can produce: a turn spent entirely on work,
+      // saying nothing to the room. Under turnSteps 1 this is a silent
+      // single action; under the loop it is a whole chain nobody heard.
+      silentWorkingTurns: [...byTurn.keys()].filter((r) => !spokeIn.has(`${r}:${id}`)).length,
+      meanCallsPerTurn: mean(myMsgs.map((m) => m.calls ?? 1)),
+    };
+  };
+  const ranAll = actions.filter((a) => !a.denied);
+  const histogram: Record<string, number> = {};
+  const byTurnAll = new Map<string, number>();
+  for (const a of ranAll) {
+    const k = `${a.round}:${a.agentId}`;
+    byTurnAll.set(k, (byTurnAll.get(k) ?? 0) + 1);
+  }
+  for (const n of byTurnAll.values()) histogram[n] = (histogram[n] ?? 0) + 1;
+  return {
+    room: {
+      actions: ranAll.length,
+      refused: actions.length - ranAll.length,
+      actingTurns: byTurnAll.size,
+      // How many turns took 1, 2, 3 … actions — the axis in one line.
+      chainLengths: histogram,
+    },
+    byAgent: Object.fromEntries(agents.map((a) => [a, perAgent(a)])),
+  };
+}
+
 export function countMentions(text: string, selfId: string, agents: { id: string; name: string }[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const a of agents) {
@@ -543,6 +618,9 @@ export async function analyzeSession(dir: string) {
       }];
     })),
     mimicry: mimicry(s.msgs),
+    // Present only in sessions that used tools — every pre-F4½ session's
+    // metrics.json keeps its exact shape.
+    ...(s.actions.length ? { toolUse: toolUse(s.actions, s.msgs, agents) } : {}),
     journals: journalStats,
     threeChannel,
     address: addressMatrix(s.msgs, s.agents),

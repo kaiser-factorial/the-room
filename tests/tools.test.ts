@@ -230,7 +230,7 @@ test('per-room budget: a denied action does not spend the round slot', async () 
 test('condition presets: tools-full and tools-scarce resolve onto the base config', async () => {
   const { resolveCondition, conditionRecord } = await import('../src/conditions.js');
   const full = resolveCondition('tools-full');
-  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true, sourceCode: true, sourceScope: 'tools', configurable: false });
+  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', turnSteps: 1, notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true, sourceCode: true, sourceScope: 'tools', configurable: false });
   assert.equal(full.search.mode, 'alongside');
   assert.equal(full.journal.enabled, false);
   const scarce = resolveCondition('tools-scarce');

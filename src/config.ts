@@ -73,6 +73,10 @@ export const config: RoomConfig = {
     files: false, // control = no tools; 'tools-full'/'tools-scarce' enable
     python: false,
     budget: 'per-seat',
+    // F4¾: 1 = the original economics (one action per turn, its result
+    // delivered next turn). The 'agentic' condition raises it — see
+    // agentic.ts for why speaking still ends the turn at any value.
+    turnSteps: 1,
     notice: true,
     // 20s: micropip installs and matplotlib renders happen inside the
     // agent's window (preload has its own cap in sandbox.ts).

@@ -777,6 +777,91 @@ Two escalation rungs past `tools-full`, both exploratory and confound-rich
   tools-full sessions establish what tool-use looks like WITHOUT agency
   over the config.
 
+### 9.5 The agentic turn (Corina 2026-08-27 — sketched AND BUILT the same
+day, like §9.4)
+
+**Built**: `tools.turnSteps` (base 1; `agentic` = the tools-full bench at
+4), the turn loop in session.ts, the refusal schema in agentic.ts, `step`
+on every action event and `telemetry.calls` on the turn's message.
+
+The question the tool conditions could not ask. Through F4½ a turn is one
+completion: a seat takes at most one action and its result arrives at the
+start of its NEXT turn, two or three other speakers later. That prices
+every tool use as a bet about what will still be relevant in two minutes,
+and makes iteration impossible by construction — a traceback costs a full
+round-trip to fix, and a search can never inform the sentence it was run
+for. What the room has under F4½ is tool ACCESS. What it does not have is
+agency over a piece of work.
+
+`turnSteps > 1` inverts that: the observation comes straight back inside
+the turn, the prompt is rebuilt from live room state (a file written at
+step 1 is in the prompt at step 2), and the seat decides what to do next
+— search, read it, run code on it, read the error, fix it, then speak.
+
+**The rule that keeps it measurable: speaking ends the turn.** Actions
+iterate freely; utterance is the thing a turn costs. A reply with any
+spoken text is the last thing an agent does in that turn, so the room
+still hears at most one message per seat per turn — the unit every
+convergence, mimicry, address and three-channel metric is built on. Had
+we let a looping seat speak repeatedly, every registered statistic would
+have needed a new denominator. A turn spent entirely on actions says
+nothing at all, and the prompt tells them that is a fine way to spend one.
+
+Design notes, and the two harnesses this is adapted from (both Corina's):
+- **joint-session's `runToolLoop`** (multi-model): the loop, not the
+  transport, owns termination; a hard round cap is a backstop, not a
+  request in the prompt. Ours: `turnSteps` actions, then refusals, then a
+  `turnSteps + 3` call cap. Its dead-turn retry has an analogue already —
+  an empty reply records "said nothing this turn" and ends the turn.
+- **scatter-lab's analysisPlan/validators** (validation schema): refusals
+  as MACHINE-READABLE observations — a code, what failed, the imperative
+  fix, the legal options — plus a revision cap enforced in code rather
+  than asked for in prose. Ours: `[bad_file_name] … Fix: … Available: …`,
+  and two refusals end the turn. Its oracle rule carries over verbatim
+  and matters more here than there: a refusal must never confirm what the
+  room's condition conceals.
+- Refusals never spend a step or the room's per-round slot; `[SOURCE]`
+  and `[CONFIG]` stay free of the tool budget but DO cost a step, or a
+  seat could read source forever inside one turn.
+- `budget: 'per-room'` pins the effective value to 1. tools-scarce is
+  about negotiating the room's single action; a loop would hand the whole
+  round to whoever moved first, which is a different experiment.
+- The room's perception of a working turn is deliberately compressed:
+  consecutive notice-only actions from one seat render as ONE line in
+  everyone else's context ("[Alpha looked something up, ran some code,
+  then updated the shared file "plot.py".]"). Five other contexts must not
+  carry four notice lines per working turn. Note the asymmetry when
+  reading transcripts: the room saw less activity than happened, and
+  under `runPublic` (which the agentic condition keeps ON) it saw the code
+  and output of every run in full.
+
+Confounds and costs — all reasons this is exploratory and tagged OUT of
+every registered statistic:
+- **Cost**: up to `turnSteps + 1` completions per turn. An agentic
+  session is ~2–4× a tools-full session at the same length.
+- **Wall-clock asymmetry**: a looping seat's turn takes longer, so under
+  a fixed duration an agentic room gets FEWER rounds, and seats that use
+  the loop heavily consume more of the session than seats that don't.
+  Never compare an agentic session's round count to a tools-full one's;
+  compare within-session and per-turn.
+- **Countdown interaction**: with `countdown: 'visible'` a working turn
+  visibly eats the clock. Keep the countdown hidden here unless the
+  interaction is the point.
+- **Context growth**: unchanged for other seats (one collapsed notice
+  line) but the ACTING seat's own turn carries its whole chain.
+
+Measurement handles, none registered: actions per turn and chain-length
+distribution (from `step`), the share of turns that are silent working
+turns (a `system` "said nothing" line with tool events in the same round),
+completions per turn (`telemetry.calls`), and the interesting one — does
+speech that arrives AFTER a chain of actions look different (more
+grounded, more concrete, more citing) than speech in a single-step room?
+That is the tools-full ↔ agentic contrast: same bench, one knob.
+
+Ordering: after a few plain tools-full sessions establish what tool use
+looks like without in-turn agency (§9.4's ordering note applies here too),
+and after Phase B like everything in §9.
+
 **Sequencing for the extensions**: F2 gates everything; the sandbox is
 effectively F4½ (shares tool plumbing with websearch). Natural slot:
 F2 → F3 → F4 → sandbox riding the same plumbing → exploratory build

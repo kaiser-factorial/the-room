@@ -51,7 +51,11 @@ const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 //    (convergence ground truth) — so analyze.ts metrics have real
 //    structure to detect in dry runs.
 
-export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error' | 'search' | 'search-speak' | 'write' | 'append' | 'badwrite' | 'run' | 'run-file' | 'run-save' | 'source' | 'config' | 'badconfig';
+export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error' | 'search' | 'search-speak' | 'write' | 'append' | 'badwrite' | 'run' | 'run-file' | 'run-save' | 'source' | 'config' | 'badconfig'
+  // F4¾: the SILENT action forms — a sentinel with nothing after it. Under
+  // the turn loop these keep the turn going (speaking is what ends it), so
+  // they're how a test drives a multi-step turn.
+  | 'run-quiet' | 'write-quiet' | 'source-quiet' | 'badwrite-quiet';
 
 let stubTurn = 0;
 const modelTurns = new Map<string, number>();
@@ -153,6 +157,10 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     case 'config': return { text: `[CONFIG: journal.enabled = true]\n${voice()}`, meta, thinking };
     case 'badconfig': return { text: `[CONFIG: durationMinutes = forever]\n${voice()}`, meta, thinking };
     case 'run': return { text: `[RUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };
+    case 'run-quiet': return { text: `[RUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN]`, meta, thinking };
+    case 'write-quiet': return { text: `[WRITE: notes.md]\nshared-note ${model}#${mTurn}\n[/WRITE]`, meta, thinking };
+    case 'source-quiet': return { text: `[SOURCE: sandbox]`, meta, thinking };
+    case 'badwrite-quiet': return { text: `[WRITE: ../evil.md]\nnope\n[/WRITE]`, meta, thinking };
     // write_shared triggers the sandbox stub's published-file path.
     case 'run-file': return { text: `[RUN]\nwrite_shared("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };
     // Entry text must be distinct from the spoken half (unique marker),

@@ -7,11 +7,15 @@ import { audibleEvents, buildSummaryPrompt, buildTurnMessages, contextSlice } fr
 import { conditionRecord } from './conditions.js';
 import { liveSinkEnabled, sinkEvent, sinkJournal } from './sink.js';
 import { takeCommands } from './control.js';
-import { parseReply } from './parse.js';
+import { isToolAction, parseReply, type ToolAction } from './parse.js';
 import { webSearch } from './search.js';
 import { runPython } from './sandbox.js';
 import { readSource, sourceIndex } from './source.js';
 import { applyConfigChange } from './governance.js';
+import {
+  effectiveTurnSteps, formatRefusal, loopEnabled, maxTurnCalls, observationBlock, refusal,
+  MAX_TURN_REFUSALS, type Refusal,
+} from './agentic.js';
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
@@ -76,6 +80,10 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   // is detected by content (NUL byte), not extension.
   const sharedFiles = new Map<string, { data: Buffer; binary: boolean }>();
   let roomToolRound = 0;
+  /** Spend the room's single action for this round (per-room budget only).
+   *  Called only by actions that actually RUN — a refusal never costs the
+   *  room its slot. */
+  const spendRoomBudget = (round: number) => { if (config.tools.budget === 'per-room') roomToolRound = round; };
   const FILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
   const MAX_FILE_CHARS = 16_000;
   const MAX_BINARY_BYTES = 400_000;
@@ -83,7 +91,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
 
   /** Publish one shared file (from [WRITE] or a python run): store, mirror
    *  to disk, and record the room-visible file event. */
-  function publishFile(agent: AgentConfig, round: number, name: string, data: Buffer, thinking?: string) {
+  function publishFile(agent: AgentConfig, round: number, name: string, data: Buffer, thinking?: string, step?: number) {
     const binary = data.includes(0);
     sharedFiles.set(name, { data, binary });
     const sharedDir = join(sessionDir, 'shared');
@@ -93,8 +101,177 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name,
       content: binary ? data.toString('base64') : data.toString('utf8'),
       ...(binary ? { encoding: 'base64' as const } : {}),
-      notice: config.tools.notice, thinking,
+      notice: config.tools.notice, thinking, ...(step ? { step } : {}),
     });
+  }
+
+  /**
+   * Execute ONE tool action and return the private observation its caller
+   * gets back — the text that either rides the next turn's private block
+   * (single-step rooms) or comes straight back inside the turn (F4¾ loop).
+   *
+   * Extracted from the turn body so both economics run the exact same code:
+   * the only thing the loop changes is WHERE the observation goes. Every
+   * refusal is worded through agentic.ts's schema — code, what failed, the
+   * fix, and the legal options where they can be listed without disclosing
+   * anything the room's condition hides.
+   */
+  async function executeAction(
+    agent: AgentConfig,
+    round: number,
+    parsed: ToolAction,
+    thinking: string | undefined,
+    opts: { deny?: Refusal; step?: number; attemptsLeft: number },
+  ): Promise<{ observation: string; refused: boolean }> {
+    const { deny, step, attemptsLeft } = opts;
+    const stamp = step ? { step } : {};
+    const refuse = (lead: string, r: Refusal) => ({ observation: formatRefusal(lead, r, attemptsLeft), refused: true });
+    // Reading and governing are FREE of the room's tool budget (F4½/§9.4) —
+    // but never free of the turn's action count, or a room could read source
+    // forever inside one turn.
+    const freeOfBudget = deny?.code === 'steps_exhausted' ? deny : undefined;
+
+    if (parsed.kind === 'search') {
+      const lead = `Your search for "${parsed.query}" did not run.`;
+      const denial =
+        deny ??
+        (config.search.gated && !searchCredit.has(agent.id)
+          ? refusal(
+              'search_gated',
+              'Searching in this room unlocks by writing in your journal.',
+              'Write a journal entry first; each entry allows one search.',
+            )
+          : undefined);
+      const searchEvent = (extra: Record<string, unknown>) =>
+        record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, notice: config.search.notice, thinking, ...stamp, ...extra } as RoomEvent);
+      if (denial) {
+        searchEvent({ denied: true });
+        return refuse(lead, denial);
+      }
+      searchCredit.delete(agent.id);
+      spendRoomBudget(round);
+      let results: string;
+      try {
+        results = await webSearch(parsed.query, config.search.maxResults);
+      } catch (err) {
+        // An errored search is invisible to the room (no notice on a
+        // failure) but honest to the requester — and retryable, unlike
+        // every other refusal code.
+        searchEvent({ denied: true });
+        return refuse(
+          lead,
+          refusal('search_failed', `The search backend failed (${(err as Error).message.slice(0, 120)}).`, 'Try the same query again, or a different one.'),
+        );
+      }
+      searchEvent({ results });
+      return { observation: `Results of your web search for "${parsed.query}":\n${results}`, refused: false };
+    }
+
+    if (parsed.kind === 'write') {
+      const lead = `Your ${parsed.append ? 'append' : 'write'} to "${parsed.name.slice(0, 80)}" did not happen.`;
+      const existing = parsed.append ? sharedFiles.get(parsed.name) : undefined;
+      const combined =
+        existing && !existing.binary
+          ? `${existing.data.toString('utf8').replace(/\n?$/, '\n')}${parsed.content}`
+          : parsed.content;
+      // Shape errors come BEFORE the budget/step refusals, exactly as they
+      // did pre-loop: a malformed write never spends the room's one action.
+      const denial = !FILE_NAME_RE.test(parsed.name)
+        ? refusal('bad_file_name', `"${parsed.name.slice(0, 80)}" is not a valid file name.`, 'Use letters, digits, dots, underscores or hyphens (max 64 characters), starting with a letter or digit — then write again.')
+        : parsed.append && existing?.binary
+          ? refusal('binary_append', `"${parsed.name}" is a binary file — it can't be appended to.`, `Replace it with [WRITE: ${parsed.name}], or append to a text file instead.`)
+          : combined.length > MAX_FILE_CHARS
+            ? refusal('file_too_large', `The contents come to ${combined.length} characters, over the ${MAX_FILE_CHARS}-character limit for one file.`, 'Shorten it, or split it across several files.')
+            : !sharedFiles.has(parsed.name) && sharedFiles.size >= MAX_FILES
+              ? refusal('too_many_files', `The room already holds ${MAX_FILES} shared files.`, 'Write to one of the existing files instead.', [...sharedFiles.keys()])
+              : deny;
+      if (denial) {
+        record({ kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name: parsed.name.slice(0, 80), content: '', denied: true, notice: config.tools.notice, thinking, ...stamp });
+        return refuse(lead, denial);
+      }
+      spendRoomBudget(round);
+      publishFile(agent, round, parsed.name, Buffer.from(combined, 'utf8'), thinking, step);
+      return {
+        observation: `You ${parsed.append ? 'appended to' : 'wrote'} the shared file "${parsed.name}" (${combined.length} characters). Everyone in the room can read it.`,
+        refused: false,
+      };
+    }
+
+    if (parsed.kind === 'run') {
+      if (deny) {
+        record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, denied: true, notice: config.tools.notice, thinking, ...stamp });
+        // (denied runs stay inaudible in both visibility modes)
+        return refuse('Your code did not run.', deny);
+      }
+      spendRoomBudget(round);
+      const res = await runPython(
+        parsed.code,
+        Object.fromEntries([...sharedFiles].map(([n, f]) => [n, f.data])),
+        config.tools.pythonTimeoutSeconds,
+        config.tools.pythonPackages,
+        config.tools.pythonInstall,
+      );
+      record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output: res.output, ...(config.tools.runPublic ? { public: true } : {}), notice: config.tools.notice, thinking, ...stamp });
+      // Files the code saved under shared/ are PUBLISHED to the room
+      // (that's the point of the writable mount); invalid ones are
+      // reported privately, never silently dropped.
+      const publishNotes: string[] = [];
+      // [RUN > file] / [RUN >> file]: the output itself becomes (or
+      // extends) a shared file — same publish path, same caps.
+      if (parsed.saveTo) {
+        const { name, append } = parsed.saveTo;
+        const existing = append ? sharedFiles.get(name) : undefined;
+        const combined =
+          existing && !existing.binary
+            ? `${existing.data.toString('utf8').replace(/\n?$/, '\n')}${res.output}`
+            : res.output;
+        if (!FILE_NAME_RE.test(name)) publishNotes.push(`Output was not saved: "${name}" is not a valid file name.`);
+        else if (append && existing?.binary) publishNotes.push(`Output was not saved: "${name}" is a binary file.`);
+        else if (combined.length > MAX_FILE_CHARS) publishNotes.push(`Output was not saved to "${name}": it would exceed the ${MAX_FILE_CHARS}-character file limit.`);
+        else if (!sharedFiles.has(name) && sharedFiles.size >= MAX_FILES) publishNotes.push(`Output was not saved: the room already holds ${MAX_FILES} shared files.`);
+        else publishFile(agent, round, name, Buffer.from(combined, 'utf8'), undefined, step);
+      }
+      for (const f of res.files) {
+        const data = Buffer.from(f.dataBase64, 'base64');
+        if (!FILE_NAME_RE.test(f.name)) publishNotes.push(`"${f.name}" was not published (invalid file name).`);
+        else if (data.length > MAX_BINARY_BYTES) publishNotes.push(`"${f.name}" was not published (${data.length} bytes exceeds the ${MAX_BINARY_BYTES}-byte limit).`);
+        else if (!sharedFiles.has(f.name) && sharedFiles.size >= MAX_FILES) publishNotes.push(`"${f.name}" was not published (the room already holds ${MAX_FILES} shared files).`);
+        else publishFile(agent, round, f.name, data, undefined, step);
+      }
+      return {
+        observation: `Output of the code you ran:\n${res.output}${publishNotes.length ? `\n${publishNotes.join('\n')}` : ''}`,
+        refused: false,
+      };
+    }
+
+    if (parsed.kind === 'source') {
+      if (freeOfBudget) {
+        record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...(parsed.name ? { name: parsed.name } : {}), notice: config.tools.notice, thinking, ...stamp });
+        return refuse('You did not get to read the source.', freeOfBudget);
+      }
+      record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...(parsed.name ? { name: parsed.name } : {}), notice: config.tools.notice, thinking, ...stamp });
+      const scope = config.tools.sourceScope;
+      const body =
+        parsed.name === 'condition' && scope === 'all'
+          ? `This room's live configuration (mutations included):\n${JSON.stringify(conditionRecord(config), null, 2)}`
+          : parsed.name
+            ? readSource(parsed.name, scope)
+            : sourceIndex(scope);
+      return { observation: body ?? `There is no source file named "${parsed.name}".\n${sourceIndex(scope)}`, refused: false };
+    }
+
+    if (parsed.kind === 'config') {
+      const denial = freeOfBudget ?? applyConfigChange(config, parsed.key, parsed.value);
+      if (denial) {
+        record({ kind: 'config', ts: now(), round, agentId: agent.id, agentName: agent.name, key: parsed.key.slice(0, 60), value: parsed.value.slice(0, 40), denied: true, thinking, ...stamp });
+        return refuse('Your settings change did not happen.', denial);
+      }
+      record({ kind: 'config', ts: now(), round, agentId: agent.id, agentName: agent.name, key: parsed.key, value: parsed.value, thinking, ...stamp });
+      return { observation: `The room's setting ${parsed.key} is now ${parsed.value}. Everyone was told.`, refused: false };
+    }
+
+    // Unreachable: the caller only routes tool actions here (parse.ts).
+    return { observation: '', refused: false };
   }
   onHandle?.({ stop: () => { stopping = true; } });
 
@@ -232,217 +409,168 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       if (Date.now() >= endAt) break;
       const minutesRemaining = Math.ceil((endAt - Date.now()) / 60_000);
 
-      let reply: string;
-      let telemetry;
-      let thinking: string | undefined;
-      try {
-        const res = await adapterFor(agent).send(
-          agent.model,
-          buildTurnMessages({
-            agent,
-            config,
-            events,
-            summary,
-            minutesRemaining,
-            ownJournal: readJournal(agent.id),
-            privateBlock: pendingPrivate.get(agent.id),
-            sharedFiles: [...sharedFiles].map(([name, f]) => ({
-              name,
-              content: f.binary ? '' : f.data.toString('utf8'),
-              binary: f.binary,
-              size: f.data.length,
-            })),
-          }),
-          {
-            maxTokens: callMaxTokens(),
-            sampling: config.sampling,
-            reasoningEffort: config.reasoningEffort,
-            logprobs: config.captureLogprobs,
-            providerOrder: agent.providerOrder,
-          },
-        );
-        reply = res.text;
-        telemetry = res.meta;
-        thinking = res.thinking;
-        if (thinking) traceSeats.add(agent.id);
-        // The private block was delivered on THIS completed turn — consume
-        // it now (an errored turn above keeps it for the next attempt).
-        pendingPrivate.delete(agent.id);
-      } catch (err) {
-        record({ kind: 'system', ts: now(), round, text: `${agent.name} could not speak this turn (${(err as Error).message.slice(0, 120)})` });
-        continue;
-      }
+      // ── The turn (F4¾) ───────────────────────────────────────────────
+      // One turn is a LOOP over model calls. It ends the moment the agent
+      // says anything to the room — utterance is what costs a turn, actions
+      // are not — and otherwise after `maxSteps` actions, two refusals, or
+      // the hard call cap. In a single-step room (turnSteps 1, the control
+      // economics) the loop runs exactly once and the observation is
+      // deferred to the caller's next turn, byte for byte as before.
+      const maxSteps = effectiveTurnSteps(config);
+      const loop = loopEnabled(config);
+      const callCap = maxTurnCalls(config);
+      // The private block carried in from LAST turn stays visible for every
+      // call of this one — an agent must not watch its own search results
+      // vanish mid-turn. It is consumed once the turn's first call lands.
+      const carried = pendingPrivate.get(agent.id);
+      const inTurn: { reply: string; observation: string }[] = [];
+      let steps = 0;      // actions that actually ran
+      let refusals = 0;   // actions refused (they never spend a step)
+      let calls = 0;      // model completions this turn
+      let failed = false;
+      // The most recent observation not yet handed anywhere. If the next
+      // call dies, this still reaches its agent next turn — an action ran,
+      // and its result is never dropped on the floor.
+      let unread: string | undefined;
 
-      const j = config.journal;
-      const parsed = parseReply(reply, j, config.search, config.tools);
-
-      // Per-room tool budget (F4½): one tool action per round for the whole
-      // room, across search/write/run. A losing attempt is denied privately
-      // and inaudibly; any spoken half of the turn still lands.
-      const roomBudgetSpent = config.tools.budget === 'per-room' && roomToolRound === round;
-      // Only an action that actually RUNS consumes the round's budget — a
-      // gated refusal or an invalid write doesn't waste the room's one slot.
-      const spendRoomBudget = () => { if (config.tools.budget === 'per-room') roomToolRound = round; };
-
-      if (parsed.kind === 'pass') {
-        if (j.pass.notice) record({ kind: 'system', ts: now(), round, text: `${agent.name} chose to say nothing.` });
-        else clog(`\n   — ${agent.name} passed (silent).`);
-      } else if (parsed.kind === 'alongside') {
-        // One turn, one trace: attach it to the spoken message if there is
-        // one, else to the journal event, so it's stored exactly once.
-        if (parsed.entry) saveJournal(agent, round, parsed.entry, parsed.spoken ? undefined : thinking);
-        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
-      } else if (parsed.kind === 'journal') {
-        saveJournal(agent, round, parsed.entry, thinking);
-      } else if (parsed.kind === 'search') {
-        // F4: replace mode spends the turn on the search; alongside mode
-        // (`search-free`) also speaks parsed.spoken as a normal message.
-        // Results (or the gated-refusal note) return privately on the
-        // requester's next turn; the room at most hears the notice line.
-        // Query/results never enter anyone else's context (privacy
-        // invariant, tests/search.test.ts). One turn, one trace: attach it
-        // to the spoken message when there is one, else the search event.
-        const searchThinking = parsed.spoken ? undefined : thinking;
-        if (roomBudgetSpent) {
-          record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking: searchThinking });
-          pendingPrivate.set(agent.id, `Your search for "${parsed.query}" did not run: the room's one tool action for this round was already taken.`);
-        } else if (config.search.gated && !searchCredit.has(agent.id)) {
-          record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking: searchThinking });
-          pendingPrivate.set(agent.id, `Your search for "${parsed.query}" did not run: searching unlocks after you write in your journal.`);
-        } else {
-          searchCredit.delete(agent.id);
-          spendRoomBudget();
-          let results: string;
-          try {
-            results = await webSearch(parsed.query, config.search.maxResults);
-          } catch (err) {
-            // An errored search is invisible to the room (no notice on a
-            // failure) but honest to the requester.
-            record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, denied: true, notice: config.search.notice, thinking: searchThinking });
-            pendingPrivate.set(agent.id, `Your search for "${parsed.query}" failed (${(err as Error).message.slice(0, 120)}). You may try again.`);
-            results = '';
-          }
-          if (results) {
-            record({ kind: 'search', ts: now(), round, agentId: agent.id, agentName: agent.name, query: parsed.query, results, notice: config.search.notice, thinking: searchThinking });
-            pendingPrivate.set(agent.id, `Results of your web search for "${parsed.query}":\n${results}`);
-          }
-        }
-        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
-      } else if (parsed.kind === 'write') {
-        // F4½ shared-file write/append: contents are room-public; the
-        // transcript carries only the notice line, everyone reads the
-        // file itself. Append composes onto the existing text (the caps
-        // apply to the COMBINED size).
-        const toolThinking = parsed.spoken ? undefined : thinking;
-        const existing = parsed.append ? sharedFiles.get(parsed.name) : undefined;
-        const combined =
-          existing && !existing.binary
-            ? `${existing.data.toString('utf8').replace(/\n?$/, '\n')}${parsed.content}`
-            : parsed.content;
-        const invalid = !FILE_NAME_RE.test(parsed.name)
-          ? `"${parsed.name}" is not a valid file name (letters, digits, ., _, -; max 64 chars).`
-          : parsed.append && existing?.binary
-            ? `"${parsed.name}" is a binary file — it can't be appended to.`
-            : combined.length > MAX_FILE_CHARS
-              ? `the contents exceed the ${MAX_FILE_CHARS}-character file limit.`
-              : !sharedFiles.has(parsed.name) && sharedFiles.size >= MAX_FILES
-                ? `the room already holds ${MAX_FILES} shared files.`
-                : roomBudgetSpent
-                  ? `the room's one tool action for this round was already taken.`
-                  : null;
-        if (invalid) {
-          record({ kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name: parsed.name.slice(0, 80), content: '', denied: true, notice: config.tools.notice, thinking: toolThinking });
-          pendingPrivate.set(agent.id, `Your ${parsed.append ? 'append' : 'write'} to "${parsed.name.slice(0, 80)}" did not happen: ${invalid}`);
-        } else {
-          spendRoomBudget();
-          publishFile(agent, round, parsed.name, Buffer.from(combined, 'utf8'), toolThinking);
-        }
-        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
-      } else if (parsed.kind === 'run') {
-        // F4½ python: code + output private to the caller (journal-class);
-        // output returns like search results, in the next private block.
-        const toolThinking = parsed.spoken ? undefined : thinking;
-        if (roomBudgetSpent) {
-          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, denied: true, notice: config.tools.notice, thinking: toolThinking });
-          // (denied runs stay inaudible in both visibility modes)
-          pendingPrivate.set(agent.id, `Your code did not run: the room's one tool action for this round was already taken.`);
-        } else {
-          spendRoomBudget();
-          const res = await runPython(
-            parsed.code,
-            Object.fromEntries([...sharedFiles].map(([n, f]) => [n, f.data])),
-            config.tools.pythonTimeoutSeconds,
-            config.tools.pythonPackages,
-            config.tools.pythonInstall,
+      while (true) {
+        calls++;
+        const minutesRemaining = Math.ceil((endAt - Date.now()) / 60_000);
+        let reply: string;
+        let telemetry;
+        let thinking: string | undefined;
+        try {
+          const res = await adapterFor(agent).send(
+            agent.model,
+            // Rebuilt every call, never appended to: a file this agent just
+            // wrote must appear in its own shared-files block, and a
+            // [CONFIG] change it just made must be live in its own prompt
+            // (the joint-session/scatter-lab rule — recompute the request
+            // each round, because the last action may have changed what the
+            // next one is looking at).
+            buildTurnMessages({
+              agent,
+              config,
+              events,
+              summary,
+              minutesRemaining,
+              ownJournal: readJournal(agent.id),
+              privateBlock: carried,
+              sharedFiles: [...sharedFiles].map(([name, f]) => ({
+                name,
+                content: f.binary ? '' : f.data.toString('utf8'),
+                binary: f.binary,
+                size: f.data.length,
+              })),
+              inTurn,
+            }),
+            {
+              maxTokens: callMaxTokens(),
+              sampling: config.sampling,
+              reasoningEffort: config.reasoningEffort,
+              logprobs: config.captureLogprobs,
+              providerOrder: agent.providerOrder,
+            },
           );
-          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output: res.output, ...(config.tools.runPublic ? { public: true } : {}), notice: config.tools.notice, thinking: toolThinking });
-          // Files the code saved under shared/ are PUBLISHED to the room
-          // (that's the point of the writable mount); invalid ones are
-          // reported privately, never silently dropped.
-          const publishNotes: string[] = [];
-          // [RUN > file] / [RUN >> file]: the output itself becomes (or
-          // extends) a shared file — same publish path, same caps.
-          if (parsed.saveTo) {
-            const { name, append } = parsed.saveTo;
-            const existing = append ? sharedFiles.get(name) : undefined;
-            const combined =
-              existing && !existing.binary
-                ? `${existing.data.toString('utf8').replace(/\n?$/, '\n')}${res.output}`
-                : res.output;
-            if (!FILE_NAME_RE.test(name)) publishNotes.push(`Output was not saved: "${name}" is not a valid file name.`);
-            else if (append && existing?.binary) publishNotes.push(`Output was not saved: "${name}" is a binary file.`);
-            else if (combined.length > MAX_FILE_CHARS) publishNotes.push(`Output was not saved to "${name}": it would exceed the ${MAX_FILE_CHARS}-character file limit.`);
-            else if (!sharedFiles.has(name) && sharedFiles.size >= MAX_FILES) publishNotes.push(`Output was not saved: the room already holds ${MAX_FILES} shared files.`);
-            else publishFile(agent, round, name, Buffer.from(combined, 'utf8'));
-          }
-          for (const f of res.files) {
-            const data = Buffer.from(f.dataBase64, 'base64');
-            if (!FILE_NAME_RE.test(f.name)) publishNotes.push(`"${f.name}" was not published (invalid file name).`);
-            else if (data.length > MAX_BINARY_BYTES) publishNotes.push(`"${f.name}" was not published (${data.length} bytes exceeds the ${MAX_BINARY_BYTES}-byte limit).`);
-            else if (!sharedFiles.has(f.name) && sharedFiles.size >= MAX_FILES) publishNotes.push(`"${f.name}" was not published (the room already holds ${MAX_FILES} shared files).`);
-            else publishFile(agent, round, f.name, data);
-          }
-          pendingPrivate.set(agent.id, `Output of the code you ran:\n${res.output}${publishNotes.length ? `\n${publishNotes.join('\n')}` : ''}`);
+          reply = res.text;
+          telemetry = calls > 1 ? { ...res.meta, calls } : res.meta;
+          thinking = res.thinking;
+          if (thinking) traceSeats.add(agent.id);
+          // The carried block was delivered on THIS completed call — consume
+          // it now (an errored call above keeps it for the next attempt).
+          pendingPrivate.delete(agent.id);
+        } catch (err) {
+          record({ kind: 'system', ts: now(), round, text: `${agent.name} could not speak this turn (${(err as Error).message.slice(0, 120)})` });
+          if (unread) pendingPrivate.set(agent.id, unread);
+          failed = true;
+          break;
         }
-        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
-      } else if (parsed.kind === 'source') {
-        // F4½ transparency: reading the tools' source is FREE (no budget
-        // check — knowing how the machine works shouldn't cost the room
-        // its action). Contents go to the reader privately; the room at
-        // most hears the notice line.
-        const toolThinking = parsed.spoken ? undefined : thinking;
-        record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...(parsed.name ? { name: parsed.name } : {}), notice: config.tools.notice, thinking: toolThinking });
-        const scope = config.tools.sourceScope;
-        const body =
-          parsed.name === 'condition' && scope === 'all'
-            ? `This room's live configuration (mutations included):\n${JSON.stringify(conditionRecord(config), null, 2)}`
-            : parsed.name
-              ? readSource(parsed.name, scope)
-              : sourceIndex(scope);
-        pendingPrivate.set(agent.id, body ?? `There is no source file named "${parsed.name}".\n${sourceIndex(scope)}`);
-        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
-      } else if (parsed.kind === 'config') {
-        // §9.4 self-governance: unilateral, free (never spends the tool
-        // budget), applied LIVE (prompts rebuild each turn), always
-        // room-visible when it lands — governance is public by design.
-        const toolThinking = parsed.spoken ? undefined : thinking;
-        const err = applyConfigChange(config, parsed.key, parsed.value);
-        if (err) {
-          record({ kind: 'config', ts: now(), round, agentId: agent.id, agentName: agent.name, key: parsed.key.slice(0, 60), value: parsed.value.slice(0, 40), denied: true, thinking: toolThinking });
-          pendingPrivate.set(agent.id, `Your settings change did not happen: ${err}`);
-        } else {
-          record({ kind: 'config', ts: now(), round, agentId: agent.id, agentName: agent.name, key: parsed.key, value: parsed.value, thinking: toolThinking });
+
+        const j = config.journal;
+        const parsed = parseReply(reply, j, config.search, config.tools);
+
+        // ── Utterances: they end the turn where they stand ──────────────
+        if (!isToolAction(parsed)) {
+          if (parsed.kind === 'pass') {
+            if (j.pass.notice) record({ kind: 'system', ts: now(), round, text: `${agent.name} chose to say nothing.` });
+            else clog(`\n   — ${agent.name} passed (silent).`);
+          } else if (parsed.kind === 'alongside') {
+            // One call, one trace: attach it to the spoken message if there
+            // is one, else to the journal event, so it's stored exactly once.
+            if (parsed.entry) saveJournal(agent, round, parsed.entry, parsed.spoken ? undefined : thinking);
+            if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+          } else if (parsed.kind === 'journal') {
+            saveJournal(agent, round, parsed.entry, thinking);
+          } else if (parsed.kind === 'message') {
+            record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });
+          } else {
+            // Empty visible text (e.g. reasoning ate the whole budget). Never
+            // drop a turn silently — the room perceives silence, and analysis
+            // needs the event. The trace (if any) rides along: it's often the
+            // only record of what the silent turn was doing. A turn that has
+            // already acted ends here quietly, which is the loop's normal way
+            // of finishing a turn spent working rather than talking.
+            record({ kind: 'system', ts: now(), round, text: `${agent.name} said nothing this turn.`, agentId: agent.id, thinking });
+          }
+          break;
         }
-        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
-      } else if (parsed.kind === 'message') {
-        record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });
-      } else {
-        // Empty visible text (e.g. reasoning ate the whole budget). Never
-        // drop a turn silently — the room perceives silence, and analysis
-        // needs the event. The trace (if any) rides along: it's often the
-        // only record of what the silent turn was doing.
-        record({ kind: 'system', ts: now(), round, text: `${agent.name} said nothing this turn.`, agentId: agent.id, thinking });
+
+        // ── Actions ────────────────────────────────────────────────────
+        // Per-room budget (F4½): one action per round for the WHOLE room,
+        // across search/write/run. A losing attempt is refused privately and
+        // inaudibly; any spoken half of the turn still lands.
+        const roomBudgetSpent = config.tools.budget === 'per-room' && roomToolRound === round;
+        const deny: Refusal | undefined = roomBudgetSpent
+          ? refusal(
+              'budget_spent',
+              `The room's one tool action for this round is already spent.`,
+              'Wait for the next round — or talk to the others about who takes it.',
+            )
+          : steps >= maxSteps
+            ? refusal(
+                'steps_exhausted',
+                `You have used ${maxSteps === 1 ? 'your action' : `all ${maxSteps} of your actions`} for this turn.`,
+                'Say something to the room, or let the turn pass; your next turn brings more.',
+              )
+            : undefined;
+        // One call, one trace: it belongs to the spoken message when there
+        // is one, otherwise to the action event.
+        const toolThinking = parsed.spoken ? undefined : thinking;
+        const { observation, refused } = await executeAction(agent, round, parsed, toolThinking, {
+          deny,
+          step: loop ? steps + 1 : undefined,
+          attemptsLeft: loop ? Math.max(0, MAX_TURN_REFUSALS - (refusals + 1)) : 0,
+        });
+        if (refused) refusals++;
+        else steps++;
+
+        if (parsed.spoken) {
+          // Acted AND spoke: the utterance ends the turn, so what came back
+          // waits for the next one — the original alongside economics.
+          record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+          pendingPrivate.set(agent.id, observation);
+          break;
+        }
+
+        // Nothing was said, so the turn can continue — unless this room
+        // doesn't loop, the caps are reached, or the session is ending
+        // (a stop or the clock must not be held up by a working seat).
+        const outOfRoad =
+          !loop ||
+          calls >= callCap ||
+          refusals >= MAX_TURN_REFUSALS ||
+          stopping ||
+          existsSync(stopFile) ||
+          Date.now() >= endAt;
+        if (outOfRoad) {
+          pendingPrivate.set(agent.id, observation);
+          break;
+        }
+        unread = observation;
+        inTurn.push({ reply, observation: observationBlock(observation, Math.max(0, maxSteps - steps)) });
       }
+
+      if (failed) continue;
 
       previousLast = agent.id;
       await maybeSummarize(round);
