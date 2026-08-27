@@ -114,7 +114,7 @@ test('session flow: search spends the turn, results return privately, room hears
   }
   const withPending = buildTurnMessages({
     agent: AGENTS[0], config, events, summary: '', minutesRemaining: 3, ownJournal: '',
-    pendingSearch: 'Results of your web search for "x":\n1. Stub result',
+    privateBlock: 'Results of your web search for "x":\n1. Stub result',
   }).map((m) => m.content).join('\n');
   assert.match(withPending, /Private, for you alone/);
   assert.match(withPending, /Stub result/);

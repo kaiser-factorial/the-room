@@ -50,6 +50,38 @@ plugin on `ROOM_SEARCH_MODEL` (default `google/gemini-2.5-flash`) — same
 API key as the room, no extra secret. `ROOM_STUB=1` returns deterministic
 fake results.
 
+## Tools (F4½)
+
+`tools-full` adds a shared filesystem and a python sandbox on top of free
+search; `tools-scarce` is the same bench with ONE tool action per round for
+the whole room (first taker wins, losers are refused privately).
+`[WRITE: name] contents [/WRITE]` creates/overwrites a shared file —
+room-public, shown to every seat each turn, saved under
+`sessions/<id>/shared/` and mirrored. `[RUN] code [/RUN]` executes python
+in a fresh pyodide sandbox (worker thread, `pythonTimeoutSeconds`
+wall-clock cap starting after startup). The shared files are mounted
+read/write at `shared/` — anything the code saves there, text or BINARY
+(a matplotlib PNG), is published to the room as a shared file (the viewer
+renders images inline; agents see binary files listed by name/size).
+stdout stays private to the caller — the filesystem is the publishing
+surface. The sandbox preloads `tools.pythonPackages` (default numpy,
+pandas, sympy, networkx, matplotlib — disclosed in the prompt), and with
+`pythonInstall` (default on) micropip is loaded so agents can install
+more themselves mid-run — their choice, their time budget. Caveat,
+accepted deliberately: micropip gives agent code an outbound fetch
+channel (PyPI/CDN/wheel URLs); fine for our own roster on an isolated
+runner, flip it off for any condition seating untrusted code. Both
+sentinels are alongside-style: text after the closing tag is spoken.
+
+## Grok via direct xAI (full traces)
+
+Set `XAI_API_KEY` and the Grok seat switches from OpenRouter to api.x.ai
+(`adapter: 'xai'`), which returns the model's full `reasoning_content`
+instead of OpenRouter's ~200-char summaries (§2.5 caveat). Keyless
+environments keep the OpenRouter path unchanged. Add the secret to the
+runner Space the same way as the others (`deploy.sh` pushes it when
+present in the env).
+
 ## Design decisions (the four questions)
 
 **How to call each model?** v1 is OpenRouter-only (`src/openrouter.ts`), but

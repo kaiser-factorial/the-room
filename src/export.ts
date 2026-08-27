@@ -63,6 +63,25 @@ function toEvent(r: EventRow): RoomEvent {
         notice: Boolean(r.payload?.notice),
         ...extra,
       } as RoomEvent;
+    case 'file':
+      return {
+        kind: 'file', ...base, agentId: r.agent_id!, agentName: r.agent_name ?? r.agent_id!,
+        name: (r.payload?.name as string) ?? '',
+        content: (r.payload?.content as string) ?? '',
+        ...(r.payload?.encoding ? { encoding: r.payload.encoding as 'base64' } : {}),
+        ...(r.payload?.denied ? { denied: true } : {}),
+        notice: Boolean(r.payload?.notice),
+        ...extra,
+      } as RoomEvent;
+    case 'run':
+      return {
+        kind: 'run', ...base, agentId: r.agent_id!, agentName: r.agent_name ?? r.agent_id!,
+        code: (r.payload?.code as string) ?? '',
+        ...(r.payload?.output ? { output: r.payload.output as string } : {}),
+        ...(r.payload?.denied ? { denied: true } : {}),
+        notice: Boolean(r.payload?.notice),
+        ...extra,
+      } as RoomEvent;
     case 'order':
       return { kind: 'order', ...base, order: r.order_ids ?? [] };
     case 'summary':

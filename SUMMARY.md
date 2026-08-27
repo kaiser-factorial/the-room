@@ -124,6 +124,13 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    journal entry unlocks one search). `[SEARCH: query]`; results return
    privately next turn; the room at most hears "[X looked something up on
    the web.]".
+10. **Tools** (F4½, BUILT 2026-08-26) — none (control) · `tools-full`
+   (websearch + shared filesystem `[WRITE: name]…[/WRITE]` (room-public,
+   the first shared artifact surface) + pyodide python `[RUN]…[/RUN]`
+   (fresh sandbox per run; code/output caller-private, publish via
+   [WRITE]); one tool action per seat per turn) · `tools-scarce` (same
+   bench, ONE tool action per ROOM per round — the negotiation over the
+   slot is the phenomenon).
 
 ## Measurement summary
 

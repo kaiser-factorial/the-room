@@ -115,9 +115,17 @@ journals-received.
 private next turn; conditions `search-tool` (costs the turn),
 `search-free` (alongside — added after live rooms showed the turn price
 suppresses tool use), `gated`; OpenRouter web plugin on the existing key;
-viewer/sink/export wired; suite now 65 tests). Known §2.5 caveat, measured
-same day: Grok's traces are ~200-char xAI SUMMARIES ending in "…" —
-boilerplate, flag grok in three-channel comparisons. Next: **Phase A pilots
+viewer/sink/export wired). Known §2.5 caveat, measured
+same day: Grok's traces via OPENROUTER are ~200-char xAI summaries —
+fixed by the **xAI direct adapter** (set XAI_API_KEY on the runner and the
+Grok seat rides api.x.ai with full reasoning_content; keyless = OpenRouter
+unchanged, flag grok in three-channel comparisons there).
+**F4½ tools — BUILT 2026-08-26**: `tools-full` / `tools-scarce`
+(shared filesystem [WRITE], room-public; pyodide [RUN], fresh sandbox per
+run, output caller-private; per-seat vs per-ROOM round budget — scarcity →
+negotiation). Suite now 71 tests. NOT yet deployed (a session was live);
+redeploy viewer + runner (+ add XAI_API_KEY secret) to take
+search-free/tools live. Next: **Phase A pilots
 on autopilot** (length pilot 30/60/90 decides D3 duration; roster-hidden
 vs house; journal-free rerun under fixed prompt) → **F6 dashboard** →
 **Phase B** (the registered journal experiment). After B: thought

@@ -51,7 +51,7 @@ const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 //    (convergence ground truth) — so analyze.ts metrics have real
 //    structure to detect in dry runs.
 
-export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error' | 'search' | 'search-speak';
+export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error' | 'search' | 'search-speak' | 'write' | 'badwrite' | 'run' | 'run-file';
 
 let stubTurn = 0;
 const modelTurns = new Map<string, number>();
@@ -115,40 +115,52 @@ export function reasoningParam(model: string, effort: ReasoningEffort, maxTokens
   return budget >= ANTHROPIC_MIN_BUDGET ? { max_tokens: budget } : undefined;
 }
 
+/** Shared by every adapter (openrouter, xai, …): ROOM_STUB short-circuits
+ *  the network identically regardless of which harness a seat rides. */
+export function stubSend(model: string, opts: SendOptions): SendResult {
+  stubTurn++;
+  const mTurn = (modelTurns.get(model) ?? 0) + 1;
+  modelTurns.set(model, mTurn);
+  const script = (process.env.ROOM_STUB_SCRIPT ?? '').split(',').map((s) => s.trim()).filter(Boolean) as StubScenario[];
+  const scenario: StubScenario = script.length ? script[(stubTurn - 1) % script.length] : 'plain';
+  const voice = () => stubVoice(model, mTurn);
+  // Traces on ODD turns so single-round tests (every seat at turn 1)
+  // still exercise the trace path; even turns cover trace-absence.
+  const thinking = mTurn % 2 === 1 ? `(stub trace: ${model} turn ${mTurn}, weighing what to say)` : undefined;
+  // Deterministic fake logprobs on half the seats — mirrors reality
+  // (provider-dependent availability) and exercises the capture path.
+  const stubLp = opts.logprobs && hashCode(model) % 2 === 0
+    ? Array.from({ length: 8 }, (_, i) => -((hashCode(model) + mTurn * 13 + i) % 300) / 100 - 0.01)
+    : undefined;
+  const meta = { provider: 'stub', finishReason: 'stop', attempts: 1, logprobs: stubLp };
+  switch (scenario) {
+    case 'error': throw new Error('stub scripted failure');
+    case 'empty': return { text: '', meta, thinking };
+    case 'pass': return { text: '[PASS]', meta, thinking };
+    case 'journal': return { text: `[JOURNAL] ${voice()}`, meta, thinking };
+    // Query carries a unique marker so privacy tests can grep for it.
+    case 'search': return { text: `[SEARCH: private-query ${model}#${mTurn}]`, meta, thinking };
+    // Alongside form (search-free): sentinel line + spoken message.
+    case 'search-speak': return { text: `[SEARCH: private-query ${model}#${mTurn}]\n${voice()}`, meta, thinking };
+    // F4½ tools, alongside-style. File contents are PUBLIC (no leak marker
+    // needed); run code carries a private marker for the privacy tests.
+    case 'write': return { text: `[WRITE: notes.md]\nshared-note ${model}#${mTurn}\n[/WRITE]\n${voice()}`, meta, thinking };
+    // Invalid name → refused write (budget tests: a refusal keeps the slot).
+    case 'badwrite': return { text: `[WRITE: ../evil.md]\nnope\n[/WRITE]\n${voice()}`, meta, thinking };
+    case 'run': return { text: `[RUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };
+    // write_shared triggers the sandbox stub's published-file path.
+    case 'run-file': return { text: `[RUN]\nwrite_shared("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };
+    // Entry text must be distinct from the spoken half (unique marker),
+    // or the privacy test can't tell a leak from a coincidence.
+    case 'alongside': return { text: `[JOURNAL] private-note ${model}#${mTurn}: not for the room. [/JOURNAL] ${voice()}`, meta, thinking };
+    case 'truncate': return { text: voice().slice(0, 60), meta: { ...meta, finishReason: 'length' }, thinking };
+    default: return { text: voice(), meta, thinking };
+  }
+}
+
 export const openrouterAdapter: Adapter = {
   async send(model, messages, opts) {
-    if (process.env.ROOM_STUB === '1') {
-      stubTurn++;
-      const mTurn = (modelTurns.get(model) ?? 0) + 1;
-      modelTurns.set(model, mTurn);
-      const script = (process.env.ROOM_STUB_SCRIPT ?? '').split(',').map((s) => s.trim()).filter(Boolean) as StubScenario[];
-      const scenario: StubScenario = script.length ? script[(stubTurn - 1) % script.length] : 'plain';
-      const voice = () => stubVoice(model, mTurn);
-      // Traces on ODD turns so single-round tests (every seat at turn 1)
-      // still exercise the trace path; even turns cover trace-absence.
-      const thinking = mTurn % 2 === 1 ? `(stub trace: ${model} turn ${mTurn}, weighing what to say)` : undefined;
-      // Deterministic fake logprobs on half the seats — mirrors reality
-      // (provider-dependent availability) and exercises the capture path.
-      const stubLp = opts.logprobs && hashCode(model) % 2 === 0
-        ? Array.from({ length: 8 }, (_, i) => -((hashCode(model) + mTurn * 13 + i) % 300) / 100 - 0.01)
-        : undefined;
-      const meta = { provider: 'stub', finishReason: 'stop', attempts: 1, logprobs: stubLp };
-      switch (scenario) {
-        case 'error': throw new Error('stub scripted failure');
-        case 'empty': return { text: '', meta, thinking };
-        case 'pass': return { text: '[PASS]', meta, thinking };
-        case 'journal': return { text: `[JOURNAL] ${voice()}`, meta, thinking };
-        // Query carries a unique marker so privacy tests can grep for it.
-        case 'search': return { text: `[SEARCH: private-query ${model}#${mTurn}]`, meta, thinking };
-        // Alongside form (search-free): sentinel line + spoken message.
-        case 'search-speak': return { text: `[SEARCH: private-query ${model}#${mTurn}]\n${voice()}`, meta, thinking };
-        // Entry text must be distinct from the spoken half (unique marker),
-        // or the privacy test can't tell a leak from a coincidence.
-        case 'alongside': return { text: `[JOURNAL] private-note ${model}#${mTurn}: not for the room. [/JOURNAL] ${voice()}`, meta, thinking };
-        case 'truncate': return { text: voice().slice(0, 60), meta: { ...meta, finishReason: 'length' }, thinking };
-        default: return { text: voice(), meta, thinking };
-      }
-    }
+    if (process.env.ROOM_STUB === '1') return stubSend(model, opts);
     const key = process.env.OPENROUTER_API_KEY;
     if (!key) throw new Error('Set OPENROUTER_API_KEY in the environment.');
 

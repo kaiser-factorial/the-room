@@ -39,6 +39,22 @@ function sinkPayload(e: RoomEvent): unknown {
     if (e.denied) p.denied = true;
     p.notice = e.notice;
   }
+  // F4½ tools: same public-read class as traces — humans see everything in
+  // the viewer; agents see only what context.ts renders (file contents via
+  // the shared-files block, run code/output never).
+  if (e.kind === 'file') {
+    p.name = e.name;
+    p.content = e.content;
+    if (e.encoding) p.encoding = e.encoding;
+    if (e.denied) p.denied = true;
+    p.notice = e.notice;
+  }
+  if (e.kind === 'run') {
+    p.code = e.code;
+    if (e.output) p.output = e.output;
+    if (e.denied) p.denied = true;
+    p.notice = e.notice;
+  }
   return Object.keys(p).length ? p : null;
 }
 

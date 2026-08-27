@@ -23,7 +23,12 @@ export const config: RoomConfig = {
     { id: 'opus', name: 'Opus 5', model: 'anthropic/claude-opus-5', adapter: 'openrouter', color: '#DA7756' },
     { id: 'gemini', name: 'Gemini 3.7', model: 'google/gemini-3.7-flash', adapter: 'openrouter', color: '#4285F4' },
     { id: 'qwen', name: 'Qwen 3.8', model: 'qwen/qwen3.8-27b', adapter: 'openrouter', color: '#C084FC' },
-    { id: 'grok', name: 'Grok 4.6', model: 'x-ai/grok-4.6', adapter: 'openrouter', color: '#ECECEC' },
+    // Direct-xAI when the key is present: OpenRouter serves only ~200-char
+    // reasoning SUMMARIES for Grok (measured 2026-08-26, §2.5 caveat);
+    // api.x.ai returns the full reasoning_content. Same slug either way —
+    // the xai adapter strips the 'x-ai/' prefix. Keyless environments
+    // (and ROOM_STUB) stay on OpenRouter unchanged.
+    { id: 'grok', name: 'Grok 4.6', model: 'x-ai/grok-4.6', adapter: process.env.XAI_API_KEY ? 'xai' : 'openrouter', color: '#ECECEC' },
     // Pinned to logprobs-capable providers (§2.6) — also the §6.1 routing
     // control. Novita first: 3/3 consistent in probes; GMICloud returned
     // logprobs only intermittently (2026-08-25).
@@ -62,6 +67,21 @@ export const config: RoomConfig = {
     gated: false,
     notice: true,
     maxResults: 5,
+  },
+
+  tools: {
+    files: false, // control = no tools; 'tools-full'/'tools-scarce' enable
+    python: false,
+    budget: 'per-seat',
+    notice: true,
+    // 20s: micropip installs and matplotlib renders happen inside the
+    // agent's window (preload has its own cap in sandbox.ts).
+    pythonTimeoutSeconds: 20,
+    // Preloaded + prompt-disclosed (joint-session lesson: unloaded imports
+    // fail). matplotlib included now that shared files can hold binary —
+    // savefig('shared/x.png') publishes a plot to the room.
+    pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'],
+    pythonInstall: true,
   },
 
   // Control keeps the original named roster (comparability with every

@@ -1,7 +1,7 @@
 // Reply sentinel parsing, extracted pure from session.ts so the table of
 // model-mangled sentinel variants can be tested directly.
 
-import type { JournalConfig, SearchConfig } from './types.js';
+import type { JournalConfig, SearchConfig, ToolsConfig } from './types.js';
 
 // Loose sentinel matches: models bold/colon these more often than not —
 // and sometimes TYPO them ([GOURNAL], live 2026-08-25: a private entry was
@@ -18,6 +18,16 @@ const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
 // (replace economics), so trailing prose is a mis-formatted extra, not a
 // message to leak to the room.
 const SEARCH_RE = /^\s*\**\[([A-Za-z]{4,8}):\s*([^\]\n]{0,300})\]?/;
+// F4½ tools. [WRITE: name]…[/WRITE] — shared-file write, contents are
+// room-public by design, so an unterminated block just swallows the rest as
+// content. [RUN]…[/RUN] — python; code and output are PRIVATE (journal-class),
+// so the unterminated form also takes the whole remainder (never leak a
+// half-closed block to the room). Both are alongside-style: text after the
+// closing tag is spoken as usual.
+const WRITE_OPEN_RE = /^\s*\**\[([A-Za-z]{4,6}):\s*([^\]\n]{1,80})\]\**\s*\n?([\s\S]*)$/;
+const WRITE_CLOSE_RE = /\[\/([A-Za-z]{4,6})\]\s*([\s\S]*)/;
+const RUN_OPEN_RE = /^\s*\**\[RUN\]\**:?\s*\n?([\s\S]*)$/i;
+const RUN_CLOSE_RE = /\[\/RUN\]\s*([\s\S]*)/i;
 
 function editDistance(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
@@ -36,6 +46,10 @@ function isSearchToken(w: string): boolean {
   return editDistance(w.toUpperCase(), 'SEARCH') <= 2;
 }
 
+function isWriteToken(w: string): boolean {
+  return editDistance(w.toUpperCase(), 'WRITE') <= 1;
+}
+
 export type ParsedReply =
   | { kind: 'pass' }
   /** Journal replaces the turn (or: alongside-mode privacy fallback — an
@@ -49,9 +63,13 @@ export type ParsedReply =
    *  normal message; in replace mode trailing text is discarded (the
    *  search costs the turn). */
   | { kind: 'search'; query: string; spoken?: string }
+  /** F4½ shared-file write (contents room-public); alongside-style. */
+  | { kind: 'write'; name: string; content: string; spoken?: string }
+  /** F4½ python run (code + output private to the caller); alongside-style. */
+  | { kind: 'run'; code: string; spoken?: string }
   | { kind: 'empty' };
 
-export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig): ParsedReply {
+export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig, t?: ToolsConfig): ParsedReply {
   if (j.enabled && j.pass.enabled && PASS_RE.test(reply)) return { kind: 'pass' };
   const open = j.enabled ? reply.match(JOURNAL_OPEN_RE) : null;
   const opened = open && isJournalToken(open[1]);
@@ -69,6 +87,32 @@ export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig): P
     // A bare sentinel with no entry text is a turn that wrote nothing —
     // record it as silence, not as an empty journal entry (test-found).
     return open[2].trim() ? { kind: 'journal', entry: open[2].trim() } : { kind: 'empty' };
+  }
+  if (t?.files) {
+    const w = reply.match(WRITE_OPEN_RE);
+    if (w && isWriteToken(w[1])) {
+      const name = w[2].trim();
+      const close = w[3].match(WRITE_CLOSE_RE);
+      if (close && isWriteToken(close[1])) {
+        const content = w[3].slice(0, w[3].indexOf(close[0])).trim();
+        const spoken = close[2].trim();
+        return spoken ? { kind: 'write', name, content, spoken } : { kind: 'write', name, content };
+      }
+      return { kind: 'write', name, content: w[3].trim() };
+    }
+  }
+  if (t?.python) {
+    const r = reply.match(RUN_OPEN_RE);
+    if (r) {
+      const close = r[1].match(RUN_CLOSE_RE);
+      if (close) {
+        const code = r[1].slice(0, r[1].search(RUN_CLOSE_RE)).trim();
+        const spoken = close[1].trim();
+        if (!code) return { kind: 'empty' };
+        return spoken ? { kind: 'run', code, spoken } : { kind: 'run', code };
+      }
+      return r[1].trim() ? { kind: 'run', code: r[1].trim() } : { kind: 'empty' };
+    }
   }
   if (s?.enabled) {
     const search = reply.match(SEARCH_RE);

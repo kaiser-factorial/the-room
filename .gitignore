@@ -4,3 +4,4 @@ sessions/
 .DS_Store
 batches/
 embeddings-cache.json
+.pyodide-cache/
