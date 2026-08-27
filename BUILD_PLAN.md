@@ -306,7 +306,20 @@ off/informed/uninformed, viewer-aware rendering (others' traces inline,
 never your own, never in the rolling summary), `broadcast-informed` /
 `broadcast-uninformed` conditions (trace-rich + journal, differing only
 in the disclosure line), privacy suite encodes the inversion explicitly.
-Suite: 76.
+
+**Status addendum (2026-08-27, round 2 — PRs #11–#13 merged AND
+DEPLOYED).** Tool bench matured: `runPublic` (code + output spoken to the
+room — pair-programming mode, on in tools conditions), [APPEND: name]
+(incremental edits), [RUN > f]/[RUN >> f] (output captured to a shared
+file), [SOURCE]/[SOURCE: name] (tool-layer source readable, free,
+private). §9.3 thought broadcast and **§9.4 self-governance** built and
+live: `transparent` (sourceScope 'all' — the experiment readable, incl.
+[SOURCE: condition]) and `self-governing` (everything OFF; [CONFIG: key =
+value] against the governance.ts whitelist — unilateral, free, immediate,
+room-visible; config events are the config history). Viewer grew three
+rails (shared files / tool calls / journals). Mirror kind constraint now
+covers all 12 event kinds — REMEMBER: a new kind needs a new migration.
+Suite: 85.
 
 Open reminders:
 - **Judge calibration labeling (Corina, deliberately deferred)** —

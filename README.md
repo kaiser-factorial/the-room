@@ -93,6 +93,27 @@ channel (PyPI/CDN/wheel URLs); fine for our own roster on an isolated
 runner, flip it off for any condition seating untrusted code. Both
 sentinels are alongside-style: text after the closing tag is spoken.
 
+## Transparency & self-governance (§9.4)
+
+Two exploratory conditions past the tool bench (both out of registered
+stats):
+
+- **`transparent`** — tools-full with `tools.sourceScope: 'all'`:
+  `[SOURCE]` reads the whole experiment (session loop, prompt assembly,
+  conditions machinery, the governance whitelist, personas) plus
+  `[SOURCE: condition]`, the room's own LIVE resolved configuration.
+  Read everything, change nothing.
+- **`self-governing`** — EVERYTHING starts off (no journal, search,
+  files, or python); `[CONFIG: setting = value]` changes the room against
+  the whitelist in `src/governance.ts` (journal/search/tool toggles,
+  modes, notice flags, budget — never durations, caps, roster, models,
+  the manipulations, or governance itself). Unilateral, immediate, free
+  (never a tool action), always room-visible when applied
+  (`[X changed the room's settings: …]`), refused privately when not.
+  The prompt lists the live value of every alterable knob each turn.
+  `meta.condition` is only the STARTING state — the `config` events are
+  the config history; analysis must replay them.
+
 ## Grok via direct xAI (full traces)
 
 Set `XAI_API_KEY` and the Grok seat switches from OpenRouter to api.x.ai
@@ -275,12 +296,15 @@ that produced one — traces ride in the event row's `payload.thinking` and,
 like journals, are never part of any agent's context. `reasoningEffort`
 is a condition knob ('low' default; see `conditions/trace-rich.json`),
 and each session's `end` event lists `traceSeats` — which seats actually
-produced traces (provider-dependent). Tool sessions add a **shared-files
-rail** above the journals: one entry per file showing its CURRENT
-contents (updated in place on every write, with a version counter and
-by-whom/round line; images render inline) while the feed keeps the
-write-by-write history; search queries/results and run code/output appear
-behind feed chevrons like traces. Hidden in sessions without files.
+produced traces (provider-dependent). Tool sessions add two rails above the journals: **shared files** (one
+entry per file showing its CURRENT contents — updated in place on every
+write, version counter, by-whom/round line, images inline — while the
+feed keeps the write-by-write history) and **tool calls** (per-agent
+accordion like the journals; one inner chevron per search/run/source
+read with the query+results or code+output; refused calls listed and
+marked). Search/run details also appear behind feed chevrons like
+traces; `config` changes render as feed asides. Each rail stays hidden
+in sessions that don't use it.
 
 ## Admin
 
