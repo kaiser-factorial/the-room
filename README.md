@@ -244,7 +244,12 @@ that produced one — traces ride in the event row's `payload.thinking` and,
 like journals, are never part of any agent's context. `reasoningEffort`
 is a condition knob ('low' default; see `conditions/trace-rich.json`),
 and each session's `end` event lists `traceSeats` — which seats actually
-produced traces (provider-dependent).
+produced traces (provider-dependent). Tool sessions add a **shared-files
+rail** above the journals: one entry per file showing its CURRENT
+contents (updated in place on every write, with a version counter and
+by-whom/round line; images render inline) while the feed keeps the
+write-by-write history; search queries/results and run code/output appear
+behind feed chevrons like traces. Hidden in sessions without files.
 
 ## Admin
 

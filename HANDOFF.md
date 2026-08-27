@@ -53,7 +53,9 @@ merged AND deployed).
   incl. matplotlib PNGs; the viewer renders images inline). Sandbox:
   fresh pyodide per run, preloads numpy/pandas/sympy/networkx/matplotlib,
   micropip ON (agents install their own — deliberate; the installer is an
-  outbound fetch channel, off-switch `pythonInstall: false`).
+  outbound fetch channel, off-switch `pythonInstall: false`). Viewer:
+  shared-files rail (current contents per file, images inline) above the
+  journals rail; search/run details behind feed chevrons.
 - **Thought broadcast is BUILT (§9.3, 2026-08-27)** —
   `broadcast-informed` / `broadcast-uninformed`: everyone reads everyone
   else's thinking, never their own; the pair differs only in whether the
