@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { buildTurnMessages, contextSlice } from '../src/context.js';
 import { config as baseConfig } from '../src/config.js';
 import { testConfig, msg, AGENTS } from './helpers.js';
+import type { RoomEvent } from '../src/types.js';
 
 const FROZEN_WELCOME =
   'Welcome to the room. You are each a different AI model. You will be here ' +
@@ -85,6 +86,58 @@ test('the turn paragraph: no documentation voice, and doing comes before saying'
     withBench.indexOf('doing something') < withBench.indexOf('everyone here hears'),
     'saying must not come first',
   );
+});
+
+test('transcriptMode turns: own words are own turns, everyone else is the room', () => {
+  const cfg = testConfig();
+  const events = [msg(1, 'beta', 'hello all'), msg(1, 'alpha', 'my own line'), msg(2, 'gamma', 'and me')];
+  const msgs = buildTurnMessages({ agent: AGENTS[0], config: cfg, events, summary: '', minutesRemaining: 5, ownJournal: '' });
+  assert.equal(msgs[0].role, 'system');
+  const roles = msgs.map((m) => m.role).join(',');
+  assert.equal(roles, 'system,user,assistant,user', 'the seat speaks in its own voice, the room in the user role');
+  // Its own line comes back BARE — a seat's own words are not labelled at
+  // it, which is also what keeps a name it was never told out of the prompt.
+  assert.equal(msgs[2].content, 'my own line');
+  assert.match(msgs[1].content, /Beta: hello all/);
+  assert.match(msgs[3].content, /Gamma: and me/);
+  assert.match(msgs[3].content, /\[It is now your turn\.\]/);
+});
+
+test('transcriptMode environment: the pre-2026-08-27 shape, one user message', () => {
+  const cfg = testConfig({ transcriptMode: 'environment' });
+  const events = [msg(1, 'beta', 'hello all'), msg(1, 'alpha', 'my own line')];
+  const msgs = buildTurnMessages({ agent: AGENTS[0], config: cfg, events, summary: '', minutesRemaining: 5, ownJournal: '' });
+  assert.deepEqual(msgs.map((m) => m.role), ['system', 'user']);
+  assert.match(msgs[1].content, /Alpha: my own line/, 'the room is read, own lines included');
+});
+
+test('turns: a seat\'s own notices speak to it in the second person', () => {
+  const cfg = testConfig({ tools: { ...testConfig().tools, files: true, python: true } });
+  const base = { ts: '2026-01-01T00:00:00.000Z', round: 1, notice: true };
+  const events = [
+    { kind: 'run', ...base, agentId: 'alpha', agentName: 'Alpha', code: 'print(1)' },
+    { kind: 'file', ...base, agentId: 'alpha', agentName: 'Alpha', name: 'notes.md', content: 'x' },
+    { kind: 'run', ...base, agentId: 'beta', agentName: 'Beta', code: 'print(2)' },
+  ] as RoomEvent[];
+  const msgs = buildTurnMessages({ agent: AGENTS[0], config: cfg, events, summary: '', minutesRemaining: 5, ownJournal: '' });
+  const text = msgs.map((m) => m.content).join('\n');
+  assert.match(text, /\[You ran some code, then updated the shared file "notes\.md"\.\]/);
+  assert.match(text, /\[Beta ran some code\.\]/);
+  assert.ok(!/\[Alpha /.test(text), 'the seat was named to itself');
+});
+
+test('turns: the wire constraints hold — opens user-side, no two turns of a role in a row', () => {
+  const cfg = testConfig();
+  // Two of the seat's own messages with nothing audible between them, and a
+  // window that opens on one of them: both shapes providers reject.
+  const events = [msg(1, 'alpha', 'first'), msg(2, 'alpha', 'second'), msg(2, 'beta', 'reply')];
+  const msgs = buildTurnMessages({ agent: AGENTS[0], config: cfg, events, summary: '', minutesRemaining: 5, ownJournal: '' });
+  assert.equal(msgs[0].role, 'system');
+  assert.equal(msgs[1].role, 'user', 'the first non-system message must be user-role');
+  for (let i = 1; i < msgs.length; i++) {
+    assert.notEqual(msgs[i].role, msgs[i - 1].role, `roles must alternate (index ${i})`);
+  }
+  assert.match(msgs[2].content, /first\n\nsecond/, 'adjacent own turns merge rather than repeat the role');
 });
 
 test('journal disabled (control): the word journal never reaches the prompt', () => {

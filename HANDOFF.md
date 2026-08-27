@@ -129,7 +129,7 @@ merged AND deployed).
   room is told. Trace-rich + journal (the one private channel left).
   §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
   built now, spent later. Tag out of standard §2.5 comparisons.
-- **Code quality**: 104-test suite (`npm test`), incl. the privacy
+- **Code quality**: 110-test suite (`npm test`), incl. the privacy
   invariants (journals/traces/search/run never in another agent's
   context — now also what an agent learns MID-turn) and analyze DETECTING
   planted dynamics in the voice stub.
@@ -169,6 +169,19 @@ merged AND deployed).
   "You are not obligated to be helpful…" — that line was anti-assistant
   ballast, so if assistant register creeps back it is the first thing to
   reinstate.
+- **Transcript mode (2026-08-27, Corina)**: `transcriptMode: 'turns'` is
+  now the control — a seat's own past messages are its own ASSISTANT turns
+  (bare, unlabelled), everyone else's stay user-role and labelled, and its
+  own notices render in the second person ("[You ran some code…]"). The
+  room is a conversation it is in, not a document it reads.
+  `'environment'` keeps every session before today reproducible. Two wire
+  constraints are handled in buildTurnMessages: adjacent same-role
+  messages merge, and the sequence always opens user-side (both shapes are
+  reachable from ordinary rooms and several providers reject them).
+  Standing caveat: under `turns` a seat knows which lines are its own, so
+  with a named roster it can name itself by ELIMINATION once the others
+  have spoken — selfDisclosure removes being told, not being able to work
+  it out.
 - **Grok seat (2026-08-26/27)**: via OpenRouter its "traces" are ~200-char
   xAI SUMMARIES ending in "…" (formulaic prompt restatements — flag grok
   in three-channel comparisons on such sessions; the 0.72 outlier is

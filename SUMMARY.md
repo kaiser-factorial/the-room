@@ -114,7 +114,14 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    **free** (journal + message in one turn — what happens when journaling
    costs nothing?). *Parked for a possible dedicated journaling
    sub-experiment: long-form caps, write-only, cost ladder, `[PASS]`.*
-7. **Context policy** — full (control) · window+summary.
+7. **Context policy** — full (control) · window+summary. Crossed since
+   2026-08-27 with **transcript mode**: `turns` (control — the seat's own
+   messages are its own assistant turns, bare; everyone else is user-role,
+   labelled; own notices in the second person) vs `environment` (every
+   session before that date — the whole room, own lines included, as one
+   user message: a document about a conversation rather than the
+   conversation). Under `turns` a seat can name itself by elimination once
+   the others have spoken, which is the standing caveat on self-disclosure.
 8. **Roster disclosure** (added 2026-08-25) — named (control, frozen
    wording) · count · none (`roster-hidden`: agents discover who's present
    from speaker labels as people talk). Crossed since 2026-08-27 with

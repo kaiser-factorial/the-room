@@ -137,7 +137,11 @@ test('privacy: what an agent learns mid-turn reaches no one else', async () => {
     const text = msgs.map((m) => m.content).join('\n');
     // Its own step is there, as a real assistant turn plus the observation.
     assert.ok(text.includes('mine-only'), 'the agent must see its own result');
-    assert.equal(msgs.filter((m) => m.role === 'assistant').length, 1);
+    // Under 'turns' the seat's own past messages are assistant turns too,
+    // so the in-turn step is the LAST one rather than the only one.
+    const assistants = msgs.filter((m) => m.role === 'assistant');
+    assert.ok(assistants.length >= 1);
+    assert.match(assistants[assistants.length - 1].content, /print\("mine"\)/);
     // Nobody's code or output — including the seats that ran code in the
     // session above — is anywhere in this prompt.
     assert.ok(!text.includes('private-code'), `another agent's code reached ${agent.name}`);

@@ -228,6 +228,25 @@ export interface RoomConfig {
    *  message with its author, so a seat that recognises its own prose can
    *  identify itself. What this removes is being TOLD. */
   selfDisclosure: 'named' | 'anonymous';
+  /** How the transcript reaches a seat (Corina 2026-08-27).
+   *
+   *  'environment' (every session up to 2026-08-27) — the whole room, the
+   *  seat's own past words included, arrives as one user message. To the
+   *  model the room is something it is READING: its own lines come back
+   *  labelled "Opus 5: …" exactly like everyone else's.
+   *
+   *  'turns' (the control since) — the room arrives as real turns. The
+   *  seat's own messages are its own assistant turns, unlabelled; everyone
+   *  else's are user-role, labelled as before. It is a participant in a
+   *  conversation rather than a reader of one.
+   *
+   *  Interaction to keep in view: under 'turns' a seat always knows WHICH
+   *  lines are its own, so with a named roster it can name itself by
+   *  elimination once the others have spoken. selfDisclosure 'anonymous'
+   *  still removes being told, and its own notices render in the second
+   *  person ("[You looked something up.]") rather than under a name it
+   *  hasn't been given — but the inference is available, by design. */
+  transcriptMode: 'environment' | 'turns';
   /** §9.3 thought broadcast (exploratory; tag OUT of standard §2.5
    *  comparisons). 'off' (control) keeps the F1 rule: traces reach no
    *  agent, ever. Broadcast INVERTS it for other agents only: every

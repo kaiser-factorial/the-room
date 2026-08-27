@@ -303,6 +303,35 @@ to summarize, or to wrap things up"* is gone. That last line was doing
 anti-assistant work: if assistant register creeps back into the transcripts,
 it is the first thing to reinstate.
 
+## How the room reaches a seat
+
+`transcriptMode` decides the shape of the conversation a model is handed.
+
+- **`turns`** (control since 2026-08-27) — the room arrives as real turns.
+  A seat's own past messages are its own `assistant` turns, rendered BARE
+  (no `Opus 5:` label on its own words); everyone else's are `user`-role
+  and labelled as before, as are journal notices, tool notices, system
+  lines and the private block. Its own notices render in the second person
+  — *"[You ran some code, then updated the shared file "notes.md".]"*. The
+  seat is a participant in a conversation rather than a reader of one.
+- **`environment`** (every session up to 2026-08-27) — the whole room,
+  including the seat's own lines, arrives as one `user` message. The old
+  comment in `context.ts` put it as: to each model, the other agents are
+  part of the environment, not its own past turns.
+
+Two wire constraints are handled in `buildTurnMessages` rather than left to
+providers, both reachable from ordinary room states: adjacent same-role
+messages are merged (two of a seat's messages in a row, when nothing
+audible happened between them), and the sequence is guaranteed to open
+user-side (a context window can open on the seat's own line). Tool-result
+messages are never merged — each answers exactly one call.
+
+**Interaction with `selfDisclosure`:** under `turns` a seat always knows
+which lines are its own, so with a named roster it can name itself by
+elimination once the others have spoken. Anonymity still removes being
+*told* — and its own notices avoid a name it was never given — but the
+inference is available by design.
+
 ## The countdown
 
 There's no polling endpoint — simpler: the system prompt is rebuilt every turn

@@ -104,6 +104,11 @@ export const config: RoomConfig = {
   // reproducible, and makes "do they work out who they are?" an axis.
   selfDisclosure: 'anonymous',
 
+  // The room reaches a seat as its own conversation, not as a document
+  // about a conversation (Corina 2026-08-27). Sessions before that date
+  // ran 'environment'.
+  transcriptMode: 'turns',
+
   thinkingBroadcast: 'off', // §9.3; 'broadcast-informed'/'-uninformed' invert it
 
   // F1: 'low' = anti-starvation default (D3 amendment). Trace-rich

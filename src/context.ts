@@ -89,14 +89,32 @@ function joinVerbs(verbs: string[]): string {
   return `${verbs.slice(0, -1).join(', ')}, then ${verbs[verbs.length - 1]}`;
 }
 
+/** A seat's own non-message events, in the second person. Under 'turns' a
+ *  seat's own actions must not come back to it under a name — partly
+ *  because it reads naturally ("[You ran some code.]"), and partly because
+ *  under selfDisclosure 'anonymous' the room has not told it that name. */
+function renderOwnEvent(e: RoomEvent, ownName: string): string {
+  const base = renderEvent(e);
+  if (e.kind === 'system') {
+    // System lines are pre-baked with the name ("Alpha said nothing this
+    // turn."); swap the leading name rather than re-deriving the sentence.
+    return base.startsWith(`[${ownName} `) ? `[You ${base.slice(ownName.length + 2)}` : base;
+  }
+  return base.startsWith(`[${ownName} `) ? `[You ${base.slice(ownName.length + 2)}` : base;
+}
+
 export function renderTranscript(
   slice: RoomEvent[],
   viewerId: string,
   broadcast: RoomConfig['thinkingBroadcast'],
+  /** Set under 'turns': the viewer's own name, so its own events render in
+   *  the second person instead of under a name it may not have been given. */
+  ownName?: string,
 ): string {
   const out: string[] = [];
   for (let i = 0; i < slice.length; i++) {
     const e = slice[i];
+    const mine = ownName !== undefined && 'agentId' in e && e.agentId === viewerId;
     const verb = broadcast === 'off' ? noticeVerb(e) : null;
     if (verb && 'agentName' in e) {
       const verbs = [verb];
@@ -108,14 +126,71 @@ export function renderTranscript(
         verbs.push(v);
       }
       if (verbs.length > 1) {
-        out.push(`[${e.agentName} ${joinVerbs(verbs)}.]`);
+        out.push(mine ? `[You ${joinVerbs(verbs)}.]` : `[${e.agentName} ${joinVerbs(verbs)}.]`);
         i = j - 1;
         continue;
       }
     }
-    out.push(renderEventFor(e, viewerId, broadcast));
+    out.push(mine ? renderOwnEvent(e, ownName!) : renderEventFor(e, viewerId, broadcast));
   }
   return out.join('\n\n');
+}
+
+/**
+ * 'turns' (the control since 2026-08-27): the room as a conversation the
+ * seat is IN rather than a document it is reading. Its own messages become
+ * its own assistant turns, bare — no "Opus 5:" label on its own words —
+ * and everything else stays user-role, labelled as before.
+ *
+ * Two wire constraints are handled here rather than left to the providers:
+ * adjacent same-role messages are merged (a room can produce two of a
+ * seat's messages in a row when nobody audible spoke between them), and the
+ * sequence is guaranteed to open user-side.
+ */
+function transcriptTurns(
+  slice: RoomEvent[],
+  agent: AgentConfig,
+  config: RoomConfig,
+  lead: string,
+): ChatMessage[] {
+  const msgs: ChatMessage[] = [];
+  let pending: RoomEvent[] = [];
+  const flush = () => {
+    if (!pending.length) return;
+    const text = renderTranscript(pending, agent.id, config.thinkingBroadcast, agent.name);
+    if (text.trim()) msgs.push({ role: 'user', content: text });
+    pending = [];
+  };
+  for (const e of slice) {
+    if (e.kind === 'message' && e.agentId === agent.id) {
+      flush();
+      msgs.push({ role: 'assistant', content: e.text });
+    } else {
+      pending.push(e);
+    }
+  }
+  flush();
+  if (lead) msgs.unshift({ role: 'user', content: lead });
+  // Anthropic (and others) require the first non-system message to be
+  // user-role; a window that opens on the seat's own line would not be.
+  if (msgs[0]?.role === 'assistant') msgs.unshift({ role: 'user', content: '[The conversation so far.]' });
+  return mergeAdjacent(msgs);
+}
+
+/** Merge neighbouring messages of the same role — several providers reject
+ *  a non-alternating sequence outright. Tool messages are never merged:
+ *  each one answers exactly one call. */
+export function mergeAdjacent(msgs: ChatMessage[]): ChatMessage[] {
+  const out: ChatMessage[] = [];
+  for (const m of msgs) {
+    const prev = out[out.length - 1];
+    if (prev && prev.role === m.role && m.role !== 'tool' && !prev.toolCalls && !m.toolCalls) {
+      prev.content = `${prev.content}\n\n${m.content}`;
+    } else {
+      out.push({ ...m });
+    }
+  }
+  return out;
 }
 
 /** The verbatim slice for the transcript block. 'full' = everything;
@@ -477,23 +552,29 @@ export function buildTurnMessages(opts: {
   ].join('\n');
 
   const { slice } = contextSlice(config, events);
-  const transcriptParts: string[] = [];
-  if (config.contextPolicy === 'window' && summary) {
-    transcriptParts.push(`[Earlier in the room (summary)]\n${summary}\n`);
-  }
-  transcriptParts.push(renderTranscript(slice, agent.id, config.thinkingBroadcast));
-  if (privateBlock) {
-    transcriptParts.push(`\n[Private, for you alone — no one else in the room sees this.]\n${privateBlock}`);
-  }
-  transcriptParts.push(anon ? `\n[It is now your turn.]` : `\n[It is now your turn, ${agent.name}.]`);
+  const lead = config.contextPolicy === 'window' && summary ? `[Earlier in the room (summary)]\n${summary}\n` : '';
+  // Everything that closes the prompt, whichever mode built the body: the
+  // private block (search results, run output, a refusal) and the nudge.
+  const tail = [
+    ...(privateBlock ? [`\n[Private, for you alone — no one else in the room sees this.]\n${privateBlock}`] : []),
+    anon ? `\n[It is now your turn.]` : `\n[It is now your turn, ${agent.name}.]`,
+  ].join('\n');
 
-  return [
+  const body: ChatMessage[] =
+    config.transcriptMode === 'turns'
+      ? [...transcriptTurns(slice, agent, config, lead), { role: 'user', content: tail }]
+      : [{
+          role: 'user',
+          content: [lead, renderTranscript(slice, agent.id, config.thinkingBroadcast), tail].filter(Boolean).join('\n'),
+        }];
+
+  return mergeAdjacent([
     { role: 'system', content: system },
-    { role: 'user', content: transcriptParts.join('\n') },
+    ...body,
     // The turn's own steps so far (F4¾): what this agent did, and what came
     // back. Nobody else's context ever holds these.
     ...(inTurn ?? []),
-  ];
+  ]);
 }
 
 // Deliberately uses the plain renderer even under §9.3 broadcast: a trace
