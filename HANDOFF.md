@@ -90,8 +90,30 @@ merged AND deployed).
   [CONFIG] whitelist (1–8), a `toolUse` block in metrics.json (chains,
   silent working turns, completions per turn — exploratory), and `-quiet`
   stub scenarios. Out of registered stats; costs up to turnSteps+1
-  completions per turn. **Not deployed — the runner needs a redeploy
-  (check the liveness probe first: a deploy kills a live round).**
+  completions per turn.
+- **Native tool transport is BUILT (F4¾ transport arm, 2026-08-27, NOT
+  deployed)** — `tools.transport: 'sentinel' | 'native'`. Found while
+  answering "does the loop tell them what they did wrong?": it does, but
+  only once a reply PARSES as an action; a miswritten sentinel is spoken to
+  the room as prose and its author learns nothing. Parser tolerance now
+  catches most of the mangles (typo'd token, missing colon, wrapping code
+  fence, over-long name), but "prose before the sentinel" can't be fixed at
+  that layer without a rule about where a bracket may sit. So `native`
+  (condition `agentic-native`) declares the bench as OpenAI tool
+  definitions (`src/tools-schema.ts`) and reads structured calls back —
+  joint-session's answer to the same problem, and all six seats were
+  verified tool-capable on OpenRouter. **The framing deliberately does not
+  move with the transport** (Corina: "let's keep furniture phrasing"): the
+  prompt still describes the bench as furniture in the room's voice, the
+  schemas carry mechanics only, and a test pins those sentences into both
+  prompts — tool schemas are the strongest assistant-mode prior available,
+  and this room's whole premise is that there is no task. Sentinels still
+  parse under native (a seat that ignores its channel is understood, not
+  leaked to the room); `via` on action events and viaNative/viaSentinel in
+  metrics.json make the fallback rate visible. Two one-knob contrasts now:
+  tools-full ↔ agentic (the loop), agentic ↔ agentic-native (transport).
+  **Neither is deployed — the runner needs a redeploy (check the liveness
+  probe first: a deploy kills a live round).**
 - **Self-governance is BUILT + DEPLOYED (§9.4, 2026-08-27)** — `transparent`
   ([SOURCE] reads the whole experiment, incl. the live condition) and
   `self-governing` (everything OFF; [CONFIG: key = value] whitelist —
@@ -107,7 +129,7 @@ merged AND deployed).
   room is told. Trace-rich + journal (the one private channel left).
   §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
   built now, spent later. Tag out of standard §2.5 comparisons.
-- **Code quality**: 97-test suite (`npm test`), incl. the privacy
+- **Code quality**: 104-test suite (`npm test`), incl. the privacy
   invariants (journals/traces/search/run never in another agent's
   context — now also what an agent learns MID-turn) and analyze DETECTING
   planted dynamics in the voice stub.
