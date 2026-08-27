@@ -17,7 +17,7 @@ const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
 // anything AFTER the sentinel is discarded: searching costs the whole turn
 // (replace economics), so trailing prose is a mis-formatted extra, not a
 // message to leak to the room.
-const SEARCH_RE = /^\s*\**\[([A-Za-z]{4,8}):\s*([^\]\n]{0,300})\]?/;
+const SEARCH_RE = /^\s*\**\[([A-Za-z]{4,8})(?::|\s)\s*([^\]\n]{0,300})\]?/;
 // F4½ tools. [WRITE: name]…[/WRITE] replaces a shared file's contents;
 // [APPEND: name]…[/APPEND] adds to the end (same regex, token decides —
 // closing tags are interchangeable, models will mix them). Contents are
@@ -27,18 +27,18 @@ const SEARCH_RE = /^\s*\**\[([A-Za-z]{4,8}):\s*([^\]\n]{0,300})\]?/;
 // on purpose). The unterminated [RUN form takes the whole remainder
 // (never leak a half-closed block to the room in the private-run mode).
 // All alongside-style: text after the closing tag is spoken as usual.
-const WRITE_OPEN_RE = /^\s*\**\[([A-Za-z]{4,6}):\s*([^\]\n]{1,80})\]\**\s*\n?([\s\S]*)$/;
+const WRITE_OPEN_RE = /^\s*\**\[([A-Za-z]{4,6})(?::|\s)\s*([^\]\n]{1,200})\]\**\s*\n?([\s\S]*)$/;
 const WRITE_CLOSE_RE = /\[\/([A-Za-z]{4,6})\]\s*([\s\S]*)/;
-const RUN_OPEN_RE = /^\s*\**\[RUN(?:\s*(>{1,2})\s*([^\]\n>]{1,80}))?\]\**:?\s*\n?([\s\S]*)$/i;
+const RUN_OPEN_RE = /^\s*\**\[([A-Za-z]{2,4})(?:\s*(>{1,2})\s*([^\]\n>]{1,80}))?\]\**:?\s*\n?([\s\S]*)$/;
 const RUN_CLOSE_RE = /\[\/RUN\]\s*([\s\S]*)/i;
 // [SOURCE] / [SOURCE: name] — read the tool layer's own code (F4½
 // transparency). Alongside-style; bare form asks for the index.
-const SOURCE_RE = /^\s*\**\[([A-Za-z]{5,7})(?::\s*([^\]\n]{0,40}))?\]\**\s*\n?([\s\S]*)$/;
+const SOURCE_RE = /^\s*\**\[([A-Za-z]{5,7})(?:(?::|\s)\s*([^\]\n]{0,40}))?\]\**\s*\n?([\s\S]*)$/;
 // [CONFIG: key = value] — §9.4 self-governance. Validation happens
 // against the whitelist in governance.ts, not here. The value charset
 // carries digits since F4¾ ([CONFIG: tools.turnSteps = 4] — the first
 // numeric knob a room can vote itself).
-const CONFIG_RE = /^\s*\**\[([A-Za-z]{5,7}):\s*([A-Za-z.]{3,40})\s*=\s*([A-Za-z0-9-]{1,20})\s*\]\**\s*\n?([\s\S]*)$/;
+const CONFIG_RE = /^\s*\**\[([A-Za-z]{5,7})(?::|\s)\s*([A-Za-z.]{3,40})\s*=\s*([A-Za-z0-9-]{1,20})\s*\]\**\s*\n?([\s\S]*)$/;
 
 function editDistance(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
@@ -51,6 +51,18 @@ function editDistance(a: string, b: string): number {
 
 function isJournalToken(w: string): boolean {
   return editDistance(w.toUpperCase(), 'JOURNAL') <= 2;
+}
+
+// [RUN] had NO tolerance while every other sentinel had some, so "[RUNN]"
+// fell through the parser and was SPOKEN to the room as prose — the reverse
+// of the [GOURNAL] lesson: the harm here is a broken tool call leaking into
+// the transcript and the agent learning nothing (found 2026-08-27).
+function isRunToken(w: string): boolean {
+  const u = w.toUpperCase();
+  // Tighter than the other tolerances because RUN is short: one edit from
+  // it also reaches RUM and RAN. Requiring "RU…N" keeps RUNN/RUNS/RUNE and
+  // rejects words that merely happen to be one letter away.
+  return u.startsWith('RU') && u.includes('N') && editDistance(u, 'RUN') <= 1;
 }
 
 function isSearchToken(w: string): boolean {
@@ -107,7 +119,18 @@ export function isToolAction(p: ParsedReply): p is ToolAction {
   return TOOL_KINDS.has(p.kind);
 }
 
-export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig, t?: ToolsConfig): ParsedReply {
+/** Models wrap a whole reply in a ``` fence surprisingly often — and a
+ *  fenced sentinel is not at the start of the reply any more, so the call
+ *  was spoken to the room instead of running. Unwrap a fence that encloses
+ *  the ENTIRE reply; a fence around part of it is left alone (that one is
+ *  someone quoting code inside a message). */
+function unfence(reply: string): string {
+  const m = reply.match(/^\s*```[A-Za-z]*\s*\n([\s\S]*?)\n?```\s*$/);
+  return m ? m[1] : reply;
+}
+
+export function parseReply(rawReply: string, j: JournalConfig, s?: SearchConfig, t?: ToolsConfig): ParsedReply {
+  const reply = unfence(rawReply);
   if (j.enabled && j.pass.enabled && PASS_RE.test(reply)) return { kind: 'pass' };
   const open = j.enabled ? reply.match(JOURNAL_OPEN_RE) : null;
   const opened = open && isJournalToken(open[1]);
@@ -142,9 +165,9 @@ export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig, t?
   }
   if (t?.python) {
     const r = reply.match(RUN_OPEN_RE);
-    if (r) {
-      const saveTo = r[2] ? { saveTo: { name: r[2].trim(), append: r[1] === '>>' } } : {};
-      const body = r[3];
+    if (r && isRunToken(r[1])) {
+      const saveTo = r[3] ? { saveTo: { name: r[3].trim(), append: r[2] === '>>' } } : {};
+      const body = r[4];
       const close = body.match(RUN_CLOSE_RE);
       if (close) {
         const code = body.slice(0, body.search(RUN_CLOSE_RE)).trim();

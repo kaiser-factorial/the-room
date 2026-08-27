@@ -122,6 +122,20 @@ nothing, and the prompt says that is a fine way to spend one.
 
 The rest of the economics:
 
+- **Miswritten calls.** Two failure paths, and only one used to teach. A
+  reply that PARSES as an action and is then rejected (bad file name, over
+  the size cap, gated search, unknown config key…) comes back with the
+  refusal schema below, in-turn, so the agent fixes it and retries. A reply
+  the parser doesn't recognise as an action at all falls through to
+  `{kind:'message'}` and is **spoken to the room verbatim** — the agent
+  learns nothing and the room hears `[RUNN] print(1)` as a sentence. The
+  parser therefore leans toward recognising an attempt: a wrapping ```
+  fence is stripped, the colon is optional (`[WRITE notes.md]`), `RUN` has
+  the same typo tolerance the other sentinels always had, and an over-long
+  file name parses so `bad_file_name` can teach it. Still spoken, by
+  design: a sentinel mid-sentence, and a fence around part of a reply.
+  Still spoken, NOT by design: prose before the sentinel
+  (`let me check\n[RUN]…`) — the one case a position rule can't fix.
 - Refusals are machine-readable (`src/agentic.ts`): each one comes back as
   a lead line plus `[code] what failed. Fix: what to do. Available: …`,
   and a refused action never spends a step or the room's per-round slot.

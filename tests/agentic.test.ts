@@ -172,6 +172,32 @@ test('a turn\'s notices collapse into one line for everyone else', () => {
   assert.equal(renderTranscript(slice, 'beta', 'informed').split('\n\n').length, 4);
 });
 
+test('miswritten calls: the mangles models actually make now parse instead of being spoken', async () => {
+  const { parseReply } = await import('../src/parse.js');
+  const J = { enabled: false, notice: true, mode: 'replace' as const, recall: true, maxTokens: 0, pass: { enabled: false, notice: false } };
+  const S = { enabled: true, mode: 'alongside' as const, gated: false, notice: true, maxResults: 5 };
+  const t = T({ configurable: true });
+  // Each of these used to fall through to { kind: 'message' } — i.e. the
+  // broken tool call was SPOKEN to the room verbatim and the agent learned
+  // nothing. The room hearing "[RUNN] print(1)" as a sentence is the worst
+  // available outcome, so the parser leans toward recognising the attempt.
+  assert.equal(parseReply('[RUNN]\nprint(1)\n[/RUN]', J, S, t).kind, 'run', 'typo in the RUN token');
+  assert.equal(parseReply('[SEARCH what is a bread clip]', J, S, t).kind, 'search', 'missing colon');
+  assert.equal(parseReply('[WRITE notes.md]\nhi\n[/WRITE]', J, S, t).kind, 'write', 'missing colon');
+  assert.equal(parseReply('```\n[RUN]\nprint(1)\n[/RUN]\n```', J, S, t).kind, 'run', 'fenced whole reply');
+  assert.equal(parseReply('[CONFIG tools.turnSteps = 4]', J, S, t).kind, 'config', 'missing colon');
+  // An over-long name must PARSE so the bad_file_name refusal can teach it.
+  const long = parseReply(`[WRITE: ${'a'.repeat(90)}]\nx\n[/WRITE]`, J, S, t);
+  assert.equal(long.kind, 'write');
+
+  // …but tolerance must not swallow speech. A sentinel mid-sentence, and a
+  // fence around PART of a reply, are someone talking about a tool.
+  assert.equal(parseReply('I could [RUN] this later', J, S, t).kind, 'message');
+  assert.equal(parseReply('like this:\n```\n[RUN]\nx\n[/RUN]\n```\nsee?', J, S, t).kind, 'message');
+  // RUN's tolerance is tight on purpose: one edit also reaches RUM and RAN.
+  assert.equal(parseReply('[RUM] and a message', J, S, t).kind, 'message');
+});
+
 test('toolUse metric: chains, silent working turns, and completions per turn', async () => {
   const { toolUse } = await import('../src/analyze.js');
   const msgs = [
