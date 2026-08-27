@@ -1,6 +1,7 @@
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 import type { ChatMessage } from './openrouter.js';
 import { personaText } from './personas.js';
+import { configState } from './governance.js';
 
 /** Room events an agent can "hear": messages, journal notices, system lines. */
 export function audibleEvents(events: RoomEvent[]): RoomEvent[] {
@@ -16,7 +17,8 @@ export function audibleEvents(events: RoomEvent[]): RoomEvent[] {
       (e.kind === 'search' && e.notice && !e.denied) ||
       (e.kind === 'file' && e.notice && !e.denied) ||
       (e.kind === 'run' && e.notice && !e.denied) ||
-      (e.kind === 'source' && e.notice),
+      (e.kind === 'source' && e.notice) ||
+      (e.kind === 'config' && !e.denied),
   );
 }
 
@@ -44,6 +46,7 @@ function renderEvent(e: RoomEvent): string {
     return `[${e.agentName} ran some code.]`;
   }
   if (e.kind === 'source') return `[${e.agentName} read the room's source code.]`;
+  if (e.kind === 'config') return `[${e.agentName} changed the room's settings: ${e.key} = ${e.value}]`;
   return '';
 }
 
@@ -151,6 +154,24 @@ function searchSection(config: RoomConfig): string {
     );
   }
   return lines.join('\n');
+}
+
+// §9.4 self-governance: rendered whenever [CONFIG] is live — INDEPENDENT
+// of the tool bench, because the all-off self-governing room starts with
+// nothing but this section and whatever they decide to switch on. Shows
+// the LIVE values (the config object mutates), so the room always sees
+// the state it governs.
+function governanceSection(config: RoomConfig): string {
+  if (!config.tools.configurable) return '';
+  return [
+    ``,
+    `This room's settings are yours, collectively, to change. To change one,`,
+    `begin your reply with [CONFIG: setting = value]; anything after it is`,
+    `spoken as usual. A change takes effect immediately, applies to everyone,`,
+    `and the room is told who changed what. Changing a setting never costs a`,
+    `tool action. The current settings:`,
+    configState(config),
+  ].join('\n');
 }
 
 function toolsSection(config: RoomConfig): string {
@@ -303,6 +324,7 @@ export function buildTurnMessages(opts: {
     journalSection(config),
     searchSection(config),
     toolsSection(config),
+    governanceSection(config),
     sharedFilesBlock(sharedFiles ?? []),
     config.journal.enabled && config.journal.recall && ownJournal
       ? `\nYour journal so far:\n${ownJournal}`

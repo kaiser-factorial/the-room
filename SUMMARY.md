@@ -140,7 +140,17 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    tool layer's own code — free, private, tool-scope only); one tool
    action per seat per turn) · `tools-scarce` (same bench, ONE tool action per ROOM per
    round — the negotiation over the slot is the phenomenon).
-11. **Thought broadcast** (§9.3, BUILT 2026-08-27; exploratory, tagged
+11. **Self-governance** (§9.4, BUILT 2026-08-27; exploratory, out of ALL
+   registered stats) — `transparent` (tools-full + [SOURCE] widened to
+   the whole experiment incl. [SOURCE: condition], read-only) ·
+   `self-governing` (EVERYTHING off; [CONFIG: setting = value] against
+   the governance.ts whitelist — journal/search/tool toggles, modes,
+   notices, budget; never durations/caps/roster/models/manipulations/
+   governance itself — unilateral, immediate, free, room-visible;
+   revealed preference: what furniture does the room build itself?).
+   meta.condition is only the starting state — analysis replays the
+   config events.
+12. **Thought broadcast** (§9.3, BUILT 2026-08-27; exploratory, tagged
    out of standard §2.5 comparisons) — off (control; F1 privacy rule
    absolute) · `broadcast-informed` · `broadcast-uninformed`: every
    agent's thinking is rendered into the OTHER agents' contexts alongside

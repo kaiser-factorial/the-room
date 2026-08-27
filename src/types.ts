@@ -114,6 +114,21 @@ export interface ToolsConfig {
    *  session/context machinery stays unreadable so condition
    *  manipulations (broadcast, countdown) can't be discovered from code. */
   sourceCode: boolean;
+  /** §9.4 'transparent': 'tools' (default) exposes only the tool layer;
+   *  'all' adds the experiment itself — session, context, types, config,
+   *  conditions, personas, and the special [SOURCE: condition] (the
+   *  room's LIVE resolved condition record). At 'all', manipulations are
+   *  discoverable from code BY DESIGN — the disclosure is the
+   *  intervention. */
+  sourceScope: 'tools' | 'all';
+  /** §9.4 'self-governing': [CONFIG: key = value] lets agents alter the
+   *  room's settings mid-session against the WHITELIST in governance.ts
+   *  (tool/search/journal toggles, modes, notice flags, budget — never
+   *  durations, caps, roster, models, reasoning, broadcast, countdown, or
+   *  this knob itself). Changes apply immediately, are room-visible
+   *  events, and are free (never consume the tool budget). meta.condition
+   *  is only the STARTING state — analysis must replay the config events. */
+  configurable: boolean;
 }
 
 export interface SamplingConfig {
@@ -248,6 +263,11 @@ export type RoomEvent =
   /** F4½ source read: `name` absent = the index. The file contents go to
    *  the reader privately; the room at most hears the notice line. */
   | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; notice: boolean; thinking?: string }
+  /** §9.4 self-governance: an agent changed (or tried to change) a room
+   *  setting. Always room-visible when applied — governance is public by
+   *  design; denied attempts are private. The config-event stream IS the
+   *  config history (meta.condition is only the starting state). */
+  | { kind: 'config'; ts: string; round: number; agentId: string; agentName: string; key: string; value: string; denied?: boolean; thinking?: string }
   | { kind: 'order'; ts: string; round: number; order: string[] }
   | { kind: 'summary'; ts: string; round: number; text: string }
   | { kind: 'meta'; ts: string; round: number; payload: SessionMeta }

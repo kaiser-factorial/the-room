@@ -49,6 +49,11 @@ function sinkPayload(e: RoomEvent): unknown {
     if (e.denied) p.denied = true;
     p.notice = e.notice;
   }
+  if (e.kind === 'config') {
+    p.key = e.key;
+    p.value = e.value;
+    if (e.denied) p.denied = true;
+  }
   if (e.kind === 'source') {
     if (e.name) p.name = e.name;
     p.notice = e.notice;

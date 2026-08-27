@@ -734,8 +734,18 @@ Design notes for whenever it's built:
 - Ordering: after Phase B baselines exist — this condition is downstream
   of knowing what un-broadcast thinking looks like.
 
-### 9.4 Self-governing room (Corina 2026-08-27 — sketched, parked, "a bit
-madness")
+### 9.4 Self-governing room (Corina 2026-08-27 — sketched AND BUILT the
+same day, "a bit madness")
+
+**Built as sketched below**: `tools.sourceScope: tools|all` (+ the
+special `[SOURCE: condition]` returning the live mutated config),
+`tools.configurable` + `[CONFIG: key = value]` against the whitelist in
+governance.ts (unilateral v1, free, applied live, always room-visible;
+refusals private), conditions `transparent` (tools-full + read-everything,
+change nothing) and `self-governing` (EVERYTHING off + governance +
+full-scope [SOURCE] — Corina's watch-what-they-turn-on design). The
+prompt renders the live settings every turn. Config events are the
+config history; meta.condition is only the starting state.
 
 Two escalation rungs past `tools-full`, both exploratory and confound-rich
 (flag out of ALL registered stats):

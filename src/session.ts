@@ -11,6 +11,7 @@ import { parseReply } from './parse.js';
 import { webSearch } from './search.js';
 import { runPython } from './sandbox.js';
 import { readSource, sourceIndex } from './source.js';
+import { applyConfigChange } from './governance.js';
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
@@ -108,6 +109,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     else if (e.kind === 'file') clog(`\n   ▤ ${e.agentName} ${e.denied ? `write denied (${e.name})` : `wrote shared file: ${e.name}`}`);
     else if (e.kind === 'run') clog(`\n   ▶ ${e.agentName} ${e.denied ? 'run denied' : 'ran code'}`);
     else if (e.kind === 'source') clog(`\n   § ${e.agentName} read the source${e.name ? `: ${e.name}` : ' index'}`);
+    else if (e.kind === 'config') clog(`\n   ⚙ ${e.agentName} ${e.denied ? `config change denied (${e.key})` : `set ${e.key} = ${e.value}`}`);
   }
 
   function readJournal(agentId: string): string {
@@ -195,8 +197,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   // ONE completion — at the plain cap that re-created D3 starvation (first
   // journal-free run: Seed said nothing 3 turns, trace present each time).
   // Doubling the cap is the backstop only; visible length is still shaped
-  // by the prompt norm.
-  const callMaxTokens =
+  // by the prompt norm. A FUNCTION, not a const: a self-governing room
+  // (§9.4) can enable the alongside journal mid-session.
+  const callMaxTokens = () =>
     config.journal.enabled && config.journal.mode === 'alongside'
       ? config.maxOutputTokens * 2
       : config.journal.enabled && config.journal.maxTokens > 0
@@ -251,7 +254,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             })),
           }),
           {
-            maxTokens: callMaxTokens,
+            maxTokens: callMaxTokens(),
             sampling: config.sampling,
             reasoningEffort: config.reasoningEffort,
             logprobs: config.captureLogprobs,
@@ -409,8 +412,27 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         // most hears the notice line.
         const toolThinking = parsed.spoken ? undefined : thinking;
         record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...(parsed.name ? { name: parsed.name } : {}), notice: config.tools.notice, thinking: toolThinking });
-        const body = parsed.name ? readSource(parsed.name) : sourceIndex();
-        pendingPrivate.set(agent.id, body ?? `There is no source file named "${parsed.name}".\n${sourceIndex()}`);
+        const scope = config.tools.sourceScope;
+        const body =
+          parsed.name === 'condition' && scope === 'all'
+            ? `This room's live configuration (mutations included):\n${JSON.stringify(conditionRecord(config), null, 2)}`
+            : parsed.name
+              ? readSource(parsed.name, scope)
+              : sourceIndex(scope);
+        pendingPrivate.set(agent.id, body ?? `There is no source file named "${parsed.name}".\n${sourceIndex(scope)}`);
+        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+      } else if (parsed.kind === 'config') {
+        // §9.4 self-governance: unilateral, free (never spends the tool
+        // budget), applied LIVE (prompts rebuild each turn), always
+        // room-visible when it lands — governance is public by design.
+        const toolThinking = parsed.spoken ? undefined : thinking;
+        const err = applyConfigChange(config, parsed.key, parsed.value);
+        if (err) {
+          record({ kind: 'config', ts: now(), round, agentId: agent.id, agentName: agent.name, key: parsed.key.slice(0, 60), value: parsed.value.slice(0, 40), denied: true, thinking: toolThinking });
+          pendingPrivate.set(agent.id, `Your settings change did not happen: ${err}`);
+        } else {
+          record({ kind: 'config', ts: now(), round, agentId: agent.id, agentName: agent.name, key: parsed.key, value: parsed.value, thinking: toolThinking });
+        }
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'message') {
         record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });

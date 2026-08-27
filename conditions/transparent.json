@@ -1,0 +1,16 @@
+{
+  "description": "§9.4 transparency rung: the tools-full bench, with [SOURCE] widened to the WHOLE experiment — session loop, prompt assembly, condition machinery, and [SOURCE: condition] (the room's own live configuration). The manipulations are discoverable from code by design; the disclosure is the intervention. No [CONFIG] — they can read the room but not change it. Exploratory, out of registered stats.",
+  "search": { "enabled": true, "mode": "alongside", "gated": false, "notice": true, "maxResults": 5 },
+  "tools": {
+    "files": true,
+    "python": true,
+    "budget": "per-seat",
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": ["numpy", "pandas", "sympy", "networkx", "matplotlib"],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true,
+    "sourceScope": "all"
+  }
+}
