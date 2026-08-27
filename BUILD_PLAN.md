@@ -288,6 +288,20 @@ sentinels, neutral wording, recall time-leak fixed, alongside cap ×2.
 **Everything run to date is PILOT data** — configs churned throughout;
 use it for pipeline validation, never as baseline (Corina 2026-08-26).
 
+**Status addendum (2026-08-27, the tooling sprint — PRs #8–#10 merged
+AND deployed).** F4 websearch live in three economics (`search-tool`
+replace / `search-free` alongside / `gated`); F4½ tools live
+(`tools-full` / `tools-scarce`): shared filesystem (room-public, python
+publishes text OR binary — matplotlib PNGs render in the viewer — by
+saving into the sandbox's read/write `shared/` mount), pyodide sandbox
+(fresh per run, preloads numpy/pandas/sympy/networkx/matplotlib,
+micropip ON so agents install their own — documented outbound-fetch
+caveat, `pythonInstall` off-switch), tool budget per-seat vs per-ROOM
+(a refusal never spends the room's slot). xAI direct adapter built: the
+Grok seat rides api.x.ai (full reasoning_content + logprobs) when
+XAI_API_KEY is set — the fix for OpenRouter's ~200-char Grok trace
+summaries (§2.5 caveat; per-seat adapter stamped into meta). Suite: 72.
+
 Open reminders:
 - **Judge calibration labeling (Corina, deliberately deferred)** —
   `calibration/calibration-set.json` (50 items) awaits hand labels; the
@@ -299,9 +313,13 @@ Open reminders:
   OPENROUTER_API_KEY=...`.
 - **Phase C slug snapshot** (§9.1) — record earliest-still-served slugs
   before deprecation eats the comparison.
-- Next builds, per the roadmap: F4 websearch (gates Phase B's `gated`
-  arm) → Phase A pilots on autopilot (length pilot decides D3 duration)
-  → F6 dashboard.
+- **Add XAI_API_KEY to the runner** (same secrets command) — until then
+  the Grok seat stays on OpenRouter with summary-class traces.
+- Next builds, per the roadmap: Phase A pilots on autopilot (length
+  pilot decides D3 duration) → F6 dashboard → Phase B. Undecided knob
+  from live-room watching: a neutral length-limit disclosure line in the
+  norms (Seed's truncations get mythologized) — a config knob if wanted,
+  never a silent control change.
 
 ## Parked extensions (2026-08-25, Corina — see EXPERIMENT_DESIGN §9)
 

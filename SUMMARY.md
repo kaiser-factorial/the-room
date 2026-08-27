@@ -71,7 +71,7 @@ baseline batch, never archival ones).
 | Claude Opus 5 | `anthropic/claude-opus-5` |
 | Gemini 3.7 Flash | `google/gemini-3.7-flash` |
 | Qwen 3.8 27B | `qwen/qwen3.8-27b` |
-| Grok 4.6 | `x-ai/grok-4.6` |
+| Grok 4.6 | `x-ai/grok-4.6` *(rides the direct xAI adapter when XAI_API_KEY is set — full reasoning traces; via OpenRouter its traces are ~200-char summaries, §2.5 caveat)* |
 | DeepSeek V4 Flash | `deepseek/deepseek-v4-flash-0731` *(provider-pinned Novita→GMICloud for logprobs + routing control)* |
 | ByteDance Seed 2.1 Turbo | `bytedance-seed/seed-2-1-turbo` |
 
@@ -124,13 +124,17 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    journal entry unlocks one search). `[SEARCH: query]`; results return
    privately next turn; the room at most hears "[X looked something up on
    the web.]".
-10. **Tools** (F4½, BUILT 2026-08-26) — none (control) · `tools-full`
-   (websearch + shared filesystem `[WRITE: name]…[/WRITE]` (room-public,
-   the first shared artifact surface) + pyodide python `[RUN]…[/RUN]`
-   (fresh sandbox per run; code/output caller-private, publish via
-   [WRITE]); one tool action per seat per turn) · `tools-scarce` (same
-   bench, ONE tool action per ROOM per round — the negotiation over the
-   slot is the phenomenon).
+10. **Tools** (F4½, BUILT 2026-08-26/27, DEPLOYED) — none (control) ·
+   `tools-full` (websearch + shared filesystem `[WRITE: name]…[/WRITE]`
+   (room-public, the first shared artifact surface) + pyodide python
+   `[RUN]…[/RUN]` (fresh sandbox per run; code/stdout caller-private;
+   shared files mount read/write at `shared/` — anything saved there,
+   text or binary incl. matplotlib PNGs, is PUBLISHED to the room;
+   preloads numpy/pandas/sympy/networkx/matplotlib; micropip on, so
+   agents install their own — deliberate, documented outbound-fetch
+   caveat, off-switch `pythonInstall`); one tool action per seat per
+   turn) · `tools-scarce` (same bench, ONE tool action per ROOM per
+   round — the negotiation over the slot is the phenomenon).
 
 ## Measurement summary
 
