@@ -8,7 +8,7 @@ merged AND deployed).
 
 ## Read these, in order
 
-1. **SUMMARY.md** — abstract, control state, roster, axes (now 10),
+1. **SUMMARY.md** — abstract, control state, roster, axes (now 12),
    measurement + robustness layer. The at-a-glance spec.
 2. **EXPERIMENT_DESIGN.md** — §0 program (Phase A pilot → Phase B journal
    experiment), §2.5 three-channel (incl. the Grok-trace caveat + fix),
@@ -60,26 +60,29 @@ merged AND deployed).
   private (the knob preserves the journal-class variant). Also:
   [APPEND: name] (incremental edits), [RUN > f] / [RUN >> f] (output
   saved/appended to a shared file), and [SOURCE] / [SOURCE: name]
-  (agents read the tool layer's own code — parse/search/sandbox only,
-  free, private; session/context stay unreadable so manipulations can't
-  be discovered from source). The room_events kind constraint already
-  includes 'source'. Viewer:
-  shared-files rail (current contents per file, images inline) above the
-  journals rail; search/run details behind feed chevrons.
-- **Self-governance is BUILT (§9.4, 2026-08-27)** — `transparent`
+  (agents read the tool layer's own code — parse/search/sandbox at the
+  default 'tools' scope, free, private; session/context stay unreadable
+  there so manipulations can't be discovered — `sourceScope: 'all'` in
+  the §9.4 conditions inverts that on purpose). Viewer rails: shared
+  files (current contents per file, images inline) + tool calls
+  (per-agent accordion, one chevron per search/run/source read, refusals
+  marked) above the journals rail; everything also in feed chevrons.
+- **Self-governance is BUILT + DEPLOYED (§9.4, 2026-08-27)** — `transparent`
   ([SOURCE] reads the whole experiment, incl. the live condition) and
   `self-governing` (everything OFF; [CONFIG: key = value] whitelist —
   see governance.ts — turns furniture on: unilateral, free, immediate,
   room-visible; meta.condition is only the STARTING state, analysis
   replays config events). Exploratory, out of all registered stats,
-  post-Phase-B like §9.3.
-- **Thought broadcast is BUILT (§9.3, 2026-08-27)** —
+  post-Phase-B like §9.3 — though Corina intends to try a session early.
+  The mirror's kind constraint now covers all 12 event kinds (…search,
+  file, run, source, config).
+- **Thought broadcast is BUILT + DEPLOYED (§9.3, 2026-08-27)** —
   `broadcast-informed` / `broadcast-uninformed`: everyone reads everyone
   else's thinking, never their own; the pair differs only in whether the
   room is told. Trace-rich + journal (the one private channel left).
   §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
   built now, spent later. Tag out of standard §2.5 comparisons.
-- **Code quality**: 76-test suite (`npm test`), incl. the privacy
+- **Code quality**: 85-test suite (`npm test`), incl. the privacy
   invariants (journals/traces/search/run never in another agent's
   context) and analyze DETECTING planted dynamics in the voice stub.
   `ROOM_STUB=1` dry-runs everything incl. all tool paths;

@@ -20,8 +20,10 @@ shared phrases and who coins vs. adopts them), and a private **journal**
 channel whose divergence from an agent's public voice indicates performed
 versus retained identity. Manipulable axes — room size, persona injection,
 opening message, speaking-order regime, countdown visibility, journal
-economics, and context policy — let the apparatus ask not only *whether*
-models mould together, but what social and structural pressures govern it.
+economics, context policy, roster disclosure, websearch, a tool bench
+(shared filesystem + python), self-governance, and thought broadcast —
+let the apparatus ask not only *whether* models mould together, but what
+social and structural pressures govern it.
 
 > **Program structure (2026-08-24):** Phase A = pilot sessions that fix
 > the controls below (session length is already under revision — the first
