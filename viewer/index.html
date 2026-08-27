@@ -55,6 +55,10 @@
   #journals details { border-bottom: 1px solid var(--line); padding: 0.4rem 0; }
   #journals summary { cursor: pointer; font-size: 0.85rem; letter-spacing: 0.05em; }
   #journals summary .count { color: var(--dim); font-size: 0.75rem; }
+  /* Shared-files rail (F4½): one entry per file, CURRENT contents. */
+  #fileList .filemeta { color: var(--dim); font-size: 0.72rem; margin-bottom: 0.25rem; }
+  #fileList .filebody { white-space: pre-wrap; font-size: 0.82rem; word-break: break-word; }
+  #fileList img { max-width: 100%; display: block; margin-top: 0.2rem; }
   .entry { font-size: 0.82rem; color: var(--dim); margin: 0.6rem 0 0.6rem 0.6rem; white-space: pre-wrap; }
   .entry .rnd { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
   #cond { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.06em; margin-right: 0.5em; }
@@ -88,7 +92,10 @@
 
 <div class="wrap">
   <main id="feed"></main>
-  <aside id="journals"><h2>journals</h2><div id="journalList"></div></aside>
+  <aside id="journals">
+    <div id="filesWrap" hidden><h2>shared files</h2><div id="fileList"></div></div>
+    <h2>journals</h2><div id="journalList"></div>
+  </aside>
 </div>
 
 <dialog id="adminModal">
@@ -249,6 +256,9 @@ function render(e) {
   } else if (e.kind === 'file' || e.kind === 'run') {
     // F4½ tools. File contents are room-public; run code/output are private
     // to the caller — humans get both behind a chevron either way.
+    // File events also feed the shared-files rail (current state, like
+    // the journals rail keeps the entries).
+    if (e.kind === 'file') renderSharedFile(e);
     el.className = 'aside';
     el.textContent = e.kind === 'file'
       ? (e.payload?.denied ? `${e.agent_name} tried to write a shared file, but it was refused.`
@@ -312,6 +322,53 @@ function appendThinking(el, e, before) {
   else el.appendChild(d);
 }
 
+// ── Shared-files rail (F4½) ────────────────────────────────────────────────
+// Mirrors the journals rail, but shows the CURRENT state of the shared
+// filesystem: one entry per file name, updated in place on every write
+// (the feed keeps the history; this rail is "what's in the room now").
+const fileList = $('fileList');
+const fileSections = new Map(); // name -> {details, body, metaEl, versions}
+const IMG_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
+
+function renderSharedFile(e) {
+  const { name, content, encoding, denied } = e.payload || {};
+  if (!name || denied) return;
+  $('filesWrap').hidden = false;
+  let sec = fileSections.get(name);
+  if (!sec) {
+    const details = document.createElement('details');
+    const summaryEl = document.createElement('summary');
+    summaryEl.innerHTML = `<span></span> <span class="count"></span>`;
+    summaryEl.querySelector('span').textContent = name;
+    const metaEl = document.createElement('div');
+    metaEl.className = 'filemeta';
+    const body = document.createElement('div');
+    body.className = 'filebody';
+    details.append(summaryEl, metaEl, body);
+    fileList.appendChild(details);
+    sec = { details, body, metaEl, versions: 0, countEl: summaryEl.querySelector('.count') };
+    fileSections.set(name, sec);
+  }
+  sec.versions++;
+  sec.countEl.textContent = sec.versions > 1 ? `(v${sec.versions})` : '';
+  sec.metaEl.textContent = `by ${e.agent_name} · round ${e.round}`;
+  sec.metaEl.style.color = '';
+  sec.body.innerHTML = '';
+  if (encoding === 'base64') {
+    const mime = IMG_MIME[(name.split('.').pop() || '').toLowerCase()];
+    if (mime) {
+      const img = document.createElement('img');
+      img.src = `data:${mime};base64,${content}`;
+      img.alt = name;
+      sec.body.appendChild(img);
+    } else {
+      sec.body.textContent = `(binary file, ${Math.round((content || '').length * 3 / 4 / 1024)} KB)`;
+    }
+  } else {
+    sec.body.textContent = content || '(empty)';
+  }
+}
+
 // ── Journals rail ──────────────────────────────────────────────────────────
 const journalList = $('journalList');
 const journalSections = new Map(); // agent_id -> {details, body, count}
@@ -361,6 +418,7 @@ async function loadSessions() {
 async function showSession(sessionId) {
   currentSession = sessionId;
   feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear(); $('cond').textContent = '';
+  fileList.innerHTML = ''; fileSections.clear(); $('filesWrap').hidden = true;
   seenJournalIds.clear(); seenEventSeqs.clear();
   meta = null; ended = false; clock.textContent = '';
   channels.forEach((c) => supabase.removeChannel(c)); channels = [];
