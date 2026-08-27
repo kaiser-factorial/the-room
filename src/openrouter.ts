@@ -51,7 +51,7 @@ const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 //    (convergence ground truth) — so analyze.ts metrics have real
 //    structure to detect in dry runs.
 
-export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error' | 'search' | 'search-speak' | 'write' | 'badwrite' | 'run' | 'run-file';
+export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error' | 'search' | 'search-speak' | 'write' | 'append' | 'badwrite' | 'run' | 'run-file' | 'run-save';
 
 let stubTurn = 0;
 const modelTurns = new Map<string, number>();
@@ -145,8 +145,10 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     // F4½ tools, alongside-style. File contents are PUBLIC (no leak marker
     // needed); run code carries a private marker for the privacy tests.
     case 'write': return { text: `[WRITE: notes.md]\nshared-note ${model}#${mTurn}\n[/WRITE]\n${voice()}`, meta, thinking };
+    case 'append': return { text: `[APPEND: notes.md]\nappended-line ${model}#${mTurn}\n[/APPEND]\n${voice()}`, meta, thinking };
     // Invalid name → refused write (budget tests: a refusal keeps the slot).
     case 'badwrite': return { text: `[WRITE: ../evil.md]\nnope\n[/WRITE]\n${voice()}`, meta, thinking };
+    case 'run-save': return { text: `[RUN >> runlog.txt]\nprint("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };
     case 'run': return { text: `[RUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };
     // write_shared triggers the sandbox stub's published-file path.
     case 'run-file': return { text: `[RUN]\nwrite_shared("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };

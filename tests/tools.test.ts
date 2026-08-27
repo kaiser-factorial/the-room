@@ -111,6 +111,47 @@ test('run-published files: shared/ writes become binary shared files, listed not
   assert.match(prompt, /plot\.png \(binary file, 20 KB\)/);
 });
 
+test('append + run-capture sentinels parse as intended', () => {
+  const a = parseReply('[APPEND: log.md]\nmore\n[/APPEND]\nand speech', J, S, T());
+  assert.deepEqual(a, { kind: 'write', name: 'log.md', content: 'more', append: true, spoken: 'and speech' });
+  // Mixed closing tag still splits; typo'd APPEND still counts.
+  assert.equal(parseReply('[APPEND: a.md] x [/WRITE] talk', J, S, T()).kind, 'write');
+  const typo = parseReply('[APEND: a.md] x [/APEND]', J, S, T());
+  assert.ok(typo.kind === 'write' && typo.append);
+  const save = parseReply('[RUN > out.txt]\nprint(1)\n[/RUN]\nspeech', J, S, T());
+  assert.deepEqual(save, { kind: 'run', code: 'print(1)', saveTo: { name: 'out.txt', append: false }, spoken: 'speech' });
+  const saveAppend = parseReply('[RUN >> log.txt]\nprint(1)\n[/RUN]', J, S, T());
+  assert.deepEqual(saveAppend, { kind: 'run', code: 'print(1)', saveTo: { name: 'log.txt', append: true } });
+  const plain = parseReply('[RUN]\nprint(1)\n[/RUN]', J, S, T());
+  assert.deepEqual(plain, { kind: 'run', code: 'print(1)' });
+});
+
+test('append composes onto the existing file; run >> captures output into a shared file', async () => {
+  const config = testConfig({ maxRounds: 2, tools: T() });
+  // Round 1: everyone writes notes.md; round 2: everyone appends to it.
+  const dir = await runStubSession(config, 'write,write,write,append,append,append');
+  const events = readTranscript(dir);
+  const fileEvents = events.filter((e) => e.kind === 'file' && !e.denied);
+  assert.equal(fileEvents.length, 6);
+  const last = fileEvents[fileEvents.length - 1];
+  assert.ok(last.kind === 'file' && last.content.includes('shared-note') && last.content.includes('appended-line'),
+    'append should keep the original write and add the new line');
+  const onDisk = readFileSync(join(dir, 'shared', 'notes.md'), 'utf8');
+  assert.ok(onDisk.includes('shared-note') && onDisk.includes('appended-line'));
+
+  const config2 = testConfig({ maxRounds: 1, tools: T() });
+  const dir2 = await runStubSession(config2, 'run-save');
+  const events2 = readTranscript(dir2);
+  const runs = events2.filter((e) => e.kind === 'run' && !e.denied);
+  const logs = events2.filter((e) => e.kind === 'file' && !e.denied);
+  assert.equal(runs.length, 3);
+  assert.equal(logs.length, 3, 'each run should publish its captured output');
+  const lastLog = logs[logs.length - 1];
+  assert.ok(lastLog.kind === 'file' && lastLog.name === 'runlog.txt');
+  const outputs = (lastLog.kind === 'file' ? lastLog.content : '').split('\n').filter((l) => l.includes('stub-python-output'));
+  assert.equal(outputs.length, 3, '>> should accumulate all three runs\' outputs');
+});
+
 test('runPublic: code and output are spoken to the room; caller still gets output privately', async () => {
   const config = testConfig({ maxRounds: 1, tools: T({ runPublic: true }) });
   const dir = await runStubSession(config, 'run');

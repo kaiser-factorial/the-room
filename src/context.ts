@@ -160,8 +160,9 @@ function toolsSection(config: RoomConfig): string {
       `There is a small shared filesystem in the room — files everyone can read;`,
       `each agent's current view of it appears below when it has anything in it.`,
       `To create or overwrite a file, begin your reply with`,
-      `[WRITE: filename] the contents [/WRITE]; anything after the closing tag is`,
-      `spoken to the room as usual. Writes are visible to everyone.`,
+      `[WRITE: filename] the contents [/WRITE]; use [APPEND: filename] … [/APPEND]`,
+      `to add to the end of a file instead of replacing it. Anything after the`,
+      `closing tag is spoken to the room as usual. Writes are visible to everyone.`,
     );
   }
   if (t.python) {
@@ -173,7 +174,8 @@ function toolsSection(config: RoomConfig): string {
       `readable AND writable: any file your code saves there (text or binary,`,
       `a saved plot included) is published to the room as a shared file, and`,
       `code stored in a shared file can be run by anyone, e.g.`,
-      `exec(open('shared/name.py').read()).`,
+      `exec(open('shared/name.py').read()). [RUN > filename] also saves the`,
+      `run's output to that shared file ([RUN >> filename] appends it).`,
       ...(t.runPublic
         ? [
             `When you run code, the code and its output are shown to the room,`,

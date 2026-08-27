@@ -324,24 +324,33 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         }
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'write') {
-        // F4½ shared-file write: contents are room-public; the transcript
-        // carries only the notice line, everyone reads the file itself.
+        // F4½ shared-file write/append: contents are room-public; the
+        // transcript carries only the notice line, everyone reads the
+        // file itself. Append composes onto the existing text (the caps
+        // apply to the COMBINED size).
         const toolThinking = parsed.spoken ? undefined : thinking;
+        const existing = parsed.append ? sharedFiles.get(parsed.name) : undefined;
+        const combined =
+          existing && !existing.binary
+            ? `${existing.data.toString('utf8').replace(/\n?$/, '\n')}${parsed.content}`
+            : parsed.content;
         const invalid = !FILE_NAME_RE.test(parsed.name)
           ? `"${parsed.name}" is not a valid file name (letters, digits, ., _, -; max 64 chars).`
-          : parsed.content.length > MAX_FILE_CHARS
-            ? `the contents exceed the ${MAX_FILE_CHARS}-character file limit.`
-            : !sharedFiles.has(parsed.name) && sharedFiles.size >= MAX_FILES
-              ? `the room already holds ${MAX_FILES} shared files.`
-              : roomBudgetSpent
-                ? `the room's one tool action for this round was already taken.`
-                : null;
+          : parsed.append && existing?.binary
+            ? `"${parsed.name}" is a binary file — it can't be appended to.`
+            : combined.length > MAX_FILE_CHARS
+              ? `the contents exceed the ${MAX_FILE_CHARS}-character file limit.`
+              : !sharedFiles.has(parsed.name) && sharedFiles.size >= MAX_FILES
+                ? `the room already holds ${MAX_FILES} shared files.`
+                : roomBudgetSpent
+                  ? `the room's one tool action for this round was already taken.`
+                  : null;
         if (invalid) {
           record({ kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name: parsed.name.slice(0, 80), content: '', denied: true, notice: config.tools.notice, thinking: toolThinking });
-          pendingPrivate.set(agent.id, `Your write to "${parsed.name.slice(0, 80)}" did not happen: ${invalid}`);
+          pendingPrivate.set(agent.id, `Your ${parsed.append ? 'append' : 'write'} to "${parsed.name.slice(0, 80)}" did not happen: ${invalid}`);
         } else {
           spendRoomBudget();
-          publishFile(agent, round, parsed.name, Buffer.from(parsed.content, 'utf8'), toolThinking);
+          publishFile(agent, round, parsed.name, Buffer.from(combined, 'utf8'), toolThinking);
         }
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'run') {
@@ -366,6 +375,21 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           // (that's the point of the writable mount); invalid ones are
           // reported privately, never silently dropped.
           const publishNotes: string[] = [];
+          // [RUN > file] / [RUN >> file]: the output itself becomes (or
+          // extends) a shared file — same publish path, same caps.
+          if (parsed.saveTo) {
+            const { name, append } = parsed.saveTo;
+            const existing = append ? sharedFiles.get(name) : undefined;
+            const combined =
+              existing && !existing.binary
+                ? `${existing.data.toString('utf8').replace(/\n?$/, '\n')}${res.output}`
+                : res.output;
+            if (!FILE_NAME_RE.test(name)) publishNotes.push(`Output was not saved: "${name}" is not a valid file name.`);
+            else if (append && existing?.binary) publishNotes.push(`Output was not saved: "${name}" is a binary file.`);
+            else if (combined.length > MAX_FILE_CHARS) publishNotes.push(`Output was not saved to "${name}": it would exceed the ${MAX_FILE_CHARS}-character file limit.`);
+            else if (!sharedFiles.has(name) && sharedFiles.size >= MAX_FILES) publishNotes.push(`Output was not saved: the room already holds ${MAX_FILES} shared files.`);
+            else publishFile(agent, round, name, Buffer.from(combined, 'utf8'));
+          }
           for (const f of res.files) {
             const data = Buffer.from(f.dataBase64, 'base64');
             if (!FILE_NAME_RE.test(f.name)) publishNotes.push(`"${f.name}" was not published (invalid file name).`);
