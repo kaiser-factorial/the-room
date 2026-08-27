@@ -12,7 +12,7 @@ import type { JournalConfig, RoomEvent, SearchConfig, ToolsConfig } from '../src
 
 const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } };
 const S: SearchConfig = { enabled: true, mode: 'alongside', gated: false, notice: true, maxResults: 5 };
-const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx'], ...over });
+const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, ...over });
 
 function readTranscript(dir: string): RoomEvent[] {
   return readFileSync(join(dir, 'transcript.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as RoomEvent);
@@ -90,6 +90,27 @@ test('run privacy: code and output never reach the transcript text or any contex
   }
 });
 
+test('run-published files: shared/ writes become binary shared files, listed not inlined', async () => {
+  const config = testConfig({ maxRounds: 1, tools: T() });
+  const dir = await runStubSession(config, 'run-file');
+  const events = readTranscript(dir);
+  const files = events.filter((e) => e.kind === 'file');
+  assert.equal(files.length, 3, 'every run should publish its shared/ file');
+  for (const f of files) {
+    assert.ok(f.kind === 'file' && !f.denied && f.name === 'stub-artifact.png');
+    // Stub bytes are text, but the publish path must carry the content
+    // either way; the event is attributed to the running agent.
+    assert.ok(f.kind === 'file' && f.content.length > 0);
+  }
+  assert.ok(existsSync(join(dir, 'shared', 'stub-artifact.png')), 'published file not on disk');
+  // A binary shared file renders as a listing line, never inline content.
+  const prompt = buildTurnMessages({
+    agent: AGENTS[0], config, events, summary: '', minutesRemaining: 3, ownJournal: '',
+    sharedFiles: [{ name: 'plot.png', content: '', binary: true, size: 20480 }],
+  }).map((m) => m.content).join('\n');
+  assert.match(prompt, /plot\.png \(binary file, 20 KB\)/);
+});
+
 test('per-room budget: one tool action per round, losers refused inaudibly, speech still lands', async () => {
   const config = testConfig({ maxRounds: 1, tools: T({ budget: 'per-room' }) });
   const dir = await runStubSession(config, 'run');
@@ -122,7 +143,7 @@ test('per-room budget: a denied action does not spend the round slot', async () 
 test('condition presets: tools-full and tools-scarce resolve onto the base config', async () => {
   const { resolveCondition, conditionRecord } = await import('../src/conditions.js');
   const full = resolveCondition('tools-full');
-  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx'] });
+  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true });
   assert.equal(full.search.mode, 'alongside');
   assert.equal(full.journal.enabled, false);
   const scarce = resolveCondition('tools-scarce');

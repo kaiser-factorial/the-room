@@ -88,13 +88,19 @@ export interface ToolsConfig {
    *  Package preloading has its own generous cap — this one starts once
    *  the interpreter is ready, so it prices only the agent's code. */
   pythonTimeoutSeconds: number;
-  /** Packages PRELOADED into every run and disclosed in the prompt.
-   *  Agents cannot install anything themselves (joint-session lesson:
-   *  in-sandbox imports of unloaded packages just fail, and micropip
-   *  would be a loader-side network hole) — this list is all they get.
-   *  The loader fetches them from the pyodide CDN once per container
-   *  (cached); the agent's code itself still has no network. */
+  /** Packages PRELOADED into every run and disclosed in the prompt
+   *  (joint-session lesson: imports of unloaded packages just fail).
+   *  Fetched from the pyodide CDN once per container (cached). */
   pythonPackages: string[];
+  /** Load micropip so agents can install packages themselves inside a run
+   *  ("I want them to be able to actually decide what they do" — Corina
+   *  2026-08-27). Installs are per-run (fresh interpreter) and count
+   *  toward pythonTimeoutSeconds. HONEST CAVEAT, accepted: micropip can
+   *  fetch from PyPI/CDNs and arbitrary wheel URLs, so agent code gains
+   *  an outbound network channel through the installer. Fine for this
+   *  threat model (our own roster models on an isolated runner); flip to
+   *  false for any future condition seating untrusted third-party code. */
+  pythonInstall: boolean;
 }
 
 export interface SamplingConfig {
@@ -206,8 +212,10 @@ export type RoomEvent =
   /** F4½ shared-file write. `content` is room-public (rendered into every
    *  agent's shared-files block, viewer-visible); the transcript line the
    *  room hears is only the notice. denied = budget/invalid-name refusal
-   *  (inaudible; the writer learns privately). */
-  | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; denied?: boolean; notice: boolean; thinking?: string }
+   *  (inaudible; the writer learns privately). encoding 'base64' marks a
+   *  BINARY file (python-written, e.g. a matplotlib PNG): the viewer
+   *  renders it, agents see it listed by name/size only. */
+  | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; encoding?: 'base64'; denied?: boolean; notice: boolean; thinking?: string }
   /** F4½ python run. `code`/`output` are caller-private (journal-class) —
    *  never rendered into any context except the caller's private block. */
   | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; denied?: boolean; notice: boolean; thinking?: string }

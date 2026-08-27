@@ -74,11 +74,14 @@ export const config: RoomConfig = {
     python: false,
     budget: 'per-seat',
     notice: true,
-    pythonTimeoutSeconds: 10,
-    // Preloaded + prompt-disclosed; agents can't install their own
-    // (joint-session lesson). Curated for math/data play without the
-    // heavyweights; matplotlib omitted until shared files can hold binary.
-    pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx'],
+    // 20s: micropip installs and matplotlib renders happen inside the
+    // agent's window (preload has its own cap in sandbox.ts).
+    pythonTimeoutSeconds: 20,
+    // Preloaded + prompt-disclosed (joint-session lesson: unloaded imports
+    // fail). matplotlib included now that shared files can hold binary —
+    // savefig('shared/x.png') publishes a plot to the room.
+    pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'],
+    pythonInstall: true,
   },
 
   // Control keeps the original named roster (comparability with every

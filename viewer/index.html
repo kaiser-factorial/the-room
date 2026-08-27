@@ -261,9 +261,25 @@ function render(e) {
     s.textContent = e.kind === 'file' ? 'file' : 'code';
     const body = document.createElement('div');
     body.className = 'trace';
-    body.textContent = e.kind === 'file'
-      ? (e.payload?.content || '(empty)')
-      : `${e.payload?.code || ''}${e.payload?.output ? `\n\n── output ──\n${e.payload.output}` : ''}`;
+    if (e.kind === 'file' && e.payload?.encoding === 'base64') {
+      // Binary (python-published) file. Render images inline; anything
+      // else gets a size line. Data URI from our own mirror payload.
+      const ext = (e.payload.name || '').split('.').pop().toLowerCase();
+      const mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' }[ext];
+      if (mime) {
+        const img = document.createElement('img');
+        img.src = `data:${mime};base64,${e.payload.content}`;
+        img.alt = e.payload.name;
+        img.style.maxWidth = '100%';
+        body.appendChild(img);
+      } else {
+        body.textContent = `(binary file, ${Math.round((e.payload.content || '').length * 3 / 4 / 1024)} KB)`;
+      }
+    } else {
+      body.textContent = e.kind === 'file'
+        ? (e.payload?.content || '(empty)')
+        : `${e.payload?.code || ''}${e.payload?.output ? `\n\n── output ──\n${e.payload.output}` : ''}`;
+    }
     d.append(s, body);
     el.appendChild(d);
     appendThinking(el, e);

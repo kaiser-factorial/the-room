@@ -144,15 +144,22 @@ function toolsSection(config: RoomConfig): string {
       ``,
       `You can also run Python. Begin your reply with [RUN] your code [/RUN];`,
       `anything after the closing tag is spoken as usual. The code runs in a`,
-      `fresh sandbox that can read the shared files; the output comes back to`,
-      `you privately at the start of your next turn — no one else sees your`,
-      `code or its output. To share a result, write it to a shared file.`,
+      `fresh sandbox each time. The shared files are mounted at shared/ —`,
+      `readable AND writable: any file your code saves there (text or binary,`,
+      `a saved plot included) is published to the room as a shared file. Your`,
+      `code's printed output comes back to you privately at the start of your`,
+      `next turn — no one else sees your code or its output; the shared/`,
+      `directory is how you show the room something.`,
       ...(t.pythonPackages.length
+        ? [`The standard library plus ${t.pythonPackages.join(', ')} are already available.`]
+        : [`The Python standard library is available.`]),
+      ...(t.pythonInstall
         ? [
-            `The sandbox has the standard library plus ${t.pythonPackages.join(', ')}`,
-            `already available; nothing else can be installed.`,
+            `You can install more yourself inside a run:`,
+            `import micropip; await micropip.install("package") — installs are`,
+            `per-run and count toward your time limit (${t.pythonTimeoutSeconds}s).`,
           ]
-        : [`The sandbox has the Python standard library only; nothing can be installed.`]),
+        : [`Nothing else can be installed.`]),
     );
   }
   lines.push(
@@ -165,9 +172,12 @@ function toolsSection(config: RoomConfig): string {
   return lines.join('\n');
 }
 
-function sharedFilesBlock(files: { name: string; content: string }[]): string {
+function sharedFilesBlock(files: { name: string; content: string; binary?: boolean; size?: number }[]): string {
   if (!files.length) return '';
   const parts = files.map((f) => {
+    // Binary files (python-published, e.g. plots) are listed, not inlined —
+    // humans see them rendered in the viewer.
+    if (f.binary) return `--- ${f.name} (binary file, ${Math.max(1, Math.round((f.size ?? 0) / 1024))} KB) ---`;
     const body = f.content.length > 2000 ? f.content.slice(0, 2000) + '\n…(truncated)' : f.content;
     return `--- ${f.name} ---\n${body}`;
   });
@@ -204,8 +214,10 @@ export function buildTurnMessages(opts: {
   /** Private block delivered once: last turn's search results, python
    *  output, or a tool-refusal note. Rendered for the caller ONLY. */
   privateBlock?: string;
-  /** Current shared filesystem (F4½) — public, identical for every seat. */
-  sharedFiles?: { name: string; content: string }[];
+  /** Current shared filesystem (F4½) — public, identical for every seat.
+   *  Binary files carry empty content + binary/size flags (listed by name;
+   *  contents render only in the viewer). */
+  sharedFiles?: { name: string; content: string; binary?: boolean; size?: number }[];
 }): ChatMessage[] {
   const { agent, config, events, summary, minutesRemaining, ownJournal, privateBlock, sharedFiles } = opts;
 

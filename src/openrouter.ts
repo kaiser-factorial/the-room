@@ -51,7 +51,7 @@ const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 //    (convergence ground truth) — so analyze.ts metrics have real
 //    structure to detect in dry runs.
 
-export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error' | 'search' | 'search-speak' | 'write' | 'badwrite' | 'run';
+export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' | 'truncate' | 'error' | 'search' | 'search-speak' | 'write' | 'badwrite' | 'run' | 'run-file';
 
 let stubTurn = 0;
 const modelTurns = new Map<string, number>();
@@ -148,6 +148,8 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     // Invalid name → refused write (budget tests: a refusal keeps the slot).
     case 'badwrite': return { text: `[WRITE: ../evil.md]\nnope\n[/WRITE]\n${voice()}`, meta, thinking };
     case 'run': return { text: `[RUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };
+    // write_shared triggers the sandbox stub's published-file path.
+    case 'run-file': return { text: `[RUN]\nwrite_shared("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };
     // Entry text must be distinct from the spoken half (unique marker),
     // or the privacy test can't tell a leak from a coincidence.
     case 'alongside': return { text: `[JOURNAL] private-note ${model}#${mTurn}: not for the room. [/JOURNAL] ${voice()}`, meta, thinking };

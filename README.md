@@ -59,13 +59,19 @@ the whole room (first taker wins, losers are refused privately).
 room-public, shown to every seat each turn, saved under
 `sessions/<id>/shared/` and mirrored. `[RUN] code [/RUN]` executes python
 in a fresh pyodide sandbox (worker thread, `pythonTimeoutSeconds`
-wall-clock cap starting after startup, reads shared files); code and
-output are private to the caller — sharing a result means writing it to a
-file. The sandbox preloads `tools.pythonPackages` (default numpy, pandas,
-sympy, networkx — disclosed in the prompt); agents cannot install anything
-themselves, and their code has no network (only the package loader touches
-the pyodide CDN, cached per container). Both sentinels are
-alongside-style: text after the closing tag is spoken.
+wall-clock cap starting after startup). The shared files are mounted
+read/write at `shared/` — anything the code saves there, text or BINARY
+(a matplotlib PNG), is published to the room as a shared file (the viewer
+renders images inline; agents see binary files listed by name/size).
+stdout stays private to the caller — the filesystem is the publishing
+surface. The sandbox preloads `tools.pythonPackages` (default numpy,
+pandas, sympy, networkx, matplotlib — disclosed in the prompt), and with
+`pythonInstall` (default on) micropip is loaded so agents can install
+more themselves mid-run — their choice, their time budget. Caveat,
+accepted deliberately: micropip gives agent code an outbound fetch
+channel (PyPI/CDN/wheel URLs); fine for our own roster on an isolated
+runner, flip it off for any condition seating untrusted code. Both
+sentinels are alongside-style: text after the closing tag is spoken.
 
 ## Grok via direct xAI (full traces)
 

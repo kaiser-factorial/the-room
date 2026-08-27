@@ -69,11 +69,31 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   // tool action has been taken (tools.budget === 'per-room').
   const pendingPrivate = new Map<string, string>();
   const searchCredit = new Set<string>();
-  const sharedFiles = new Map<string, string>();
+  // Shared filesystem: [WRITE] stores text; python runs can also publish
+  // BINARY files (a saved plot) via the sandbox's shared/ dir. `binary`
+  // is detected by content (NUL byte), not extension.
+  const sharedFiles = new Map<string, { data: Buffer; binary: boolean }>();
   let roomToolRound = 0;
   const FILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
   const MAX_FILE_CHARS = 16_000;
+  const MAX_BINARY_BYTES = 400_000;
   const MAX_FILES = 20;
+
+  /** Publish one shared file (from [WRITE] or a python run): store, mirror
+   *  to disk, and record the room-visible file event. */
+  function publishFile(agent: AgentConfig, round: number, name: string, data: Buffer, thinking?: string) {
+    const binary = data.includes(0);
+    sharedFiles.set(name, { data, binary });
+    const sharedDir = join(sessionDir, 'shared');
+    mkdirSync(sharedDir, { recursive: true });
+    writeFileSync(join(sharedDir, name), data);
+    record({
+      kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name,
+      content: binary ? data.toString('base64') : data.toString('utf8'),
+      ...(binary ? { encoding: 'base64' as const } : {}),
+      notice: config.tools.notice, thinking,
+    });
+  }
   onHandle?.({ stop: () => { stopping = true; } });
 
   function record(e: RoomEvent) {
@@ -221,7 +241,12 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             minutesRemaining,
             ownJournal: readJournal(agent.id),
             privateBlock: pendingPrivate.get(agent.id),
-            sharedFiles: [...sharedFiles].map(([name, content]) => ({ name, content })),
+            sharedFiles: [...sharedFiles].map(([name, f]) => ({
+              name,
+              content: f.binary ? '' : f.data.toString('utf8'),
+              binary: f.binary,
+              size: f.data.length,
+            })),
           }),
           {
             maxTokens: callMaxTokens,
@@ -316,11 +341,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           pendingPrivate.set(agent.id, `Your write to "${parsed.name.slice(0, 80)}" did not happen: ${invalid}`);
         } else {
           spendRoomBudget();
-          sharedFiles.set(parsed.name, parsed.content);
-          const sharedDir = join(sessionDir, 'shared');
-          mkdirSync(sharedDir, { recursive: true });
-          writeFileSync(join(sharedDir, parsed.name), parsed.content);
-          record({ kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name: parsed.name, content: parsed.content, notice: config.tools.notice, thinking: toolThinking });
+          publishFile(agent, round, parsed.name, Buffer.from(parsed.content, 'utf8'), toolThinking);
         }
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'run') {
@@ -332,9 +353,26 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           pendingPrivate.set(agent.id, `Your code did not run: the room's one tool action for this round was already taken.`);
         } else {
           spendRoomBudget();
-          const output = await runPython(parsed.code, Object.fromEntries(sharedFiles), config.tools.pythonTimeoutSeconds, config.tools.pythonPackages);
-          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output, notice: config.tools.notice, thinking: toolThinking });
-          pendingPrivate.set(agent.id, `Output of the code you ran:\n${output}`);
+          const res = await runPython(
+            parsed.code,
+            Object.fromEntries([...sharedFiles].map(([n, f]) => [n, f.data])),
+            config.tools.pythonTimeoutSeconds,
+            config.tools.pythonPackages,
+            config.tools.pythonInstall,
+          );
+          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output: res.output, notice: config.tools.notice, thinking: toolThinking });
+          // Files the code saved under shared/ are PUBLISHED to the room
+          // (that's the point of the writable mount); invalid ones are
+          // reported privately, never silently dropped.
+          const publishNotes: string[] = [];
+          for (const f of res.files) {
+            const data = Buffer.from(f.dataBase64, 'base64');
+            if (!FILE_NAME_RE.test(f.name)) publishNotes.push(`"${f.name}" was not published (invalid file name).`);
+            else if (data.length > MAX_BINARY_BYTES) publishNotes.push(`"${f.name}" was not published (${data.length} bytes exceeds the ${MAX_BINARY_BYTES}-byte limit).`);
+            else if (!sharedFiles.has(f.name) && sharedFiles.size >= MAX_FILES) publishNotes.push(`"${f.name}" was not published (the room already holds ${MAX_FILES} shared files).`);
+            else publishFile(agent, round, f.name, data);
+          }
+          pendingPrivate.set(agent.id, `Output of the code you ran:\n${res.output}${publishNotes.length ? `\n${publishNotes.join('\n')}` : ''}`);
         }
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'message') {

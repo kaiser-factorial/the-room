@@ -45,6 +45,7 @@ function sinkPayload(e: RoomEvent): unknown {
   if (e.kind === 'file') {
     p.name = e.name;
     p.content = e.content;
+    if (e.encoding) p.encoding = e.encoding;
     if (e.denied) p.denied = true;
     p.notice = e.notice;
   }
