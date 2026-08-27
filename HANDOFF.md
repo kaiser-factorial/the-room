@@ -141,6 +141,12 @@ journals-received.
    before deprecation.
 4. Autopilot gap is the cost throttle; JSONL on the Space is ephemeral —
    Supabase is the durable record for hosted sessions.
+4b. **New event kind ⇒ extend the `room_events.kind` CHECK constraint in
+   Supabase** (schema lives only there; the fire-and-forget sink swallows
+   the 400s silently — bitten 2026-08-27, first tools session mirrored no
+   tool events until migration `room_events_allow_tool_kinds`). That
+   session (2026-08-27T13-20-02) is missing its pre-fix tool events in
+   the mirror.
 5. The huggingface-spaces skill is vendored at `.claude/skills/` (with
    our known-errors additions) and saved to Corina's account.
 

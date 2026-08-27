@@ -225,7 +225,18 @@ SUPABASE_SERVICE_KEY=...   # dashboard → project settings → API keys → ser
 ```
 
 Inserts are fire-and-forget; JSONL stays the source of truth and a Supabase
-outage never stalls a session. Journal entries mirror to their own
+outage never stalls a session.
+
+**Schema gotcha (bitten 2026-08-27)**: `room_events.kind` has a CHECK
+constraint enumerating the allowed kinds — it lives only in Supabase, not
+in this repo. **Adding a new event kind requires extending that constraint**
+(migration `room_events_allow_tool_kinds` added search/file/run after the
+first tools-full session silently mirrored none of its tool events — the
+fire-and-forget sink swallowed every 400; the session's pre-fix tool events
+exist only in that container's ephemeral JSONL). Current allowed set:
+message, journal, system, order, summary, meta, end, search, file, run.
+
+Journal entries mirror to their own
 `room_journals` table (public read, feeds the viewer rail) — never into
 `room_events`, which is what agents' shared context is built from, so
 entries stay invisible to the room.
