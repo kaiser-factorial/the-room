@@ -293,6 +293,10 @@ function render(e) {
     d.append(s, body);
     el.appendChild(d);
     appendThinking(el, e);
+  } else if (e.kind === 'source') {
+    el.className = 'aside';
+    el.textContent = `${e.agent_name} read the room's source code${e.payload?.name ? ` (${e.payload.name})` : ''}.`;
+    appendThinking(el, e);
   } else if (e.kind === 'system') {
     el.className = 'aside';
     el.textContent = e.text;

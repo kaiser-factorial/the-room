@@ -31,6 +31,9 @@ const WRITE_OPEN_RE = /^\s*\**\[([A-Za-z]{4,6}):\s*([^\]\n]{1,80})\]\**\s*\n?([\
 const WRITE_CLOSE_RE = /\[\/([A-Za-z]{4,6})\]\s*([\s\S]*)/;
 const RUN_OPEN_RE = /^\s*\**\[RUN(?:\s*(>{1,2})\s*([^\]\n>]{1,80}))?\]\**:?\s*\n?([\s\S]*)$/i;
 const RUN_CLOSE_RE = /\[\/RUN\]\s*([\s\S]*)/i;
+// [SOURCE] / [SOURCE: name] — read the tool layer's own code (F4½
+// transparency). Alongside-style; bare form asks for the index.
+const SOURCE_RE = /^\s*\**\[([A-Za-z]{5,7})(?::\s*([^\]\n]{0,40}))?\]\**\s*\n?([\s\S]*)$/;
 
 function editDistance(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
@@ -57,6 +60,10 @@ function isAppendToken(w: string): boolean {
   return editDistance(w.toUpperCase(), 'APPEND') <= 1;
 }
 
+function isSourceToken(w: string): boolean {
+  return editDistance(w.toUpperCase(), 'SOURCE') <= 1;
+}
+
 export type ParsedReply =
   | { kind: 'pass' }
   /** Journal replaces the turn (or: alongside-mode privacy fallback — an
@@ -76,6 +83,8 @@ export type ParsedReply =
   /** F4½ python run; alongside-style. saveTo = [RUN > name] (or >> to
    *  append): the run's output is also saved to that shared file. */
   | { kind: 'run'; code: string; saveTo?: { name: string; append: boolean }; spoken?: string }
+  /** F4½ source read (name absent = index); alongside-style. */
+  | { kind: 'source'; name?: string; spoken?: string }
   | { kind: 'empty' };
 
 export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig, t?: ToolsConfig): ParsedReply {
@@ -124,6 +133,14 @@ export function parseReply(reply: string, j: JournalConfig, s?: SearchConfig, t?
         return spoken ? { kind: 'run', code, ...saveTo, spoken } : { kind: 'run', code, ...saveTo };
       }
       return body.trim() ? { kind: 'run', code: body.trim(), ...saveTo } : { kind: 'empty' };
+    }
+  }
+  if (t?.sourceCode) {
+    const src = reply.match(SOURCE_RE);
+    if (src && isSourceToken(src[1])) {
+      const name = src[2]?.trim() || undefined;
+      const spoken = src[3].trim();
+      return { kind: 'source', ...(name ? { name } : {}), ...(spoken ? { spoken } : {}) };
     }
   }
   if (s?.enabled) {

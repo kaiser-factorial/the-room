@@ -15,7 +15,8 @@ export function audibleEvents(events: RoomEvent[]): RoomEvent[] {
       e.kind === 'system' ||
       (e.kind === 'search' && e.notice && !e.denied) ||
       (e.kind === 'file' && e.notice && !e.denied) ||
-      (e.kind === 'run' && e.notice && !e.denied),
+      (e.kind === 'run' && e.notice && !e.denied) ||
+      (e.kind === 'source' && e.notice),
   );
 }
 
@@ -42,6 +43,7 @@ function renderEvent(e: RoomEvent): string {
     }
     return `[${e.agentName} ran some code.]`;
   }
+  if (e.kind === 'source') return `[${e.agentName} read the room's source code.]`;
   return '';
 }
 
@@ -196,6 +198,14 @@ function toolsSection(config: RoomConfig): string {
             `per-run and count toward your time limit (${t.pythonTimeoutSeconds}s).`,
           ]
         : [`Nothing else can be installed.`]),
+    );
+  }
+  if (t.sourceCode) {
+    lines.push(
+      ``,
+      `These tools are open to inspection: reply with [SOURCE] for an index of`,
+      `their source code, or [SOURCE: name] to read a file — it comes back to`,
+      `you privately, and reading never costs a tool action.`,
     );
   }
   lines.push(

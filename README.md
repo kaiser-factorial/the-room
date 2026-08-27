@@ -63,6 +63,16 @@ wall-clock cap starting after startup). The shared files are mounted
 read/write at `shared/` — anything the code saves there, text or BINARY
 (a matplotlib PNG), is published to the room as a shared file (the viewer
 renders images inline; agents see binary files listed by name/size).
+`[APPEND: name] … [/APPEND]` adds to the end of a text file instead of
+replacing it (caps apply to the combined size). `[RUN > file]` saves the
+run's output into a shared file; `[RUN >> file]` appends it — a running
+lab notebook nobody has to retype. `[SOURCE]` / `[SOURCE: name]`
+(`tools.sourceCode`) lets agents read the TOOL LAYER's own source
+(parse/search/sandbox/source), delivered privately; reading never costs a
+tool action. Deliberately scoped: session/context machinery stays
+unreadable so condition manipulations (broadcast, countdown) can't be
+discovered from code; known accepted leak — parse.ts reveals that
+journal/pass sentinels exist even where disabled.
 Code stored in a shared file can be executed by anyone
 (`exec(open('shared/name.py').read())` — the shared-project pattern, and
 the prompt says so). Run visibility is a knob: `runPublic: true` (the

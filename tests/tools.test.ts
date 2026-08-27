@@ -12,7 +12,7 @@ import type { JournalConfig, RoomEvent, SearchConfig, ToolsConfig } from '../src
 
 const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } };
 const S: SearchConfig = { enabled: true, mode: 'alongside', gated: false, notice: true, maxResults: 5 };
-const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: false, ...over });
+const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: false, sourceCode: true, ...over });
 
 function readTranscript(dir: string): RoomEvent[] {
   return readFileSync(join(dir, 'transcript.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as RoomEvent);
@@ -152,6 +152,34 @@ test('append composes onto the existing file; run >> captures output into a shar
   assert.equal(outputs.length, 3, '>> should accumulate all three runs\' outputs');
 });
 
+test('[SOURCE]: parses, delivers privately, never spends the budget, contents stay out of contexts', async () => {
+  const p = parseReply('[SOURCE: sandbox]\nand speech', J, S, T());
+  assert.deepEqual(p, { kind: 'source', name: 'sandbox', spoken: 'and speech' });
+  assert.deepEqual(parseReply('[SOURCE]', J, S, T()), { kind: 'source' });
+  assert.equal(parseReply('[SOURCE: x]', J, S, T({ sourceCode: false })).kind, 'message');
+  const { readSource, sourceIndex } = await import('../src/source.js');
+  assert.ok(readSource('sandbox')!.includes('WORKER_SRC'), 'sandbox source should be readable');
+  assert.equal(readSource('session'), null, 'condition machinery must stay unreadable');
+  assert.match(sourceIndex(), /\[SOURCE: name\]/);
+
+  // Per-room budget: a source read never takes the round's slot.
+  const config = testConfig({ maxRounds: 1, tools: T({ budget: 'per-room' }) });
+  const dir = await runStubSession(config, 'source,run,run');
+  const events = readTranscript(dir);
+  assert.equal(events.filter((e) => e.kind === 'source').length, 1);
+  assert.equal(events.filter((e) => e.kind === 'run' && !e.denied).length, 1, 'the slot should survive a source read');
+  // Source CONTENTS never enter the transcript or any context.
+  for (const e of events) {
+    if ('text' in e && e.text) assert.ok(!e.text.includes('WORKER_SRC'), 'source code leaked into transcript');
+  }
+  for (const agent of AGENTS) {
+    const prompt = buildTurnMessages({ agent, config, events, summary: '', minutesRemaining: 3, ownJournal: '' })
+      .map((m) => m.content).join('\n');
+    assert.ok(!prompt.includes('WORKER_SRC'), `source code leaked into ${agent.id}'s context`);
+    assert.match(prompt, /read the room's source code/, `${agent.id} missing the source notice`);
+  }
+});
+
 test('runPublic: code and output are spoken to the room; caller still gets output privately', async () => {
   const config = testConfig({ maxRounds: 1, tools: T({ runPublic: true }) });
   const dir = await runStubSession(config, 'run');
@@ -202,7 +230,7 @@ test('per-room budget: a denied action does not spend the round slot', async () 
 test('condition presets: tools-full and tools-scarce resolve onto the base config', async () => {
   const { resolveCondition, conditionRecord } = await import('../src/conditions.js');
   const full = resolveCondition('tools-full');
-  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true });
+  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true, sourceCode: true });
   assert.equal(full.search.mode, 'alongside');
   assert.equal(full.journal.enabled, false);
   const scarce = resolveCondition('tools-scarce');

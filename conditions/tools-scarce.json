@@ -21,6 +21,7 @@
       "matplotlib"
     ],
     "pythonInstall": true,
-    "runPublic": true
+    "runPublic": true,
+    "sourceCode": true
   }
 }

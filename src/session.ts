@@ -10,6 +10,7 @@ import { takeCommands } from './control.js';
 import { parseReply } from './parse.js';
 import { webSearch } from './search.js';
 import { runPython } from './sandbox.js';
+import { readSource, sourceIndex } from './source.js';
 import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
@@ -106,6 +107,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     else if (e.kind === 'search') clog(`\n   ⌕ ${e.agentName} ${e.denied ? 'reached for the web (no search available)' : `searched: ${e.query}`}`);
     else if (e.kind === 'file') clog(`\n   ▤ ${e.agentName} ${e.denied ? `write denied (${e.name})` : `wrote shared file: ${e.name}`}`);
     else if (e.kind === 'run') clog(`\n   ▶ ${e.agentName} ${e.denied ? 'run denied' : 'ran code'}`);
+    else if (e.kind === 'source') clog(`\n   § ${e.agentName} read the source${e.name ? `: ${e.name}` : ' index'}`);
   }
 
   function readJournal(agentId: string): string {
@@ -399,6 +401,16 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           }
           pendingPrivate.set(agent.id, `Output of the code you ran:\n${res.output}${publishNotes.length ? `\n${publishNotes.join('\n')}` : ''}`);
         }
+        if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+      } else if (parsed.kind === 'source') {
+        // F4½ transparency: reading the tools' source is FREE (no budget
+        // check — knowing how the machine works shouldn't cost the room
+        // its action). Contents go to the reader privately; the room at
+        // most hears the notice line.
+        const toolThinking = parsed.spoken ? undefined : thinking;
+        record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...(parsed.name ? { name: parsed.name } : {}), notice: config.tools.notice, thinking: toolThinking });
+        const body = parsed.name ? readSource(parsed.name) : sourceIndex();
+        pendingPrivate.set(agent.id, body ?? `There is no source file named "${parsed.name}".\n${sourceIndex()}`);
         if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
       } else if (parsed.kind === 'message') {
         record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });

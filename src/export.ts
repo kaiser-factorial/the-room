@@ -83,6 +83,13 @@ function toEvent(r: EventRow): RoomEvent {
         notice: Boolean(r.payload?.notice),
         ...extra,
       } as RoomEvent;
+    case 'source':
+      return {
+        kind: 'source', ...base, agentId: r.agent_id!, agentName: r.agent_name ?? r.agent_id!,
+        ...(r.payload?.name ? { name: r.payload.name as string } : {}),
+        notice: Boolean(r.payload?.notice),
+        ...extra,
+      } as RoomEvent;
     case 'order':
       return { kind: 'order', ...base, order: r.order_ids ?? [] };
     case 'summary':

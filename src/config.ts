@@ -83,6 +83,7 @@ export const config: RoomConfig = {
     pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'],
     pythonInstall: true,
     runPublic: false, // tools conditions flip this — shared-project mode
+    sourceCode: false, // tools conditions flip this — [SOURCE] transparency
   },
 
   // Control keeps the original named roster (comparability with every

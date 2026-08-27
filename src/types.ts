@@ -108,6 +108,12 @@ export interface ToolsConfig {
    *  (code/output caller-only; the room hears just the notice). The
    *  caller gets their output privately next turn either way. */
   runPublic: boolean;
+  /** [SOURCE] / [SOURCE: name] — agents read the TOOL LAYER's own source
+   *  (parse/search/sandbox/source), delivered privately like search
+   *  results. Free (never consumes the tool budget). Deliberately scoped:
+   *  session/context machinery stays unreadable so condition
+   *  manipulations (broadcast, countdown) can't be discovered from code. */
+  sourceCode: boolean;
 }
 
 export interface SamplingConfig {
@@ -239,6 +245,9 @@ export type RoomEvent =
    *  record time) inverts that: code + output render into the transcript
    *  for everyone (capped) — the shared-project mode. */
   | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; public?: boolean; denied?: boolean; notice: boolean; thinking?: string }
+  /** F4½ source read: `name` absent = the index. The file contents go to
+   *  the reader privately; the room at most hears the notice line. */
+  | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; notice: boolean; thinking?: string }
   | { kind: 'order'; ts: string; round: number; order: string[] }
   | { kind: 'summary'; ts: string; round: number; text: string }
   | { kind: 'meta'; ts: string; round: number; payload: SessionMeta }
