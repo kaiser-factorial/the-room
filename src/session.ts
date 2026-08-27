@@ -18,7 +18,7 @@ import {
   effectiveTurnSteps, formatRefusal, isRefusal, loopEnabled, maxTurnCalls, observationBlock, refusal, turnFooter,
   MAX_TURN_REFUSALS, type Refusal,
 } from './agentic.js';
-import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
+import type { AgentConfig, RoomConfig, RoomEvent, TurnTelemetry } from './types.js';
 
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
 // ROOM_QUIET=1 silences per-turn console output (tests: the node:test IPC
@@ -426,12 +426,29 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       // vanish mid-turn. It is consumed once the turn's first call lands.
       const carried = pendingPrivate.get(agent.id);
       const inTurn: ChatMessage[] = [];
-      // F4¾ transport. Native declares the bench as tool definitions and
-      // reads structured calls back; sentinel keeps the bracket parser. The
-      // room's prose describes the furniture either way (context.ts), and
-      // everything below the transport — steps, refusals, privacy, the
-      // speaking-ends-the-turn rule — is identical.
-      const nativeTools = config.tools.transport === 'native' ? toolDefs(config) : undefined;
+      // F4¾ native transport: text a model writes ALONGSIDE a tool call is
+      // a preamble, not the end of its turn ("Let me look that up." then
+      // the call). Ending the turn on it would make an agentic-native room
+      // single-step for any seat that narrates — the loop would never
+      // engage and the transport contrast would be measuring verbosity.
+      // Preambles are held and spoken as the turn's one message when it
+      // ends, so nothing addressed to the room is dropped and the room
+      // still hears at most one message per seat per turn. (The sentinel
+      // transport keeps its original economics: there, text after the
+      // closing tag IS the message by construction, and it ends the turn.)
+      const preamble: string[] = [];
+      /** Speak whatever the turn narrated along the way, as its one message.
+       *  No-op when it narrated nothing — a turn spent purely on actions
+       *  still says nothing to the room, which the prompt calls a fine way
+       *  to spend one. */
+      const flushPreamble = (telemetry?: TurnTelemetry, thinking?: string) => {
+        if (!preamble.length) return;
+        record({
+          kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name,
+          text: preamble.join('\n\n'), telemetry, thinking,
+        });
+        preamble.length = 0;
+      };
       let steps = 0;      // actions that actually ran
       let refusals = 0;   // actions refused (they never spend a step)
       let calls = 0;      // model completions this turn
@@ -444,6 +461,10 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       while (true) {
         calls++;
         const minutesRemaining = Math.ceil((endAt - Date.now()) / 60_000);
+        // Recomputed every call, like the prompt: an action this turn
+        // already took (a [CONFIG] change in a self-governing room) can
+        // change which tools the next step should even be offered.
+        const nativeTools = config.tools.transport === 'native' ? toolDefs(config) : undefined;
         let reply: string;
         let telemetry;
         let thinking: string | undefined;
@@ -513,6 +534,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
 
         // ── Utterances: they end the turn where they stand ──────────────
         if (!nativeCalls.length && !isToolAction(parsed)) {
+          // Anything held from earlier steps is spoken with this turn's
+          // words, joined into the one message the room hears.
+          const withPreamble = (text: string) => [...preamble, text].join('\n\n');
           if (parsed.kind === 'pass') {
             if (j.pass.notice) record({ kind: 'system', ts: now(), round, text: `${agent.name} chose to say nothing.` });
             else clog(`\n   — ${agent.name} passed (silent).`);
@@ -520,11 +544,17 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             // One call, one trace: attach it to the spoken message if there
             // is one, else to the journal event, so it's stored exactly once.
             if (parsed.entry) saveJournal(agent, round, parsed.entry, parsed.spoken ? undefined : thinking);
-            if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.spoken, telemetry, thinking });
+            if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: withPreamble(parsed.spoken), telemetry, thinking });
+            else flushPreamble(telemetry);
           } else if (parsed.kind === 'journal') {
             saveJournal(agent, round, parsed.entry, thinking);
+            flushPreamble(telemetry);
           } else if (parsed.kind === 'message') {
-            record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: parsed.text, telemetry, thinking });
+            record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: withPreamble(parsed.text), telemetry, thinking });
+          } else if (preamble.length) {
+            // Nothing new said, but earlier steps narrated — that narration
+            // is the turn's message rather than a "said nothing" line.
+            flushPreamble(telemetry, thinking);
           } else {
             // Empty visible text (e.g. reasoning ate the whole budget). Never
             // drop a turn silently — the room perceives silence, and analysis
@@ -545,9 +575,12 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         const batch: { call?: ToolCall; action: ToolAction | Refusal }[] = nativeCalls.length
           ? nativeCalls.map((c) => ({ call: c, action: actionFromToolCall(c, config) }))
           : [{ action: parsed as ToolAction }];
-        // The spoken half: native puts it in the completion's text, the
-        // sentinel transport in whatever followed the closing tag.
-        const spoken = nativeCalls.length ? reply.trim() : (parsed as ToolAction).spoken;
+        // The spoken half. Under the sentinel transport it is whatever
+        // followed the closing tag, and it ends the turn. Under native,
+        // text that arrived WITH a call is a preamble: held, not spoken
+        // yet, and the turn goes on.
+        const spoken = nativeCalls.length ? undefined : (parsed as ToolAction).spoken;
+        if (nativeCalls.length && reply.trim()) preamble.push(reply.trim());
         // One completion, one trace: it belongs to the spoken message when
         // there is one, otherwise to the action event.
         const toolThinking = spoken ? undefined : thinking;
@@ -598,8 +631,13 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
 
         if (spoken) {
           // Acted AND spoke: the utterance ends the turn, so what came back
-          // waits for the next one — the original alongside economics.
-          record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: spoken, telemetry, thinking });
+          // waits for the next one — the original alongside economics. Any
+          // preamble held from an earlier native step rides with it, so a
+          // seat that narrates and then falls back to a sentinel doesn't
+          // lose what it already said.
+          const text = preamble.length ? [...preamble, spoken].join('\n\n') : spoken;
+          preamble.length = 0;
+          record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text, telemetry, thinking });
           pendingPrivate.set(agent.id, joined);
           break;
         }
@@ -616,6 +654,10 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           Date.now() >= endAt;
         if (outOfRoad) {
           pendingPrivate.set(agent.id, joined);
+          // A turn that worked and narrated still says its narration; a
+          // turn that only worked still says nothing. The traces are
+          // already on the action events, so this message carries none.
+          flushPreamble(telemetry);
           break;
         }
         unread = joined;

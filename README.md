@@ -154,6 +154,21 @@ only (arguments, caps, what comes back). A test pins this: the furniture
 sentences must appear under both transports, the bracket syntax under
 neither but `sentinel`.
 
+**Preambles.** Under `native`, text that arrives *alongside* a call is a
+preamble, not the end of the turn — models narrate while they work ("Let me
+look that up.") and the tool-calling API puts that text beside the call.
+Ending the turn on it would make an agentic-native room single-step for any
+seat that talks, and the transport contrast would be measuring verbosity
+instead. Preambles are held and spoken as the turn's one message when it
+ends, joined with whatever finally closed it, so nothing addressed to the
+room is dropped and the room still hears at most one message per seat per
+turn. A turn that works without narrating still says nothing.
+
+This is the one behavioural difference between the transports beyond the
+syntax, and it is inherent to them: under `native` the API separates
+narration from message, while under `sentinel` the text after a closing tag
+IS the message by construction, so there it still ends the turn.
+
 Sentinels still parse under `native` (a seat that ignores its tool channel
 is understood rather than leaked to the room), so action events carry
 `via: 'native' | 'sentinel'` there and `metrics.json` reports

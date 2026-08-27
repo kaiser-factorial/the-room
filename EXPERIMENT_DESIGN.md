@@ -935,6 +935,15 @@ upstairs in the prompt, because that is what makes the filesystem a social
 object rather than a scratchpad. A test pins the furniture sentences into
 both prompts so a future edit can't quietly hollow one out.
 
+One behavioural difference beyond syntax, and it is inherent to the
+transports rather than a choice: under `native`, text arriving ALONGSIDE a
+call is a preamble — held, and spoken as the turn's one message when the
+turn ends — where under `sentinel` the text after a closing tag is the
+message and ends the turn. Without that rule an agentic-native room would
+be single-step for any seat that narrates while it works, and the arm would
+be measuring verbosity rather than transport. The room's invariant is
+unchanged either way: at most one message per seat per turn.
+
 Residual confounds specific to this arm, all reasons it is exploratory:
 - The framing is held CLOSE, not constant: a native session still carries
   five function schemas in every request, and their mere presence may cue

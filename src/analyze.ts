@@ -412,7 +412,10 @@ export function toolUse(
       // saying nothing to the room. Under turnSteps 1 this is a silent
       // single action; under the loop it is a whole chain nobody heard.
       silentWorkingTurns: [...byTurn.keys()].filter((r) => !spokeIn.has(`${r}:${id}`)).length,
-      meanCallsPerTurn: mean(myMsgs.map((m) => m.calls ?? 1)),
+      // SPOKEN turns only — a turn that acted and said nothing produces no
+      // message to carry the count, and those are the expensive ones. Read
+      // it with silentWorkingTurns and chainLengths, not as a bill.
+      meanCallsPerSpokenTurn: mean(myMsgs.map((m) => m.calls ?? 1)),
     };
   };
   const ranAll = actions.filter((a) => !a.denied);

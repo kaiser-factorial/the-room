@@ -221,7 +221,7 @@ test('toolUse metric: chains, silent working turns, and completions per turn', a
   ];
   const u = toolUse(actions, msgs as never, ['alpha', 'beta']) as never as {
     room: { actions: number; refused: number; actingTurns: number; chainLengths: Record<string, number> };
-    byAgent: Record<string, { actions: number; refused: number; maxChain: number; multiStepTurns: number; silentWorkingTurns: number; meanCallsPerTurn: number; byKind: Record<string, number> }>;
+    byAgent: Record<string, { actions: number; refused: number; maxChain: number; multiStepTurns: number; silentWorkingTurns: number; meanCallsPerSpokenTurn: number; byKind: Record<string, number> }>;
   };
   assert.equal(u.room.actions, 4);
   assert.equal(u.room.refused, 1, 'a refusal is never counted as work');
@@ -230,7 +230,7 @@ test('toolUse metric: chains, silent working turns, and completions per turn', a
   assert.equal(a.maxChain, 2);
   assert.equal(a.multiStepTurns, 2);
   assert.equal(a.silentWorkingTurns, 1, 'round 2: acted twice, said nothing');
-  assert.equal(a.meanCallsPerTurn, 3);
+  assert.equal(a.meanCallsPerSpokenTurn, 3);
   assert.deepEqual(a.byKind, { search: 1, file: 1, run: 2 });
   assert.equal(u.byAgent.beta.actions, 0);
 });
@@ -248,10 +248,43 @@ test('native transport: the same actions, expressed as structured calls', async 
   assert.equal(events.filter((e) => e.kind === 'message').length, 3, 'still one utterance per seat per turn');
 });
 
-test('native transport: prose and a call in one completion end the turn together', async () => {
-  // The shape the sentinel transport can't express without a position rule:
-  // the model says something to the room AND makes a call in the same reply.
+test('native transport: prose alongside a call is a preamble, not the end of the turn', async () => {
+  // Models narrate constantly ("Let me look that up.") and the tool-calling
+  // API puts that text beside the call. Ending the turn on it would make an
+  // agentic-native room single-step for any seat that talks while it works.
+  // 'run' = a call WITH prose, 'run-quiet' = a call without, 'plain' = words.
   const config = testConfig({ maxRounds: 1, tools: T({ transport: 'native', turnSteps: 3 }) });
+  const dir = await runStubSession(config, 'run,run-quiet,plain');
+  const events = readTranscript(dir);
+  const runs = events.filter((e) => e.kind === 'run');
+  assert.equal(runs.length, 6, 'two runs per seat — the narration did not stop the loop');
+
+  const messages = events.filter((e) => e.kind === 'message');
+  assert.equal(messages.length, 3, 'still exactly one message per seat per turn');
+  // Nothing the model addressed to the room is dropped: the held preamble
+  // is spoken together with the words that ended the turn.
+  for (const m of messages) {
+    assert.ok(m.kind === 'message' && m.text.includes('\n\n'), 'preamble and closing words should arrive as one message');
+  }
+});
+
+test('native transport: a turn that narrates and then runs out of road still speaks', async () => {
+  // Two steps on offer and an endless appetite: the seat acts twice, is
+  // refused twice, and the turn ends — but it narrated on the way, so the
+  // narration is what the room hears rather than nothing at all.
+  const config = testConfig({ maxRounds: 1, tools: T({ transport: 'native', turnSteps: 2 }) });
+  const dir = await runStubSession(config, 'run');
+  const events = readTranscript(dir);
+  assert.equal(events.filter((e) => e.kind === 'run' && !e.denied).length, 6, 'two runs per seat');
+  assert.equal(events.filter((e) => e.kind === 'message').length, 3, 'one message per seat, built from the narration');
+  assert.equal(events.filter((e) => e.kind === 'system' && /said nothing/.test(e.text)).length, 0);
+});
+
+test('sentinel transport keeps its original economics: the spoken half ends the turn', async () => {
+  // Unchanged since F4½, and deliberately different from native: there the
+  // API separates narration from message; here text after the closing tag
+  // IS the message by construction.
+  const config = testConfig({ maxRounds: 1, tools: T({ transport: 'sentinel', turnSteps: 3 }) });
   const dir = await runStubSession(config, 'run');
   const events = readTranscript(dir);
   assert.equal(events.filter((e) => e.kind === 'run').length, 3, 'one run per seat — speaking ended the turn');

@@ -94,12 +94,10 @@ function joinVerbs(verbs: string[]): string {
  *  because it reads naturally ("[You ran some code.]"), and partly because
  *  under selfDisclosure 'anonymous' the room has not told it that name. */
 function renderOwnEvent(e: RoomEvent, ownName: string): string {
+  // Every line this applies to is pre-baked with the author's name — notice
+  // lines built here, and system lines built in session.ts ("Alpha said
+  // nothing this turn."). Swapping the leading name is enough for both.
   const base = renderEvent(e);
-  if (e.kind === 'system') {
-    // System lines are pre-baked with the name ("Alpha said nothing this
-    // turn."); swap the leading name rather than re-deriving the sentence.
-    return base.startsWith(`[${ownName} `) ? `[You ${base.slice(ownName.length + 2)}` : base;
-  }
   return base.startsWith(`[${ownName} `) ? `[You ${base.slice(ownName.length + 2)}` : base;
 }
 

@@ -110,7 +110,11 @@ merged AND deployed).
   and this room's whole premise is that there is no task. Sentinels still
   parse under native (a seat that ignores its channel is understood, not
   leaked to the room); `via` on action events and viaNative/viaSentinel in
-  metrics.json make the fallback rate visible. Two one-knob contrasts now:
+  metrics.json make the fallback rate visible. Under native, text arriving
+  WITH a call is a preamble (held, spoken as the turn's one message when it
+  ends) — without that an agentic-native room is single-step for any seat
+  that narrates, and the arm measures verbosity instead of transport.
+  Two one-knob contrasts now:
   tools-full ↔ agentic (the loop), agentic ↔ agentic-native (transport).
   **Neither is deployed — the runner needs a redeploy (check the liveness
   probe first: a deploy kills a live round).**
@@ -129,7 +133,7 @@ merged AND deployed).
   room is told. Trace-rich + journal (the one private channel left).
   §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
   built now, spent later. Tag out of standard §2.5 comparisons.
-- **Code quality**: 112-test suite (`npm test`), incl. the privacy
+- **Code quality**: 114-test suite (`npm test`), typechecked including tests/ since 2026-08-27, incl. the privacy
   invariants (journals/traces/search/run never in another agent's
   context — now also what an agent learns MID-turn) and analyze DETECTING
   planted dynamics in the voice stub.
