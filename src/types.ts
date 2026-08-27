@@ -143,6 +143,16 @@ export interface RoomConfig {
    *  the transcript's speaker labels as people speak. Order-shuffle events
    *  are never audible in any state. */
   rosterDisclosure: 'named' | 'count' | 'none';
+  /** §9.3 thought broadcast (exploratory; tag OUT of standard §2.5
+   *  comparisons). 'off' (control) keeps the F1 rule: traces reach no
+   *  agent, ever. Broadcast INVERTS it for other agents only: every
+   *  trace is rendered into the OTHER agents' contexts alongside the
+   *  speech — never back into the thinker's own (everyone can read
+   *  Opus's mind except Opus). 'informed' = the prompt discloses it;
+   *  'uninformed' = nobody is told. Journals stay absolutely private in
+   *  ALL states; the rolling summary NEVER carries traces (it flows back
+   *  to the thinker). Run broadcast rooms trace-rich (§2.5 availability). */
+  thinkingBroadcast: 'off' | 'informed' | 'uninformed';
   reasoningEffort: ReasoningEffort;
   /** Ask providers for chosen-token logprobs (§2.6). Free where supported,
    *  silently absent elsewhere; rides in message telemetry. */

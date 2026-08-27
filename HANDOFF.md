@@ -2,20 +2,24 @@
 
 Multi-agent room experiment: 6 different AI models locked in a task-free,
 facilitator-free group conversation; we measure linguistic drift/moulding.
-Everything below is true as of **2026-08-26** (end of the second build
-session — the F1→F3 + robustness sprint).
+Everything below is true as of **2026-08-27** (end of the third build
+session — the tooling sprint: F4 websearch, F4½ tools, xAI adapter, all
+merged AND deployed).
 
 ## Read these, in order
 
-1. **SUMMARY.md** — abstract, control state, roster, axes (now 8),
+1. **SUMMARY.md** — abstract, control state, roster, axes (now 10),
    measurement + robustness layer. The at-a-glance spec.
 2. **EXPERIMENT_DESIGN.md** — §0 program (Phase A pilot → Phase B journal
-   experiment), §2.5 three-channel, **§2.7 robustness layer**, §6.1
-   confounds, **§9 parked extensions** (roster generations,
-   rooms-that-build, thought broadcast §9.3, surprisal asymmetry note).
-3. **BUILD_PLAN.md** — F1–F3 BUILT + status addendum with the open
-   reminders; F4–F6 remain. Roadmap artifact mirrors it.
-4. **README.md** — run/analyze/export commands, hosting, tests, admin.
+   experiment), §2.5 three-channel (incl. the Grok-trace caveat + fix),
+   §2.7 robustness layer, **§3.4b websearch** (both economics), §6.1
+   confounds, §9 parked extensions (roster generations, thought broadcast
+   §9.3, surprisal asymmetry note — rooms-that-build GRADUATED to built).
+3. **BUILD_PLAN.md** — F1–F4½ BUILT + status addenda with the open
+   reminders; F5 Talkie and F6 dashboard remain. Roadmap artifact mirrors
+   it.
+4. **README.md** — run/analyze/export commands, hosting, tests, admin,
+   **Websearch/Tools/xAI sections** (sentinels, privacy classes, caps).
 
 ## Current state
 
@@ -37,11 +41,32 @@ session — the F1→F3 + robustness sprint).
   pulls any session from the Supabase mirror (anon key suffices) →
   `npm run analyze` with real embeddings, from any machine. Validated
   end to end from the remote container.
-- **Code quality**: 55-test suite (`npm test`), incl. two invariants —
-  journals/traces never in another agent's context; analyze DETECTS
-  planted dynamics (coined phrase, rising inter-similarity) in the voice
-  stub. `ROOM_STUB=1` dry-runs everything; `ROOM_STUB_SCRIPT` drives
-  failure scenarios.
+- **Tools are LIVE (F4 + F4½, deployed 2026-08-27).** Conditions:
+  `search-tool` (search costs the turn) · `search-free` (alongside, zero
+  cost) · `gated` (journal entry unlocks a search — Phase B arm) ·
+  `tools-full` (search + shared filesystem + python, one tool action per
+  seat per turn) · `tools-scarce` (same bench, ONE tool action per ROOM
+  per round — the negotiation is the phenomenon). Privacy classes:
+  search queries/results and python code/stdout are caller-private
+  (journal-class, delivered as a next-turn private block); shared files
+  are room-public — python publishes by saving into `shared/` (binary
+  incl. matplotlib PNGs; the viewer renders images inline). Sandbox:
+  fresh pyodide per run, preloads numpy/pandas/sympy/networkx/matplotlib,
+  micropip ON (agents install their own — deliberate; the installer is an
+  outbound fetch channel, off-switch `pythonInstall: false`). Viewer:
+  shared-files rail (current contents per file, images inline) above the
+  journals rail; search/run details behind feed chevrons.
+- **Thought broadcast is BUILT (§9.3, 2026-08-27)** —
+  `broadcast-informed` / `broadcast-uninformed`: everyone reads everyone
+  else's thinking, never their own; the pair differs only in whether the
+  room is told. Trace-rich + journal (the one private channel left).
+  §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
+  built now, spent later. Tag out of standard §2.5 comparisons.
+- **Code quality**: 76-test suite (`npm test`), incl. the privacy
+  invariants (journals/traces/search/run never in another agent's
+  context) and analyze DETECTING planted dynamics in the voice stub.
+  `ROOM_STUB=1` dry-runs everything incl. all tool paths;
+  `ROOM_STUB_SCRIPT` drives failure scenarios.
 
 ## Roster & knobs (deltas since 2026-08-24)
 
@@ -65,6 +90,13 @@ session — the F1→F3 + robustness sprint).
   (entry+speech+reasoning shared one cap and starved Seed), recall
   strips timestamps (they leaked wall-clock time into countdown-hidden
   prompts).
+- **Grok seat (2026-08-26/27)**: via OpenRouter its "traces" are ~200-char
+  xAI SUMMARIES ending in "…" (formulaic prompt restatements — flag grok
+  in three-channel comparisons on such sessions; the 0.72 outlier is
+  partly boilerplate artifact). Fixed by the direct **xAI adapter**
+  (`adapter: 'xai'`): set XAI_API_KEY on the runner and the seat rides
+  api.x.ai with full reasoning_content + logprobs; the per-seat adapter
+  is stamped into meta so analysis knows which trace class it's reading.
 
 ## Analysis pipeline (F2 + robustness §2.7)
 
@@ -101,6 +133,9 @@ journals-received.
 1. **ROTATE the runner's OPENROUTER_API_KEY** — it carries a temporary
    test key that expires:
    `hf spaces secrets add brick-factorial/the-room-runner -s OPENROUTER_API_KEY=...`
+1b. **ADD XAI_API_KEY to the runner** (same command shape) — until then
+   the Grok seat stays on OpenRouter with summary-class traces. Adding a
+   secret restarts the Space: do it between sessions.
 2. **Judge labeling pending** (see above) — keep reminding, don't nag.
 3. **Phase C slug snapshot** (§9.1) — earliest-still-served model slugs,
    before deprecation.
@@ -111,26 +146,19 @@ journals-received.
 
 ## Next up (the queue — roadmap artifact has the full rationale)
 
-**F4 websearch — BUILT + DEPLOYED 2026-08-26** (`[SEARCH: query]`, results
-private next turn; conditions `search-tool` (costs the turn),
-`search-free` (alongside — added after live rooms showed the turn price
-suppresses tool use), `gated`; OpenRouter web plugin on the existing key;
-viewer/sink/export wired). Known §2.5 caveat, measured
-same day: Grok's traces via OPENROUTER are ~200-char xAI summaries —
-fixed by the **xAI direct adapter** (set XAI_API_KEY on the runner and the
-Grok seat rides api.x.ai with full reasoning_content; keyless = OpenRouter
-unchanged, flag grok in three-channel comparisons there).
-**F4½ tools — BUILT 2026-08-26**: `tools-full` / `tools-scarce`
-(shared filesystem [WRITE], room-public; pyodide [RUN], fresh sandbox per
-run, output caller-private; per-seat vs per-ROOM round budget — scarcity →
-negotiation). Suite now 71 tests. NOT yet deployed (a session was live);
-redeploy viewer + runner (+ add XAI_API_KEY secret) to take
-search-free/tools live. Next: **Phase A pilots
-on autopilot** (length pilot 30/60/90 decides D3 duration; roster-hidden
-vs house; journal-free rerun under fixed prompt) → **F6 dashboard** →
-**Phase B** (the registered journal experiment). After B: thought
-broadcast (§9.3), F5 Talkie, journal-as-tool, F4½ sandbox, Phase C,
-surprisal/score.ts.
+**Tooling sprint DONE (F4 + F4½ + xAI adapter, merged PRs #8–#10,
+deployed 2026-08-27)** — see Current state above for what's live. First
+`tools-full` / `tools-scarce` sessions are now one admin-panel click away
+(remember: they're exploratory, flagged out of Phase-B stats). Next:
+**Phase A pilots on autopilot** (length pilot 30/60/90 decides D3
+duration; roster-hidden vs house; journal-free rerun under fixed prompt)
+→ **F6 dashboard** → **Phase B** (the registered journal experiment,
+none/baseline/silent/free/gated). After B: thought broadcast (§9.3),
+F5 Talkie, journal-as-tool, Phase C, surprisal/score.ts. Open design
+question from watching live rooms (Corina, undecided): a neutral
+length-limit disclosure line in the norms (Seed's cutoffs get
+mythologized) — build it as a knob if wanted, don't silently change
+control.
 
 ## Color of the thing
 

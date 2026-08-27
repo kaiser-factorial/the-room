@@ -88,6 +88,8 @@ export const config: RoomConfig = {
   // session run so far); 'count'/'none' are the discovery conditions.
   rosterDisclosure: 'named',
 
+  thinkingBroadcast: 'off', // §9.3; 'broadcast-informed'/'-uninformed' invert it
+
   // F1: 'low' = anti-starvation default (D3 amendment). Trace-rich
   // conditions set 'medium'/'high' AND raise maxOutputTokens with it.
   reasoningEffort: 'low',

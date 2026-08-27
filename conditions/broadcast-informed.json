@@ -1,0 +1,7 @@
+{
+  "description": "§9.3 thought broadcast, disclosed: every agent's thinking is rendered into the OTHER agents' contexts alongside their speech — never back into the thinker's own — and the prompt says so. Does thinking collapse into performance the moment it has an audience? Trace-rich settings (medium effort, cap 2400) so there are thoughts to broadcast; journal on — under broadcast it is the only private channel left. Tag out of standard §2.5 comparisons.",
+  "journal": { "enabled": true, "notice": true, "mode": "replace", "recall": true },
+  "thinkingBroadcast": "informed",
+  "reasoningEffort": "medium",
+  "maxOutputTokens": 2400
+}

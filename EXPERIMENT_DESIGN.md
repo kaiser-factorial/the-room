@@ -684,7 +684,14 @@ Design notes for whenever it's built:
   proposer-vs-assenter speech-act tagging by a judge model,
   time-to-first-commitment, role stickiness across shuffles.
 
-### 9.3 Thought broadcast (Corina 2026-08-25 — exploratory, parked)
+### 9.3 Thought broadcast (Corina 2026-08-25 — exploratory; BUILT 2026-08-27)
+
+**Built as designed below**: `thinkingBroadcast: off|informed|uninformed`
+knob, viewer-aware context rendering ("X (thinking): …" prepended to the
+speech for everyone but X), disclosure line only in `informed`, conditions
+`broadcast-informed` / `broadcast-uninformed` (both trace-rich + journal,
+differing ONLY in the disclosure — tested), the privacy suite encodes the
+inversion explicitly (self-mask, journals absolute, summary trace-free).
 
 Invert the trace privacy rule as a deliberate condition: every agent's
 thinking blocks are rendered into the OTHER agents' contexts alongside
