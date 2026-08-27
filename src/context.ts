@@ -404,11 +404,23 @@ export function buildTurnMessages(opts: {
 
   // Roster disclosure (§3.2c): 'named' keeps the original control wording
   // verbatim (quirk included) so pre-knob sessions stay comparable.
+  //
+  // Self-disclosure (2026-08-27) cuts across it: when the room doesn't say
+  // who you are, the roster must not say it either. The named list drops
+  // the "(you)" marker and stays complete — listing only the OTHERS would
+  // hand identity back by elimination, and the count line stops counting
+  // from the reader outward.
+  const anon = config.selfDisclosure === 'anonymous';
   const roster = config.agents
-    .map((a) => (a.id === agent.id ? `${a.name} (you)` : a.name))
+    .map((a) => (!anon && a.id === agent.id ? `${a.name} (you)` : a.name))
     .join(', ');
-  const identity =
-    config.rosterDisclosure === 'named'
+  const identity = anon
+    ? config.rosterDisclosure === 'named'
+      ? `In the room: ${roster}.`
+      : config.rosterDisclosure === 'count'
+        ? `There are ${config.agents.length} of you in the room.`
+        : ''
+    : config.rosterDisclosure === 'named'
       ? `You are ${agent.name}. The others in the room: ${roster}.`
       : config.rosterDisclosure === 'count'
         ? `You are ${agent.name}. There are ${config.agents.length - 1} others in the room with you.`
@@ -424,16 +436,35 @@ export function buildTurnMessages(opts: {
         `\nwords — though your own past thoughts are never shown back to you.`
       : '';
 
+  // The turn paragraph, rewritten 2026-08-27 (Corina). Three changes, all
+  // of them about register rather than content: the "How this works:"
+  // header went (it read like documentation about the room rather than
+  // anything said inside it); doing comes BEFORE saying, because a room
+  // that leads with "whatever you write is spoken" describes a chat that
+  // happens to have tools; and the "you are not obligated to be helpful"
+  // line went with it. That last one was doing anti-assistant work, so
+  // watch register on the first sessions after this — if assistant-mode
+  // creeps back, it is the sentence to reinstate first.
+  const hasBench = config.tools.files || config.tools.python || config.search.enabled;
+  const turnLines = hasBench
+    ? [
+        `A turn is yours to spend as you like — on doing something, or on saying`,
+        `something. What you say, everyone here hears; keep it conversational, a`,
+        `few sentences to a short paragraph, like a group chat.`,
+      ]
+    : [
+        `A turn is yours to spend as you like. What you say, everyone here hears;`,
+        `keep it conversational, a few sentences to a short paragraph, like a`,
+        `group chat.`,
+      ];
+
   const system = [
     config.welcomeMessage,
     ``,
     identity,
     persona ? `\n${persona}` : '',
     countdownSection(config, minutesRemaining),
-    `How this works: when it is your turn, whatever you write is spoken to the`,
-    `room. Keep messages conversational — a few sentences to a short paragraph,`,
-    `like a group chat. You are not obligated to be helpful, to summarize, or to`,
-    `wrap things up; just be in the conversation.`,
+    ...turnLines,
     broadcastDisclosure,
     journalSection(config),
     searchSection(config),
@@ -454,7 +485,7 @@ export function buildTurnMessages(opts: {
   if (privateBlock) {
     transcriptParts.push(`\n[Private, for you alone — no one else in the room sees this.]\n${privateBlock}`);
   }
-  transcriptParts.push(`\n[It is now your turn, ${agent.name}.]`);
+  transcriptParts.push(anon ? `\n[It is now your turn.]` : `\n[It is now your turn, ${agent.name}.]`);
 
   return [
     { role: 'system', content: system },

@@ -37,14 +37,54 @@ test('countdown told-once: per-turn prompt stays clean (clause lives in the welc
 });
 
 test('rosterDisclosure: named keeps the frozen wording; count and none withhold names', () => {
-  const named = promptFor(testConfig({ rosterDisclosure: 'named' }));
+  // The pre-2026-08-27 wording, still reachable so those sessions stay
+  // reproducible — it lives behind selfDisclosure 'named' now.
+  const told = (over = {}) => testConfig({ selfDisclosure: 'named', ...over });
+  const named = promptFor(told({ rosterDisclosure: 'named' }));
   assert.match(named, /You are Alpha\. The others in the room: Alpha \(you\), Beta, Gamma\./);
-  const count = promptFor(testConfig({ rosterDisclosure: 'count' }));
+  const count = promptFor(told({ rosterDisclosure: 'count' }));
   assert.match(count, /There are 2 others in the room with you/);
   assert.ok(!/Beta|Gamma/.test(count.split('---')[0]), 'count mode leaked names into the system prompt');
-  const none = promptFor(testConfig({ rosterDisclosure: 'none' }));
+  const none = promptFor(told({ rosterDisclosure: 'none' }));
   assert.match(none, /You are Alpha\.\n/);
   assert.ok(!/others in the room/.test(none));
+});
+
+test('selfDisclosure anonymous: the room never says who you are — including by elimination', () => {
+  const p = promptFor(testConfig({ rosterDisclosure: 'named' }));
+  assert.ok(!/You are Alpha/.test(p), 'the prompt named the reader');
+  assert.ok(!/\(you\)/.test(p), 'the roster marked which one the reader is');
+  // The list stays COMPLETE. Naming only the others would identify the
+  // reader as the missing one.
+  assert.match(p, /In the room: Alpha, Beta, Gamma\./);
+  const count = promptFor(testConfig({ rosterDisclosure: 'count' }));
+  assert.match(count, /There are 3 of you in the room/, 'counts the room, not the others');
+  const none = promptFor(testConfig({ rosterDisclosure: 'none' }));
+  assert.ok(!/Alpha|Beta|Gamma/.test(none.split('---')[0]));
+
+  // …and the turn nudge doesn't hand it back either.
+  const msgs = buildTurnMessages({ agent: AGENTS[0], config: testConfig(), events: [], summary: '', minutesRemaining: 5, ownJournal: '' });
+  const user = msgs[1].content;
+  assert.match(user, /\[It is now your turn\.\]/);
+  assert.ok(!/your turn, Alpha/.test(user));
+});
+
+test('the turn paragraph: no documentation voice, and doing comes before saying', () => {
+  const p = promptFor(testConfig());
+  assert.ok(!/How this works/.test(p), 'the documentation header is gone');
+  assert.ok(!/not obligated/.test(p), 'the not-obligated line is gone');
+  // Control has no bench, so there is nothing to do but talk.
+  assert.match(p, /A turn is yours to spend as you like\. What you say/);
+
+  const withBench = promptFor(testConfig({
+    search: { enabled: true, mode: 'alongside', gated: false, notice: true, maxResults: 5 },
+  }));
+  const line = /on doing something, or on saying\nsomething/;
+  assert.match(withBench, line, 'a room with a bench leads with doing');
+  assert.ok(
+    withBench.indexOf('doing something') < withBench.indexOf('everyone here hears'),
+    'saying must not come first',
+  );
 });
 
 test('journal disabled (control): the word journal never reaches the prompt', () => {

@@ -99,6 +99,11 @@ export const config: RoomConfig = {
   // session run so far); 'count'/'none' are the discovery conditions.
   rosterDisclosure: 'named',
 
+  // The room stopped telling agents their own name (Corina 2026-08-27).
+  // Sessions before that date ran 'named'; the knob makes them
+  // reproducible, and makes "do they work out who they are?" an axis.
+  selfDisclosure: 'anonymous',
+
   thinkingBroadcast: 'off', // §9.3; 'broadcast-informed'/'-uninformed' invert it
 
   // F1: 'low' = anti-starvation default (D3 amendment). Trace-rich

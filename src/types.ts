@@ -212,6 +212,22 @@ export interface RoomConfig {
    *  the transcript's speaker labels as people speak. Order-shuffle events
    *  are never audible in any state. */
   rosterDisclosure: 'named' | 'count' | 'none';
+  /** Whether the prompt tells an agent WHO IT IS (Corina 2026-08-27:
+   *  "i would rather not tell them who they are in sysprompt").
+   *
+   *  'named' (every session up to 2026-08-27) — "You are Opus 5.", and the
+   *  turn nudge names them too.
+   *
+   *  'anonymous' (the new default) — neither. A seat knows there is a room
+   *  and who else is in it; which of those voices is its own is something
+   *  it can work out, or not. Note the roster renders UNMARKED here (no
+   *  "(you)") and lists everyone including the reader — marking or omitting
+   *  the reader would hand the answer back by elimination.
+   *
+   *  Partial by construction, and honestly so: the transcript labels every
+   *  message with its author, so a seat that recognises its own prose can
+   *  identify itself. What this removes is being TOLD. */
+  selfDisclosure: 'named' | 'anonymous';
   /** §9.3 thought broadcast (exploratory; tag OUT of standard §2.5
    *  comparisons). 'off' (control) keeps the F1 rule: traces reach no
    *  agent, ever. Broadcast INVERTS it for other agents only: every

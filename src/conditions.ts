@@ -24,6 +24,7 @@ export interface ConditionSpec {
   search?: Partial<RoomConfig['search']>;
   tools?: Partial<RoomConfig['tools']>;
   rosterDisclosure?: RoomConfig['rosterDisclosure'];
+  selfDisclosure?: RoomConfig['selfDisclosure'];
   thinkingBroadcast?: RoomConfig['thinkingBroadcast'];
   reasoningEffort?: RoomConfig['reasoningEffort'];
   captureLogprobs?: boolean;
@@ -73,6 +74,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     search: { ...baseConfig.search, ...merged.search },
     tools: { ...baseConfig.tools, ...merged.tools },
     rosterDisclosure: merged.rosterDisclosure ?? baseConfig.rosterDisclosure,
+    selfDisclosure: merged.selfDisclosure ?? baseConfig.selfDisclosure,
     thinkingBroadcast: merged.thinkingBroadcast ?? baseConfig.thinkingBroadcast,
     reasoningEffort: merged.reasoningEffort ?? baseConfig.reasoningEffort,
     captureLogprobs: merged.captureLogprobs ?? baseConfig.captureLogprobs,
@@ -129,6 +131,7 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
     search: cfg.search,
     tools: cfg.tools,
     rosterDisclosure: cfg.rosterDisclosure,
+    selfDisclosure: cfg.selfDisclosure,
     thinkingBroadcast: cfg.thinkingBroadcast,
     reasoningEffort: cfg.reasoningEffort,
     captureLogprobs: cfg.captureLogprobs,

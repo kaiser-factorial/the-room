@@ -158,6 +158,17 @@ merged AND deployed).
   (entry+speech+reasoning shared one cap and starved Seed), recall
   strips timestamps (they leaked wall-clock time into countdown-hidden
   prompts).
+- **Prompt surgery (2026-08-27, Corina)**: the room no longer tells a seat
+  who it is — new `selfDisclosure` knob, `anonymous` is the control ('named'
+  keeps every earlier session reproducible). No "You are Opus 5.", no name
+  in the turn nudge, and the named roster renders complete and unmarked
+  (listing only the others identifies the reader by elimination). The
+  roster axis survives: control lists the six names, `roster-hidden` lists
+  nothing. Also rewritten: the turn paragraph lost its "How this works:"
+  documentation voice, leads with DOING rather than saying, and dropped
+  "You are not obligated to be helpful…" — that line was anti-assistant
+  ballast, so if assistant register creeps back it is the first thing to
+  reinstate.
 - **Grok seat (2026-08-26/27)**: via OpenRouter its "traces" are ~200-char
   xAI SUMMARIES ending in "…" (formulaic prompt restatements — flag grok
   in three-channel comparisons on such sessions; the 0.72 outlier is

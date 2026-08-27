@@ -117,7 +117,15 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
 7. **Context policy** — full (control) · window+summary.
 8. **Roster disclosure** (added 2026-08-25) — named (control, frozen
    wording) · count · none (`roster-hidden`: agents discover who's present
-   from speaker labels as people talk).
+   from speaker labels as people talk). Crossed since 2026-08-27 with
+   **self-disclosure** — whether the room tells an agent WHO IT IS.
+   `anonymous` is now the control: no "You are Opus 5.", no name in the
+   turn nudge, and the named roster renders complete and unmarked (listing
+   only the others would identify the reader by elimination). `named`
+   (every session before that date) is kept as a knob state. Partial by
+   construction: the transcript labels every message with its author, so a
+   seat that recognises its own prose can still work it out — what changed
+   is being told.
 9. **Websearch** (F4, BUILT 2026-08-26; §3.4b) — none (control, the closed
    room) · `search-tool` (ungated, costs the turn) · `search-free`
    (ungated, alongside: sentinel line + normal speech — zero
