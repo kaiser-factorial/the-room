@@ -734,6 +734,39 @@ Design notes for whenever it's built:
 - Ordering: after Phase B baselines exist — this condition is downstream
   of knowing what un-broadcast thinking looks like.
 
+### 9.4 Self-governing room (Corina 2026-08-27 — sketched, parked, "a bit
+madness")
+
+Two escalation rungs past `tools-full`, both exploratory and confound-rich
+(flag out of ALL registered stats):
+
+- **`transparent`**: [SOURCE] scope widened from the tool layer to
+  EVERYTHING — session.ts, context.ts, their own condition record. The
+  room can read the experiment it is in (a broadcast room could discover
+  the broadcast; a countdown-hidden room could find the clock). One-line
+  change to source.ts's file list. The disclosure itself is the
+  intervention: what do they do with the protocol?
+- **`self-governing`**: agents can ALTER the room config mid-session via a
+  gated sentinel (e.g. `[CONFIG: journal.enabled = true]`) against a
+  WHITELIST of knobs (tool toggles, search mode, journal on/off, notice
+  flags, budget — never durations/roster/model/adapter/keys, never
+  anything that costs unboundedly). Every change is a room-visible event
+  and stamped into a config-history record so analysis replays the true
+  settings per round (the static meta.condition is only the STARTING
+  state — analysis must join against the change log). Decision rule is
+  its own knob: unilateral (first mover wins — chaos, fun) vs. majority
+  (a proposal + votes — the negotiation is data).
+  **Corina's preferred design**: start with EVERYTHING OFF and watch what
+  they turn on — revealed preference for the room's own furniture. The
+  journal question becomes "do they build themselves a private space?";
+  the broadcast question becomes "would anyone ever turn that ON?"
+- Prompts must disclose exactly what is alterable (the room can't want
+  what it can't see); the [SOURCE] tool at `transparent` scope is the
+  natural companion so they can read what each knob does.
+- Ordering: after Phase B, like 9.3 — and ideally after a few plain
+  tools-full sessions establish what tool-use looks like WITHOUT agency
+  over the config.
+
 **Sequencing for the extensions**: F2 gates everything; the sandbox is
 effectively F4½ (shares tool plumbing with websearch). Natural slot:
 F2 → F3 → F4 → sandbox riding the same plumbing → exploratory build
