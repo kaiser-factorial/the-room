@@ -135,6 +135,15 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    caveat, off-switch `pythonInstall`); one tool action per seat per
    turn) · `tools-scarce` (same bench, ONE tool action per ROOM per
    round — the negotiation over the slot is the phenomenon).
+11. **Thought broadcast** (§9.3, BUILT 2026-08-27; exploratory, tagged
+   out of standard §2.5 comparisons) — off (control; F1 privacy rule
+   absolute) · `broadcast-informed` · `broadcast-uninformed`: every
+   agent's thinking is rendered into the OTHER agents' contexts alongside
+   their speech, never back into the thinker's own — everyone can read
+   Opus's mind except Opus. The pair differs only in whether the prompt
+   says so; both run trace-rich with the journal on (the only private
+   channel left). Journals stay absolute; the rolling summary never
+   carries traces.
 
 ## Measurement summary
 

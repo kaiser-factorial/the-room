@@ -300,7 +300,13 @@ caveat, `pythonInstall` off-switch), tool budget per-seat vs per-ROOM
 (a refusal never spends the room's slot). xAI direct adapter built: the
 Grok seat rides api.x.ai (full reasoning_content + logprobs) when
 XAI_API_KEY is set — the fix for OpenRouter's ~200-char Grok trace
-summaries (§2.5 caveat; per-seat adapter stamped into meta). Suite: 72.
+summaries (§2.5 caveat; per-seat adapter stamped into meta). Same
+session, **§9.3 thought broadcast BUILT**: `thinkingBroadcast`
+off/informed/uninformed, viewer-aware rendering (others' traces inline,
+never your own, never in the rolling summary), `broadcast-informed` /
+`broadcast-uninformed` conditions (trace-rich + journal, differing only
+in the disclosure line), privacy suite encodes the inversion explicitly.
+Suite: 76.
 
 Open reminders:
 - **Judge calibration labeling (Corina, deliberately deferred)** —

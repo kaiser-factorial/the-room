@@ -54,7 +54,13 @@ merged AND deployed).
   fresh pyodide per run, preloads numpy/pandas/sympy/networkx/matplotlib,
   micropip ON (agents install their own — deliberate; the installer is an
   outbound fetch channel, off-switch `pythonInstall: false`).
-- **Code quality**: 72-test suite (`npm test`), incl. the privacy
+- **Thought broadcast is BUILT (§9.3, 2026-08-27)** —
+  `broadcast-informed` / `broadcast-uninformed`: everyone reads everyone
+  else's thinking, never their own; the pair differs only in whether the
+  room is told. Trace-rich + journal (the one private channel left).
+  §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
+  built now, spent later. Tag out of standard §2.5 comparisons.
+- **Code quality**: 76-test suite (`npm test`), incl. the privacy
   invariants (journals/traces/search/run never in another agent's
   context) and analyze DETECTING planted dynamics in the voice stub.
   `ROOM_STUB=1` dry-runs everything incl. all tool paths;

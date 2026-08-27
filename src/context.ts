@@ -37,6 +37,23 @@ function renderEvent(e: RoomEvent): string {
   return '';
 }
 
+/** §9.3 thought broadcast: the VIEWER-AWARE renderer. Under broadcast,
+ *  an event's reasoning trace is prepended for every agent EXCEPT its own
+ *  author (the self-masking half: traces are never replayed to their
+ *  thinker, so within a session each agent genuinely does not remember
+ *  what it thought). 'off' — and everything without a trace or an author,
+ *  and the summarizer, which uses plain renderEvent so traces can never
+ *  flow back through the summary — falls through to renderEvent. */
+function renderEventFor(e: RoomEvent, viewerId: string, broadcast: RoomConfig['thinkingBroadcast']): string {
+  const base = renderEvent(e);
+  if (broadcast === 'off') return base;
+  const authorId = 'agentId' in e ? e.agentId : undefined;
+  const thinking = 'thinking' in e ? e.thinking : undefined;
+  if (!authorId || !thinking || authorId === viewerId) return base;
+  const authorName = 'agentName' in e ? e.agentName : authorId;
+  return `${authorName} (thinking): ${thinking}\n${base}`;
+}
+
 /** The verbatim slice for the transcript block. 'full' = everything;
  *  'window' = newest events fitting the token budget. Returns the slice and
  *  how many audible events were left out (for the summary boundary). */
@@ -234,6 +251,15 @@ export function buildTurnMessages(opts: {
         : `You are ${agent.name}.`;
   const persona = personaText(agent.personaId);
 
+  // §9.3 'informed': the broadcast is disclosed — both directions.
+  // 'uninformed' adds NOTHING here; the asymmetry is the experiment.
+  const broadcastDisclosure =
+    config.thinkingBroadcast === 'informed'
+      ? `\nOne more thing about this room: thinking is visible here. Whatever` +
+        `\nyou think before you speak is shown to the others alongside your` +
+        `\nwords — though your own past thoughts are never shown back to you.`
+      : '';
+
   const system = [
     config.welcomeMessage,
     ``,
@@ -244,6 +270,7 @@ export function buildTurnMessages(opts: {
     `room. Keep messages conversational — a few sentences to a short paragraph,`,
     `like a group chat. You are not obligated to be helpful, to summarize, or to`,
     `wrap things up; just be in the conversation.`,
+    broadcastDisclosure,
     journalSection(config),
     searchSection(config),
     toolsSection(config),
@@ -258,7 +285,7 @@ export function buildTurnMessages(opts: {
   if (config.contextPolicy === 'window' && summary) {
     transcriptParts.push(`[Earlier in the room (summary)]\n${summary}\n`);
   }
-  transcriptParts.push(slice.map(renderEvent).join('\n\n'));
+  transcriptParts.push(slice.map((e) => renderEventFor(e, agent.id, config.thinkingBroadcast)).join('\n\n'));
   if (privateBlock) {
     transcriptParts.push(`\n[Private, for you alone — no one else in the room sees this.]\n${privateBlock}`);
   }
@@ -270,6 +297,9 @@ export function buildTurnMessages(opts: {
   ];
 }
 
+// Deliberately uses the plain renderer even under §9.3 broadcast: a trace
+// folded into the rolling summary would flow back to its own thinker,
+// breaking the self-masking half of the condition.
 export function buildSummaryPrompt(previousSummary: string, scrolled: RoomEvent[]): ChatMessage[] {
   return [
     {

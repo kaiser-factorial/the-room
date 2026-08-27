@@ -1,0 +1,7 @@
+{
+  "description": "§9.3 thought broadcast, undisclosed: others see your thoughts; nobody is told. Do agents notice being read — others responding to content never said aloud — and what does the room do with the asymmetry? Same trace-rich settings and journal as broadcast-informed; the disclosure line is the ONLY difference. Tag out of standard §2.5 comparisons.",
+  "journal": { "enabled": true, "notice": true, "mode": "replace", "recall": true },
+  "thinkingBroadcast": "uninformed",
+  "reasoningEffort": "medium",
+  "maxOutputTokens": 2400
+}
