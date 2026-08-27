@@ -8,7 +8,7 @@ merged AND deployed).
 
 ## Read these, in order
 
-1. **SUMMARY.md** — abstract, control state, roster, axes (now 13),
+1. **SUMMARY.md** — abstract, control state, roster, axes (now 14),
    measurement + robustness layer. The at-a-glance spec.
 2. **EXPERIMENT_DESIGN.md** — §0 program (Phase A pilot → Phase B journal
    experiment), §2.5 three-channel (incl. the Grok-trace caveat + fix),
@@ -129,7 +129,7 @@ merged AND deployed).
   room is told. Trace-rich + journal (the one private channel left).
   §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
   built now, spent later. Tag out of standard §2.5 comparisons.
-- **Code quality**: 110-test suite (`npm test`), incl. the privacy
+- **Code quality**: 112-test suite (`npm test`), incl. the privacy
   invariants (journals/traces/search/run never in another agent's
   context — now also what an agent learns MID-turn) and analyze DETECTING
   planted dynamics in the voice stub.
@@ -182,6 +182,26 @@ merged AND deployed).
   with a named roster it can name itself by ELIMINATION once the others
   have spoken — selfDisclosure removes being told, not being able to work
   it out.
+- **Output budget fixed (2026-08-27)**: `maxOutputTokens` is the VISIBLE
+  budget now; the API cap is that plus a reasoning allowance by effort
+  (1024/2048/4096). Thinking and speech used to share one cap — replies
+  clipped mid-sentence, and the Anthropic path switched thinking off when
+  the remainder fell under the 1024 minimum, which is why control ran
+  Claude traceless (so §2.5's "5/6 seats trace" was partly OUR cap). New
+  telemetry `usage.reasoning` + `meanReasoningTokens` per seat in
+  metrics.json. **Messages will get longer** — sessions either side of
+  today are not length-comparable (§2.7's length-controlled gap is the
+  instrument). Open probe: Anthropic removed `budget_tokens` on Opus 5 (it
+  400s natively); we still send it and OpenRouter evidently translates —
+  the new telemetry will settle what's actually happening.
+- **Identity swap BUILT (§9.6, 2026-08-27)**: `identity-swap` tells Opus
+  and Grok they are each other, consistently — prompts, speaker labels and
+  every context agree, so there's no inconsistency to catch. Condition seat
+  specs can now carry `name`; `model`/`adapter`/`color` stay put, so meta
+  records who really sat where and the viewer shows "Grok 4.6" in
+  Opus-orange (a truth channel the room lacks). Pins `selfDisclosure:
+  'named'`. The question: does a name pull a voice? Read styleByAgent +
+  retentionDrift for the two seats against a control session.
 - **Grok seat (2026-08-26/27)**: via OpenRouter its "traces" are ~200-char
   xAI SUMMARIES ending in "…" (formulaic prompt restatements — flag grok
   in three-channel comparisons on such sessions; the 0.72 outlier is

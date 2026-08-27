@@ -277,6 +277,37 @@ support is uneven across OpenRouter models: an agent starts its reply with
 "*X stepped away to write in their journal*", and that agent produces no room
 message that turn. Journaling replaces speaking — it's a real trade.
 
+## Output budget vs. thinking
+
+`maxOutputTokens` is the **visible** budget. The API is asked to cap
+`maxOutputTokens + REASONING_ALLOWANCE[effort]` (1024 / 2048 / 4096 for
+low / medium / high), so a seat's reply allowance is never eaten by its own
+reasoning.
+
+It used to be the other way round: the cap covered thinking *and* speech
+together, so a reasoning model spent its 1200 tokens deciding what to say
+and got clipped mid-sentence saying it — and the Anthropic path switched
+thinking off entirely when the remainder fell under the 1024 minimum, which
+is why house/control ran Claude traceless. No provider bills only the
+post-thinking text, so an additive allowance is the only way to guarantee a
+visible floor. Effort is now the cost lever, and the prompt norm is back to
+being the length lever.
+
+Per-turn `telemetry.usage.reasoning` records how much a turn actually spent
+on thinking where the provider reports it, and `metrics.json` carries
+`meanReasoningTokens` per seat — read it beside `truncated`. **Note for
+analysis:** messages after this change run longer on average (they were
+being clipped below 1200 and can now reach it), so sessions either side of
+2026-08-27 are not length-comparable — §6.1's length-controlled gap exists
+for exactly this.
+
+Open question worth a probe: Anthropic removed `budget_tokens` on current
+models (Opus 5, 4.8, 4.7, Sonnet 5) — it 400s natively, with depth set by
+effort instead. We still send it for `anthropic/*` seats and Opus was
+observed tracing at cap 2400 through OpenRouter, so OpenRouter is
+translating rather than passing through. Harmless either way; the
+reasoning-token telemetry will say which.
+
 ## What the room says about you
 
 Two knobs decide how much a seat is told about the cast, and they cross.
@@ -331,6 +362,26 @@ which lines are its own, so with a named roster it can name itself by
 elimination once the others have spoken. Anonymity still removes being
 *told* — and its own notices avoid a name it was never given — but the
 inference is available by design.
+
+## Identity swap
+
+`conditions/identity-swap.json` tells Opus and Grok they are each other.
+The room is CONSISTENT about it: the seat everyone calls "Grok 4.6" is the
+Opus model, the seat called "Opus 5" is Grok, and prompts, speaker labels
+and every context agree — there is no inconsistency to catch. A condition's
+seat spec can now carry `name`, which overrides what the room calls a seat
+while `model`, `adapter` and `color` stay put.
+
+Two properties make it readable afterwards. `meta.condition` stamps each
+seat's real model against its seat id, so analysis always knows who was
+who; and colours track the **models**, not the names, so in the viewer
+"Grok 4.6" shows up in Opus-orange — the human watching has a truth channel
+the room doesn't. The condition pins `selfDisclosure: 'named'`, since the
+swap only exists if the room says who you are.
+
+The question: does a name pull a voice? Read `styleByAgent`,
+`retentionDrift` and the mimicry network for the two swapped seats against
+their unswapped selves in a control session.
 
 ## The countdown
 

@@ -413,6 +413,19 @@ jumps F1–F6, and both gate on F2 like everything else.
   schemas carry mechanics only, and a test pins those sentences into both
   prompts. Sentinels still parse under native; `via` on action events and
   viaNative/viaSentinel in metrics.json make the fallback rate visible.
+- **Output budget vs. thinking — FIXED 2026-08-27** (EXPERIMENT_DESIGN
+  §9.5b). `maxOutputTokens` is now the VISIBLE budget; the API cap is that
+  plus a reasoning allowance by effort (1024/2048/4096). Before, thinking
+  and speech shared one cap — replies were clipped mid-sentence, and the
+  Anthropic path switched thinking OFF when the remainder fell under 1024,
+  which is why control ran Claude traceless. New telemetry:
+  `usage.reasoning` per turn, `meanReasoningTokens` per seat. Messages get
+  longer after this — sessions either side are not length-comparable.
+- **Identity swap — BUILT 2026-08-27** (§9.6). Condition seat specs can
+  carry `name`; `identity-swap` gives the Opus model the name "Grok 4.6"
+  and vice versa, consistently across prompts, labels and every context.
+  Colours and models don't move with the name, so meta and the viewer both
+  stay truthful. Pins `selfDisclosure: 'named'`. Exploratory.
 - **Phase C. Roster generations.** Same control condition on each family's
   earliest still-served model vs. the current roster (contemporaneous
   baseline batch, per the standing roster rule — no new axis). Action item

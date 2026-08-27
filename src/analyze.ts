@@ -34,6 +34,8 @@ interface Msg {
   truncated: boolean; thinking?: string; logprobs?: number[];
   /** F4¾: model completions this turn (absent = 1, the single-call turn). */
   calls?: number;
+  /** Hidden reasoning tokens spent on this turn, where the provider says. */
+  reasoningTokens?: number;
 }
 
 /** F4¾: one tool action, the unit the agentic loop iterates on. `step` is
@@ -96,6 +98,7 @@ export function loadSession(dir: string): Session {
         round: e.round, ts: e.ts, agentId: e.agentId, agentName: e.agentName, text: e.text,
         truncated: e.telemetry?.finishReason === 'length', thinking: e.thinking,
         logprobs: e.telemetry?.logprobs, calls: e.telemetry?.calls,
+        reasoningTokens: e.telemetry?.usage?.reasoning,
       });
       if (prevTs !== null) {
         const arr = latencies.get(e.agentId) ?? [];
@@ -624,6 +627,10 @@ export async function analyzeSession(dir: string) {
         silences: s.silences.filter((x) => x.agentId === a).length,
         meanTokenLogprob: lp(mine),
         meanTokenLogprobLate: lp(mine.filter((m) => inWin(m.round, win.late))),
+        // What a turn spends on thinking, per seat (2026-08-27). Read it
+        // beside `truncated`: before the visible budget got its own room,
+        // these two numbers were competing for the same cap.
+        meanReasoningTokens: mean(s.msgs.filter((m) => m.agentId === a && m.reasoningTokens !== undefined).map((m) => m.reasoningTokens!)),
       }];
     })),
     mimicry: mimicry(s.msgs),

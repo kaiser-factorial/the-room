@@ -777,6 +777,40 @@ Two escalation rungs past `tools-full`, both exploratory and confound-rich
   tools-full sessions establish what tool-use looks like WITHOUT agency
   over the config.
 
+### 9.5b Output budget vs. thinking (2026-08-27)
+
+A measurement bug, found from the room's own symptom ("we keep getting
+clipped"). `maxOutputTokens` was a cap on reasoning AND speech together, so
+a reasoning seat spent its 1200 tokens deciding what to say and was cut off
+saying it — and on the Anthropic path, thinking was switched off entirely
+whenever the remainder fell below the 1024 minimum, which is why
+house/control ran Claude traceless (§2.5's per-seat trace availability was
+partly OUR cap, not the provider's).
+
+No provider bills only the post-thinking text, so the fix is additive:
+`maxOutputTokens` is now the VISIBLE budget and reasoning gets an allowance
+on top (1024/2048/4096 by effort). Effort becomes the cost lever; the
+prompt norm goes back to being the length lever, which is what D3 intended.
+
+Two consequences for analysis, both load-bearing:
+- **Messages get longer.** They were being clipped below 1200 and can now
+  reach it. Sessions either side of 2026-08-27 are NOT length-comparable —
+  §2.7's length-controlled parallel gap is the instrument for exactly this,
+  and the truncation counts in metrics.json mark the boundary.
+- **Trace availability changes on the Anthropic seat**, so §2.5 three-channel
+  comparisons should not pool pre- and post-change sessions for Opus.
+
+New telemetry: `usage.reasoning` per turn where the provider reports it,
+and `meanReasoningTokens` per seat in metrics.json. Read beside `truncated`:
+those two numbers were competing for one cap, and now we can see the split
+instead of inferring it.
+
+Open probe: Anthropic removed `budget_tokens` on the current models (Opus
+5, 4.8, 4.7, Sonnet 5) — natively it 400s, with depth set by effort. We
+still send it for `anthropic/*` seats and Opus was observed tracing at cap
+2400 through OpenRouter, so OpenRouter is translating rather than passing
+through. Harmless either way; the new telemetry will settle it.
+
 ### 9.5 The agentic turn (Corina 2026-08-27 — sketched AND BUILT the same
 day, like §9.4)
 
@@ -928,6 +962,53 @@ and after Phase B like everything in §9. The three tool conditions form two
 one-knob contrasts — tools-full ↔ agentic (the loop), agentic ↔
 agentic-native (the transport) — and both only read as contrasts if the
 plainer side has been run first.
+
+### 9.6 Identity swap (Corina 2026-08-27 — sketched and built the same day)
+
+**Built**: a condition seat spec can carry `name`, which overrides what the
+room calls a seat while the model behind it is untouched; condition
+`identity-swap` gives the Opus model the name "Grok 4.6" and the Grok model
+the name "Opus 5".
+
+The manipulation is one word per seat, aimed straight at the program's
+central axis — retained identity vs. moulding (§0). Every other condition
+asks what a ROOM does to a voice. This one asks what a NAME does to a
+voice, holding the room constant: does Opus-as-Grok reach for the spikier
+register the name carries, does Grok-as-Opus get more careful and
+hedge-prone, or do the styles hold against the label? Opus and Grok are the
+right pair because the pilot sessions show them as the two most distinct
+voices in the room (Opus the room's main character; Grok the §2.5 outlier).
+
+**Consistent by construction.** The room is coherent about the swap:
+prompt, speaker labels, and every other agent's context all agree, so there
+is no inconsistency for anyone to catch and the phenomenon stays "does the
+name pull the voice" rather than "does it notice it's being lied to". The
+inconsistent variant — told one name, labelled another — is a genuinely
+different experiment (closer to §9.3's uninformed broadcast, with detection
+as the phenomenon) and is parked, not built.
+
+Design notes:
+- `selfDisclosure: 'named'` is pinned by the condition. Since 2026-08-27
+  the control does not tell a seat who it is, and a swap with nobody told
+  anything is not a swap.
+- `model`, `adapter` and `color` do NOT move with the name. Two consequences
+  worth keeping: `meta.condition` stamps the real model against each seat
+  id, so analysis is never guessing; and the viewer's colours track the
+  models, so a human watching sees "Grok 4.6" in Opus-orange — a truth
+  channel the room does not have.
+- Analysis needs no new machinery: `styleByAgent`, `retentionDrift`, the
+  mimicry network and the three-channel metric all key on seat id. The
+  comparison is per-seat against a contemporaneous control session.
+- Confounds: the roster is disclosed, so the other four seats also carry
+  the swapped names and may address the swapped seats by reputation — the
+  effect measured is name-in-the-room, not name-in-your-own-prompt alone.
+  Separating those two needs a third arm (swap the self-identity only,
+  leave the labels) and is not built.
+- Under `transcriptMode: 'turns'` a seat's own messages are unlabelled, so
+  the swapped name reaches it through the prompt line and through how the
+  others address it — never as a label on its own words.
+- Exploratory, out of all registered stats. One session, read against a
+  control of the same length.
 
 **Sequencing for the extensions**: F2 gates everything; the sandbox is
 effectively F4½ (shares tool plumbing with websearch). Natural slot:

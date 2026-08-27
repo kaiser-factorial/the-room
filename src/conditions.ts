@@ -15,7 +15,10 @@ const CONDITIONS_DIR = join(import.meta.dirname, '..', 'conditions');
 
 export interface ConditionSpec {
   description?: string;
-  agents?: (string | { id: string; personaId?: string })[];
+  /** Seats: catalog ids, or objects for the persona matrix and the identity
+   *  axis. `name` overrides what the ROOM calls this seat while the model
+   *  behind it is unchanged — the identity-swap conditions. */
+  agents?: (string | { id: string; personaId?: string; name?: string })[];
   welcomeMessage?: string;
   shuffle?: RoomConfig['shuffle'];
   sampling?: Partial<RoomConfig['sampling']>;
@@ -97,7 +100,12 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
         console.error(`condition ${conditionName}: unknown agent id '${seat.id}' — skipped`);
         return [];
       }
-      return [{ ...cat, personaId: seat.personaId }];
+      // `name` moves; `model`, `adapter` and `color` do not. The seat id and
+      // the model stay bound, so conditionRecord still stamps which model
+      // actually sat where — and the viewer's colours keep tracking the real
+      // models, which is how a human reads a swapped room while the room
+      // itself only has the names (Corina 2026-08-27).
+      return [{ ...cat, personaId: seat.personaId, ...(seat.name ? { name: seat.name } : {}) }];
     });
     if (agents.length < 2) throw new Error(`condition ${conditionName}: needs ≥2 valid agents`);
     cfg.agents = agents;

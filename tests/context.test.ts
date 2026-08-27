@@ -140,6 +140,33 @@ test('turns: the wire constraints hold — opens user-side, no two turns of a ro
   assert.match(msgs[2].content, /first\n\nsecond/, 'adjacent own turns merge rather than repeat the role');
 });
 
+test('identity swap: the name moves, the model and the colour do not', async () => {
+  const { resolveCondition, conditionRecord } = await import('../src/conditions.js');
+  const cfg = resolveCondition('identity-swap');
+  const opusSeat = cfg.agents.find((a) => a.id === 'opus')!;
+  const grokSeat = cfg.agents.find((a) => a.id === 'grok')!;
+  assert.equal(opusSeat.name, 'Grok 4.6');
+  assert.equal(grokSeat.name, 'Opus 5');
+  // The model behind the seat is untouched — that is the whole experiment —
+  // and so is the colour, so the viewer can still tell who is who.
+  assert.match(opusSeat.model, /claude-opus/);
+  assert.match(grokSeat.model, /grok/);
+  assert.notEqual(opusSeat.color, grokSeat.color);
+  assert.equal(opusSeat.color, resolveCondition('control').agents.find((a) => a.id === 'opus')!.color);
+
+  // meta must record which model actually sat in each seat, or the session
+  // is unreadable afterwards.
+  const stamped = conditionRecord(cfg).agents as { id: string; model: string }[];
+  assert.match(stamped.find((a) => a.id === 'opus')!.model, /claude-opus/);
+
+  // And the room tells that seat it is Grok — the swap only exists if the
+  // room says who you are, so the condition pins selfDisclosure.
+  assert.equal(cfg.selfDisclosure, 'named');
+  const p = buildTurnMessages({ agent: opusSeat, config: cfg, events: [], summary: '', minutesRemaining: 5, ownJournal: '' })[0].content;
+  assert.match(p, /You are Grok 4\.6\./);
+  assert.ok(!/You are Opus 5\./.test(p));
+});
+
 test('journal disabled (control): the word journal never reaches the prompt', () => {
   const p = promptFor(testConfig());
   assert.ok(!/journal/i.test(p));

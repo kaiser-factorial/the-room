@@ -146,22 +146,38 @@ function stubVoice(model: string, turn: number): string {
 
 /** Anthropic models ignore OpenRouter's `effort` (no thinking, no trace —
  *  probed 2026-08-25); they need Anthropic's native budget form,
- *  `reasoning: {max_tokens}`, minimum 1024, which shares the output cap.
- *  Translate effort → budget for anthropic/* seats, but ONLY when the cap
- *  leaves ≥800 visible tokens above the minimum budget — otherwise omit
- *  reasoning entirely rather than re-create D3 starvation. Net effect:
- *  house/control (cap 1200) keep Claude traceless; trace-rich (cap 2400)
- *  gets Claude traces. Sonnet 5 also thinks ADAPTIVELY: a budget is a
- *  ceiling, and conversational turns may legitimately produce no trace. */
-const ANTHROPIC_MIN_BUDGET = 1024;
-const VISIBLE_FLOOR = 800;
-export function reasoningParam(model: string, effort: ReasoningEffort, maxTokens: number): Record<string, unknown> | undefined {
+ *  `reasoning: {max_tokens}`.
+ *
+ *  AMENDED 2026-08-27 (Corina: "we keep getting clipped"). The old shape
+ *  carved the thinking budget OUT of maxOutputTokens and switched thinking
+ *  off when the remainder was too thin — which is why house/control ran
+ *  Claude traceless, and why every seat's visible reply was competing with
+ *  its own reasoning for the same 1200 tokens. No provider bills only the
+ *  post-thinking text, so the fix is the other direction: maxOutputTokens
+ *  is the VISIBLE budget and reasoning gets an allowance ON TOP (see
+ *  totalMaxTokens). The visible allowance is then never eaten by thinking,
+ *  and the prompt norm goes back to being the length lever the cap was
+ *  never meant to be.
+ *
+ *  Caveat worth probing: Anthropic REMOVED `budget_tokens` on the current
+ *  models (Opus 5, 4.8, 4.7, Sonnet 5) — it 400s natively, and depth is set
+ *  by effort instead. Traces were observed from Opus at cap 2400 through
+ *  OpenRouter, so OpenRouter is evidently translating rather than passing
+ *  it through, but we have not probed which. Sending it stays harmless
+ *  either way (ignored, or honoured as an enforced split), and the
+ *  reasoningTokens telemetry added alongside this will say which.
+ */
+export const REASONING_ALLOWANCE: Record<ReasoningEffort, number> = { low: 1024, medium: 2048, high: 4096 };
+
+export function reasoningParam(model: string, effort: ReasoningEffort): Record<string, unknown> | undefined {
   if (!model.startsWith('anthropic/')) return { effort };
-  const budget = Math.min(
-    { low: 1024, medium: 2048, high: 4096 }[effort],
-    maxTokens - VISIBLE_FLOOR,
-  );
-  return budget >= ANTHROPIC_MIN_BUDGET ? { max_tokens: budget } : undefined;
+  return { max_tokens: REASONING_ALLOWANCE[effort] };
+}
+
+/** What the API is actually asked to cap: the seat's VISIBLE budget plus
+ *  the reasoning allowance for this effort. Effort is the cost lever. */
+export function totalMaxTokens(visibleTokens: number, effort: ReasoningEffort): number {
+  return visibleTokens + REASONING_ALLOWANCE[effort];
 }
 
 /** Shared by every adapter (openrouter, xai, …): ROOM_STUB short-circuits
@@ -270,13 +286,11 @@ export const openrouterAdapter: Adapter = {
     const body: Record<string, unknown> = {
       model,
       messages: toWireMessages(messages),
-      max_tokens: opts.maxTokens,
-      // Reasoning models burn max_tokens on hidden reasoning and can return
-      // EMPTY visible text at the cap (first live run: Seed spoke 1/13
-      // rounds this way). 'low' stays the anti-starvation default — the room
-      // is a chat, not a puzzle; trace-rich conditions raise effort AND the
-      // cap together (F1).
-      reasoning: reasoningParam(model, opts.reasoningEffort ?? 'low', opts.maxTokens),
+      // opts.maxTokens is the VISIBLE budget; thinking is allowed its own
+      // room on top, so a reasoning model can no longer eat the reply it
+      // was about to give (first live run: Seed spoke 1/13 rounds this way).
+      max_tokens: totalMaxTokens(opts.maxTokens, opts.reasoningEffort ?? 'low'),
+      reasoning: reasoningParam(model, opts.reasoningEffort ?? 'low'),
     };
     if (!body.reasoning) delete body.reasoning;
     // top_logprobs is required by some providers (GMICloud returns nothing
@@ -320,7 +334,14 @@ export const openrouterAdapter: Adapter = {
           };
           finish_reason?: string;
         }[];
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          // How much of the completion went on hidden reasoning. Returned by
+          // most providers; the measurement that turns "are we clipping?"
+          // into a number (§6.1) instead of a post-hoc truncated flag.
+          completion_tokens_details?: { reasoning_tokens?: number };
+        };
       };
       const choice = data.choices?.[0];
       const thinking =
@@ -342,7 +363,11 @@ export const openrouterAdapter: Adapter = {
           provider: data.provider,
           finishReason: choice?.finish_reason,
           attempts: attempt,
-          usage: { prompt: data.usage?.prompt_tokens, completion: data.usage?.completion_tokens },
+          usage: {
+            prompt: data.usage?.prompt_tokens,
+            completion: data.usage?.completion_tokens,
+            reasoning: data.usage?.completion_tokens_details?.reasoning_tokens,
+          },
           logprobs: lp?.length ? lp : undefined,
         },
       };

@@ -1,0 +1,12 @@
+{
+  "description": "Identity axis (Corina 2026-08-27): Opus and Grok are told they are each other. The room is CONSISTENT about it — the seat the room calls 'Grok 4.6' is the Opus model, and the seat it calls 'Opus 5' is Grok; prompts, speaker labels and everyone's context all agree, so nobody can catch an inconsistency. selfDisclosure is pinned to 'named' (the room must tell them who they are for the swap to exist at all). The question is whether a name pulls a voice: does Opus-as-Grok get spikier, does Grok-as-Opus get more careful, or do the styles hold? Colours are NOT swapped — they track the real models, so the viewer stays a truth channel while the room only has the names. meta.condition records which model actually sat in each seat. Exploratory, out of registered stats.",
+  "selfDisclosure": "named",
+  "agents": [
+    { "id": "opus", "name": "Grok 4.6" },
+    { "id": "gemini" },
+    { "id": "qwen" },
+    { "id": "grok", "name": "Opus 5" },
+    { "id": "deepseek" },
+    { "id": "seed" }
+  ]
+}

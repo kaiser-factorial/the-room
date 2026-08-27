@@ -301,7 +301,16 @@ export interface TurnTelemetry {
   provider?: string;
   finishReason?: string;
   attempts?: number;
-  usage?: { prompt?: number; completion?: number };
+  usage?: {
+    prompt?: number;
+    completion?: number;
+    /** Hidden reasoning tokens inside `completion` (F1/§6.1, added
+     *  2026-08-27). The measurement behind the visible-budget change: how
+     *  much of a turn went on thinking, per seat, instead of inferring it
+     *  from a truncated flag after the fact. Absent where the provider
+     *  doesn't report it. */
+    reasoning?: number;
+  };
   /** Chosen-token logprobs for the agent's OWN sampled tokens (§2.6):
    *  per-turn confidence/entropy, not mutual surprisal. Present only on
    *  seats whose serving provider returns logprobs (2026-08-25: Qwen via

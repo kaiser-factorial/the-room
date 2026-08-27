@@ -5,7 +5,7 @@
 // adapter on that env; without the key the seat stays on OpenRouter and the
 // summary-class caveat applies).
 
-import { readToolCalls, reasoningParam, stubSend, toWireMessages, type Adapter } from './openrouter.js';
+import { readToolCalls, reasoningParam, stubSend, toWireMessages, totalMaxTokens, type Adapter } from './openrouter.js';
 
 const API_URL = 'https://api.x.ai/v1/chat/completions';
 
@@ -19,13 +19,14 @@ export const xaiAdapter: Adapter = {
       // The catalog keeps OpenRouter-style slugs; xAI wants them bare.
       model: model.replace(/^x-ai\//, ''),
       messages: toWireMessages(messages),
-      max_tokens: opts.maxTokens,
+      // Visible budget + a reasoning allowance on top (see openrouter.ts).
+      max_tokens: totalMaxTokens(opts.maxTokens, opts.reasoningEffort ?? 'low'),
     };
     // xAI speaks the same OpenAI tool dialect (F4¾ native transport).
     if (opts.tools?.length) body.tools = opts.tools;
     // xAI's reasoning knob is `reasoning_effort` (low|high, no medium) on
     // models that support it; reuse the same effort source as OpenRouter.
-    const reasoning = reasoningParam(model, opts.reasoningEffort ?? 'low', opts.maxTokens);
+    const reasoning = reasoningParam(model, opts.reasoningEffort ?? 'low');
     if (reasoning && 'effort' in reasoning) {
       body.reasoning_effort = reasoning.effort === 'low' ? 'low' : 'high';
     }
@@ -58,7 +59,11 @@ export const xaiAdapter: Adapter = {
           };
           finish_reason?: string;
         }[];
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          completion_tokens_details?: { reasoning_tokens?: number };
+        };
       };
       const choice = data.choices?.[0];
       const lp = choice?.logprobs?.content
@@ -72,7 +77,11 @@ export const xaiAdapter: Adapter = {
           provider: 'xai-direct',
           finishReason: choice?.finish_reason,
           attempts: attempt,
-          usage: { prompt: data.usage?.prompt_tokens, completion: data.usage?.completion_tokens },
+          usage: {
+            prompt: data.usage?.prompt_tokens,
+            completion: data.usage?.completion_tokens,
+            reasoning: data.usage?.completion_tokens_details?.reasoning_tokens,
+          },
           logprobs: lp?.length ? lp : undefined,
         },
       };
