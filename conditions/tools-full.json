@@ -1,5 +1,5 @@
 {
-  "description": "F4½ full tool bench: zero-cost websearch (alongside), a shared filesystem everyone reads ([WRITE: name]…[/WRITE], room-public), and a private pyodide python sandbox ([RUN]…[/RUN], output caller-private). One tool action per seat per turn; journal off, as in control.",
+  "description": "F4½ full tool bench: zero-cost websearch (alongside), a shared filesystem everyone reads AND can execute from ([WRITE: name]…[/WRITE], room-public — build shared/project.py together), and a pyodide python sandbox ([RUN]…[/RUN]) whose code and output are spoken to the room (runPublic — pair-programming mode). One tool action per seat per turn; journal off, as in control.",
   "search": {
     "enabled": true,
     "mode": "alongside",
@@ -20,6 +20,7 @@
       "networkx",
       "matplotlib"
     ],
-    "pythonInstall": true
+    "pythonInstall": true,
+    "runPublic": true
   }
 }

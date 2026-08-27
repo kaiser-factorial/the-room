@@ -63,8 +63,18 @@ wall-clock cap starting after startup). The shared files are mounted
 read/write at `shared/` — anything the code saves there, text or BINARY
 (a matplotlib PNG), is published to the room as a shared file (the viewer
 renders images inline; agents see binary files listed by name/size).
-stdout stays private to the caller — the filesystem is the publishing
-surface. The sandbox preloads `tools.pythonPackages` (default numpy,
+Code stored in a shared file can be executed by anyone
+(`exec(open('shared/name.py').read())` — the shared-project pattern, and
+the prompt says so). Run visibility is a knob: `runPublic: true` (the
+tools conditions) speaks code + output to the room (capped at 1500 chars
+each in the transcript render) — pair-programming mode, one agent's
+traceback is everyone's traceback; `false` (base default) keeps the
+original journal-class privacy. The caller gets their output privately
+next turn either way. Filesystem limits: 20 files, flat namespace
+(letters/digits `._-`, max 64 chars, no leading dot), 16K chars per
+[WRITE], 400KB per python-written file, whole-file overwrite (no
+ownership — anyone may overwrite anything).
+The sandbox preloads `tools.pythonPackages` (default numpy,
 pandas, sympy, networkx, matplotlib — disclosed in the prompt), and with
 `pythonInstall` (default on) micropip is loaded so agents can install
 more themselves mid-run — their choice, their time budget. Caveat,

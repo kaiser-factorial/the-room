@@ -53,7 +53,11 @@ merged AND deployed).
   incl. matplotlib PNGs; the viewer renders images inline). Sandbox:
   fresh pyodide per run, preloads numpy/pandas/sympy/networkx/matplotlib,
   micropip ON (agents install their own — deliberate; the installer is an
-  outbound fetch channel, off-switch `pythonInstall: false`). Viewer:
+  outbound fetch channel, off-switch `pythonInstall: false`). Tools
+  conditions run `runPublic: true` (2026-08-27): code + output are spoken
+  to the room — the shared-project / pair-programming mode; the prompt
+  also discloses the exec-a-shared-file pattern. Base default stays
+  private (the knob preserves the journal-class variant). Viewer:
   shared-files rail (current contents per file, images inline) above the
   journals rail; search/run details behind feed chevrons.
 - **Thought broadcast is BUILT (§9.3, 2026-08-27)** —

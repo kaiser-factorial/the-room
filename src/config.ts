@@ -82,6 +82,7 @@ export const config: RoomConfig = {
     // savefig('shared/x.png') publishes a plot to the room.
     pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'],
     pythonInstall: true,
+    runPublic: false, // tools conditions flip this — shared-project mode
   },
 
   // Control keeps the original named roster (comparability with every

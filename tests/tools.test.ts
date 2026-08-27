@@ -12,7 +12,7 @@ import type { JournalConfig, RoomEvent, SearchConfig, ToolsConfig } from '../src
 
 const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } };
 const S: SearchConfig = { enabled: true, mode: 'alongside', gated: false, notice: true, maxResults: 5 };
-const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, ...over });
+const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: false, ...over });
 
 function readTranscript(dir: string): RoomEvent[] {
   return readFileSync(join(dir, 'transcript.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as RoomEvent);
@@ -111,6 +111,24 @@ test('run-published files: shared/ writes become binary shared files, listed not
   assert.match(prompt, /plot\.png \(binary file, 20 KB\)/);
 });
 
+test('runPublic: code and output are spoken to the room; caller still gets output privately', async () => {
+  const config = testConfig({ maxRounds: 1, tools: T({ runPublic: true }) });
+  const dir = await runStubSession(config, 'run');
+  const events = readTranscript(dir);
+  const runs = events.filter((e) => e.kind === 'run');
+  assert.equal(runs.length, 3);
+  for (const r of runs) assert.ok(r.kind === 'run' && r.public, 'run event not stamped public');
+  // Everyone's context carries everyone's code + output (incl. their own
+  // event's rendering — public means public).
+  for (const agent of AGENTS) {
+    const prompt = buildTurnMessages({ agent, config, events, summary: '', minutesRemaining: 3, ownJournal: '' })
+      .map((m) => m.content).join('\n');
+    assert.match(prompt, /ran code:/, `${agent.id} missing public run rendering`);
+    assert.match(prompt, /private-code/, `${agent.id} missing the code text`);
+    assert.match(prompt, /stub-python-output/, `${agent.id} missing the output`);
+  }
+});
+
 test('per-room budget: one tool action per round, losers refused inaudibly, speech still lands', async () => {
   const config = testConfig({ maxRounds: 1, tools: T({ budget: 'per-room' }) });
   const dir = await runStubSession(config, 'run');
@@ -143,7 +161,7 @@ test('per-room budget: a denied action does not spend the round slot', async () 
 test('condition presets: tools-full and tools-scarce resolve onto the base config', async () => {
   const { resolveCondition, conditionRecord } = await import('../src/conditions.js');
   const full = resolveCondition('tools-full');
-  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true });
+  assert.deepEqual(full.tools, { files: true, python: true, budget: 'per-seat', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true });
   assert.equal(full.search.mode, 'alongside');
   assert.equal(full.journal.enabled, false);
   const scarce = resolveCondition('tools-scarce');

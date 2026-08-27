@@ -101,6 +101,13 @@ export interface ToolsConfig {
    *  threat model (our own roster models on an isolated runner); flip to
    *  false for any future condition seating untrusted third-party code. */
   pythonInstall: boolean;
+  /** true = code AND output are spoken to the room (rendered into the
+   *  transcript, capped) — the shared-project mode: one agent runs
+   *  shared/project.py, everyone sees the traceback, anyone can fix it
+   *  (Corina 2026-08-27). false = the original journal-class privacy
+   *  (code/output caller-only; the room hears just the notice). The
+   *  caller gets their output privately next turn either way. */
+  runPublic: boolean;
 }
 
 export interface SamplingConfig {
@@ -226,9 +233,12 @@ export type RoomEvent =
    *  BINARY file (python-written, e.g. a matplotlib PNG): the viewer
    *  renders it, agents see it listed by name/size only. */
   | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; encoding?: 'base64'; denied?: boolean; notice: boolean; thinking?: string }
-  /** F4½ python run. `code`/`output` are caller-private (journal-class) —
-   *  never rendered into any context except the caller's private block. */
-  | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; denied?: boolean; notice: boolean; thinking?: string }
+  /** F4½ python run. Default: `code`/`output` are caller-private
+   *  (journal-class) — never rendered into any context except the
+   *  caller's private block. `public: true` (tools.runPublic, stamped at
+   *  record time) inverts that: code + output render into the transcript
+   *  for everyone (capped) — the shared-project mode. */
+  | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; public?: boolean; denied?: boolean; notice: boolean; thinking?: string }
   | { kind: 'order'; ts: string; round: number; order: string[] }
   | { kind: 'summary'; ts: string; round: number; text: string }
   | { kind: 'meta'; ts: string; round: number; payload: SessionMeta }

@@ -350,6 +350,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         const toolThinking = parsed.spoken ? undefined : thinking;
         if (roomBudgetSpent) {
           record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, denied: true, notice: config.tools.notice, thinking: toolThinking });
+          // (denied runs stay inaudible in both visibility modes)
           pendingPrivate.set(agent.id, `Your code did not run: the room's one tool action for this round was already taken.`);
         } else {
           spendRoomBudget();
@@ -360,7 +361,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             config.tools.pythonPackages,
             config.tools.pythonInstall,
           );
-          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output: res.output, notice: config.tools.notice, thinking: toolThinking });
+          record({ kind: 'run', ts: now(), round, agentId: agent.id, agentName: agent.name, code: parsed.code, output: res.output, ...(config.tools.runPublic ? { public: true } : {}), notice: config.tools.notice, thinking: toolThinking });
           // Files the code saved under shared/ are PUBLISHED to the room
           // (that's the point of the writable mount); invalid ones are
           // reported privately, never silently dropped.

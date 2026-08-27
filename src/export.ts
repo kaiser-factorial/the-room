@@ -78,6 +78,7 @@ function toEvent(r: EventRow): RoomEvent {
         kind: 'run', ...base, agentId: r.agent_id!, agentName: r.agent_name ?? r.agent_id!,
         code: (r.payload?.code as string) ?? '',
         ...(r.payload?.output ? { output: r.payload.output as string } : {}),
+        ...(r.payload?.public ? { public: true } : {}),
         ...(r.payload?.denied ? { denied: true } : {}),
         notice: Boolean(r.payload?.notice),
         ...extra,
