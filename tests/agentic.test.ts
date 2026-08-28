@@ -181,7 +181,7 @@ test('a turn\'s notices collapse into one line for everyone else', () => {
 
 test('miswritten calls: the mangles models actually make now parse instead of being spoken', async () => {
   const { parseReply } = await import('../src/parse.js');
-  const J = { enabled: false, notice: true, mode: 'replace' as const, recall: true, maxTokens: 0, pass: { enabled: false, notice: false } };
+  const J = { enabled: false, notice: true, mode: 'replace' as const, recall: true, maxTokens: 0 };
   const S = { enabled: true, mode: 'alongside' as const, gated: false, notice: true, maxResults: 5 };
   const t = T({ configurable: true });
   // Each of these used to fall through to { kind: 'message' } — i.e. the

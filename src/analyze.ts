@@ -53,7 +53,12 @@ interface Session {
   msgs: Msg[];                 // admin-dirty tail already dropped
   actions: Action[];           // F4¾ tool actions, in order
   journals: JournalEntry[];
-  silences: { round: number; agentId?: string }[];
+  /** Turns that produced no message, by KIND — declining the floor is a
+   *  choice and starving on your own reasoning is not, and the two were
+   *  being counted as one thing (when the chosen kind was counted at all:
+   *  its text reads "chose to say nothing", which the old matcher, keyed
+   *  on "said nothing", missed entirely). */
+  silences: { round: number; agentId?: string; kind: 'chosen' | 'empty' | 'error' }[];
   latencies: Map<string, number[]>;  // agentId -> seconds per turn (network-contaminated; §6.1)
   adminTouched: boolean;
   maxRound: number;
@@ -105,8 +110,9 @@ export function loadSession(dir: string): Session {
         arr.push((new Date(e.ts).getTime() - prevTs) / 1000);
         latencies.set(e.agentId, arr);
       }
-    } else if (e.kind === 'system' && /could not speak|said nothing/.test(e.text)) {
-      silences.push({ round: e.round, agentId: e.agentId });
+    } else if (e.kind === 'system' && /could not speak|said nothing|chose to say nothing/.test(e.text)) {
+      const kind = /chose to say nothing/.test(e.text) ? 'chosen' : /could not speak/.test(e.text) ? 'error' : 'empty';
+      silences.push({ round: e.round, agentId: e.agentId, kind });
     } else if (e.kind === 'search' || e.kind === 'file' || e.kind === 'run' || e.kind === 'source' || e.kind === 'config') {
       actions.push({ round: e.round, agentId: e.agentId, kind: e.kind, step: e.step, denied: 'denied' in e ? e.denied : undefined, via: e.via });
     }
@@ -591,6 +597,7 @@ export async function analyzeSession(dir: string) {
       truncated: s.msgs.filter((m) => m.truncated).length,
       journals: s.journals.length,
       silences: s.silences.length,
+      passes: s.silences.filter((x) => x.kind === 'chosen').length,
     },
     convergence: {
       intraEarly: round4n(intraEarly), intraLate: round4n(intraLate),
@@ -628,6 +635,10 @@ export async function analyzeSession(dir: string) {
         retentionDrift: styleRetention(s.msgs, a, win.late),
         meanLatencySec: round2(mean(s.latencies.get(a) ?? []) ?? 0),
         silences: s.silences.filter((x) => x.agentId === a).length,
+        // The turn-taking signal: how often this seat was offered the floor
+        // and declined it, as against turns it lost to an empty completion
+        // or a failed call.
+        passes: s.silences.filter((x) => x.agentId === a && x.kind === 'chosen').length,
         meanTokenLogprob: lp(mine),
         meanTokenLogprobLate: lp(mine.filter((m) => inWin(m.round, win.late))),
         // What a turn spends on thinking, per seat (2026-08-27). Read it

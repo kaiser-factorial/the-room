@@ -327,17 +327,57 @@ reasoning-token telemetry will say which.
 
 Two knobs decide how much a seat is told about the cast, and they cross.
 `rosterDisclosure` covers the OTHERS (`named` · `count` · `none`).
-`selfDisclosure` covers the reader: `named` (every session up to
-2026-08-27) opens with *"You are Opus 5."* and names them again in the turn
-nudge; `anonymous` (the control since) does neither, and makes the named
-roster render complete and unmarked — *"In the room: Opus 5, Gemini 3.7,
-…"* — because naming only the others would identify the reader as the
-missing one.
+`selfDisclosure` covers the reader: **`named` (the control)** opens with
+*"You are Opus 5."* and names them again in the turn nudge; `anonymous`
+does neither, and makes the named roster render complete and unmarked —
+*"In the room: Opus 5, Gemini 3.7, …"* — because naming only the others
+would identify the reader as the missing one.
 
-The anonymity is partial and deliberately so: every message in the
-transcript carries its author's name, so a seat that recognises its own
-prose can work out which voice is its. What the room no longer does is
-tell it.
+**The roster line was wrong until 2026-08-28** and it is worth knowing why.
+Under `named` it read:
+
+> You are DeepSeek V4. **The others in the room: Opus 5**, Gemini 3.7,
+> Qwen 3.8, Grok 4.6, DeepSeek V4 (you), Seed 2.1.
+
+— a sentence that says "the others" and then lists the reader among them,
+with the first seat's name straight after the colon. It was frozen that way
+"for comparability", and a seat duly reported that its system prompt had
+told it it was Opus. The list now genuinely excludes the reader. Under
+`anonymous` it must stay complete and unmarked, which is why the two modes
+render differently rather than sharing one string.
+
+Under `anonymous` the anonymity is partial and deliberately so: every
+message in the transcript carries its author's name, so a seat that
+recognises its own prose can work out which voice is its. What the room
+does not do there is tell it — and a seat that has to guess may guess
+wrong, which is the reason `named` is the control again.
+
+## Declining the floor
+
+`pass.enabled` gives every seat `[PASS]` — a bare reply that spends the
+turn on nothing. The harness still offers the floor in the usual shuffled
+order, so no seat starves and a round stays a round; whether to answer is
+theirs. `conditions/floor.json` is that axis on its own.
+
+It is **its own config now** (`pass`, not `journal.pass`). It used to be
+gated behind `journal.enabled`, so a room could not be offered the choice
+of silence without also opening the journal — two independent axes welded
+together by where the field happened to live.
+
+Two things the analysis needed and did not have:
+
+- **Attribution.** A chosen silence recorded no `agentId`, so *who*
+  declined — the entire signal — was unrecoverable.
+- **Counting.** The event text reads "chose to say nothing" while the
+  silence matcher keyed on "said nothing", so passes were not counted at
+  all. `metrics.json` now separates `passes` (declined) from `silences`
+  (which also covers an empty completion or a failed call): declining the
+  floor and starving on your own reasoning are not the same event.
+
+With `notice: false` the room is not told, but the event is still recorded
+and marked `private` — `context.ts` filters private system lines out of
+every agent's transcript, so a silent pass stays measurable without
+becoming audible.
 
 The turn paragraph was rewritten the same day (Corina). The old one opened
 *"How this works:"* — documentation about the room rather than anything

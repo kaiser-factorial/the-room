@@ -32,7 +32,7 @@ async function broadcastSession(mode: 'informed' | 'uninformed' | 'off') {
   const config = testConfig({
     maxRounds: 3,
     thinkingBroadcast: mode,
-    journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } },
+    journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0 },
   });
   // journal mixed in so the journals-stay-private half has material.
   const dir = await runStubSession(config, 'plain,journal,plain');

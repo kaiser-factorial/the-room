@@ -429,6 +429,16 @@ jumps F1–F6, and both gate on F2 like everything else.
   and vice versa, consistently across prompts, labels and every context.
   Colours and models don't move with the name, so meta and the viewer both
   stay truthful. Pins `selfDisclosure: 'named'`. Exploratory.
+- **Floor agency step 1 — BUILT 2026-08-28** (§9.7). `[PASS]` decoupled
+  from the journal into its own `pass` config + `floor` condition;
+  attribution and counting fixed (a chosen silence had no agentId and its
+  text missed the silence matcher, so it was invisible to analysis);
+  `passes` vs `silences` in metrics.json; silent passes recorded `private`
+  so they are measurable without being audible. Rungs above it (yield,
+  bidding, free-running) are sketched, not built — they change the
+  measurement unit, not just a knob.
+- **Identity line — FIXED 2026-08-28.** "The others in the room" listed the
+  reader among them; control returns to `selfDisclosure: 'named'`.
 - **Phase C. Roster generations.** Same control condition on each family's
   earliest still-served model vs. the current roster (contemporaneous
   baseline batch, per the standing roster rule — no new axis). Action item

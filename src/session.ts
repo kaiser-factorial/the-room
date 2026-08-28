@@ -530,7 +530,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         // brackets stop working. `via` records which channel was used, so
         // the fallback rate is measurable.
         const nativeCalls = nativeTools?.length ? (toolCalls ?? []) : [];
-        const parsed = parseReply(reply, j, config.search, config.tools);
+        const parsed = parseReply(reply, j, config.search, config.tools, config.pass);
 
         // ── Utterances: they end the turn where they stand ──────────────
         if (!nativeCalls.length && !isToolAction(parsed)) {
@@ -538,8 +538,14 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           // words, joined into the one message the room hears.
           const withPreamble = (text: string) => [...preamble, text].join('\n\n');
           if (parsed.kind === 'pass') {
-            if (j.pass.notice) record({ kind: 'system', ts: now(), round, text: `${agent.name} chose to say nothing.` });
-            else clog(`\n   — ${agent.name} passed (silent).`);
+            // Always recorded, always attributed — who declined the floor is
+            // the whole signal. `private` keeps a silent pass out of every
+            // agent's transcript without hiding it from analysis.
+            record({
+              kind: 'system', ts: now(), round, agentId: agent.id,
+              text: `${agent.name} chose to say nothing.`,
+              ...(config.pass.notice ? {} : { private: true }),
+            });
           } else if (parsed.kind === 'alongside') {
             // One call, one trace: attach it to the spoken message if there
             // is one, else to the journal event, so it's stored exactly once.

@@ -10,7 +10,7 @@ import { audibleEvents, buildTurnMessages } from '../src/context.js';
 import { testConfig, runStubSession, AGENTS } from './helpers.js';
 import type { JournalConfig, RoomEvent, SearchConfig } from '../src/types.js';
 
-const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } };
+const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0 };
 const S = (over: Partial<SearchConfig> = {}): SearchConfig => ({ enabled: true, mode: 'replace', gated: false, notice: true, maxResults: 5, ...over });
 
 function readTranscript(dir: string): RoomEvent[] {

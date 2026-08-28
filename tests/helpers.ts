@@ -25,7 +25,7 @@ export function testConfig(overrides: Partial<RoomConfig> = {}): RoomConfig {
     maxRounds: 3,
     interTurnDelaySeconds: 0,
     contextPolicy: 'full',
-    journal: { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } },
+    journal: { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0 },
     ...overrides,
   };
 }

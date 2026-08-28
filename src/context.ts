@@ -14,7 +14,9 @@ export function audibleEvents(events: RoomEvent[]): RoomEvent[] {
     (e) =>
       e.kind === 'message' ||
       e.kind === 'journal' ||
-      e.kind === 'system' ||
+      // A system line marked private is recorded for analysis and heard by
+      // nobody — a silent [PASS] is the case that needs it.
+      (e.kind === 'system' && !e.private) ||
       (e.kind === 'search' && e.notice && !e.denied) ||
       (e.kind === 'file' && e.notice && !e.denied) ||
       (e.kind === 'run' && e.notice && !e.denied) ||
@@ -240,14 +242,21 @@ function journalSection(config: RoomConfig): string {
         (j.notice ? ` — they only hear that you wrote.` : `, and no one is told you wrote.`),
     );
   }
-  if (j.pass.enabled) {
-    lines.push(
-      ``,
-      `If you would rather say nothing at all this turn, reply with exactly [PASS].` +
-        (j.pass.notice ? ` The room is told you chose silence.` : ` No one is told anything.`),
-    );
-  }
   return lines.join('\n');
+}
+
+/** Declining the floor — rendered whenever [PASS] is live, journal or no
+ *  journal. The wording says the turn is OFFERED and may be spent on
+ *  nothing: the harness still asks everyone, so no seat starves, but
+ *  whether to answer is theirs. */
+function passSection(config: RoomConfig): string {
+  if (!config.pass.enabled) return '';
+  return [
+    ``,
+    `You do not have to use your turn. If you would rather say nothing at all,`,
+    `reply with exactly [PASS].` +
+      (config.pass.notice ? ` The room is told you chose silence.` : ` No one is told anything.`),
+  ].join('\n');
 }
 
 /** F4¾: is the bench expressed through the native tool channel? The room
@@ -484,9 +493,14 @@ export function buildTurnMessages(opts: {
   // hand identity back by elimination, and the count line stops counting
   // from the reader outward.
   const anon = config.selfDisclosure === 'anonymous';
-  const roster = config.agents
-    .map((a) => (!anon && a.id === agent.id ? `${a.name} (you)` : a.name))
-    .join(', ');
+  // Under anonymity the list is COMPLETE and unmarked (omitting the reader
+  // would identify them by elimination). When the room does say who you
+  // are, "the others" means the others — the old wording listed the reader
+  // among them, marked "(you)", with Opus 5 first, and a seat duly reported
+  // being told it was Opus (fixed 2026-08-28).
+  const roster = anon
+    ? config.agents.map((a) => a.name).join(', ')
+    : config.agents.filter((a) => a.id !== agent.id).map((a) => a.name).join(', ');
   const identity = anon
     ? config.rosterDisclosure === 'named'
       ? `In the room: ${roster}.`
@@ -540,6 +554,7 @@ export function buildTurnMessages(opts: {
     ...turnLines,
     broadcastDisclosure,
     journalSection(config),
+    passSection(config),
     searchSection(config),
     toolsSection(config),
     governanceSection(config),

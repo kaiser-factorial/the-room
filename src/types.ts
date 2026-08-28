@@ -34,8 +34,22 @@ export interface JournalConfig {
   recall: boolean;
   /** Separate cap for journal entries (long-form variant); 0 = same as messages. */
   maxTokens: number;
-  /** [PASS] sentinel (parked variant — implemented, not on the run list). */
-  pass: { enabled: boolean; notice: boolean };
+}
+
+/** Declining the floor (moved out of JournalConfig 2026-08-28). [PASS] is
+ *  the cheapest form of turn-taking agency: the harness still OFFERS every
+ *  seat its turn, so nobody starves and the round stays a round, but
+ *  whether to spend it is theirs. It was gated behind `journal.enabled`,
+ *  which meant you could not give a room the choice of silence without
+ *  also turning the journal on — two axes welded together for no reason
+ *  beyond where the field happened to live. */
+export interface PassConfig {
+  enabled: boolean;
+  /** true = "[X chose to say nothing.]" reaches the room. false = the
+   *  choice is private; the event is still RECORDED (marked private) so
+   *  analysis can count it, and context.ts filters it out of every
+   *  agent's transcript. */
+  notice: boolean;
 }
 
 /** Websearch tool (F4, §3.4b). Condition forms sharing this config: the
@@ -202,6 +216,9 @@ export interface RoomConfig {
    *  countdown line each turn. */
   countdown: 'hidden' | 'told-once' | 'visible';
   journal: JournalConfig;
+  /** [PASS] — declining the turn. Independent of the journal since
+   *  2026-08-28. */
+  pass: PassConfig;
   search: SearchConfig;
   tools: ToolsConfig;
   /** Who the prompt says is in the room (Corina 2026-08-25). 'named' =
@@ -215,8 +232,12 @@ export interface RoomConfig {
   /** Whether the prompt tells an agent WHO IT IS (Corina 2026-08-27:
    *  "i would rather not tell them who they are in sysprompt").
    *
-   *  'named' (every session up to 2026-08-27) — "You are Opus 5.", and the
-   *  turn nudge names them too.
+   *  'named' (the control again since 2026-08-28) — "You are Opus 5.", and
+   *  the turn nudge names them too. The roster line no longer contradicts
+   *  itself: it used to read "The others in the room:" and then list the
+   *  reader among them, marked "(you)", with Opus 5 first — which is very
+   *  likely why a seat reported being told it was Opus. Under 'named' the
+   *  list now genuinely excludes the reader.
    *
    *  'anonymous' (the new default) — neither. A seat knows there is a room
    *  and who else is in it; which of those voices is its own is something
@@ -338,7 +359,10 @@ export interface TurnTelemetry {
 export type RoomEvent =
   | { kind: 'message'; ts: string; round: number; agentId: string; agentName: string; text: string; telemetry?: TurnTelemetry; thinking?: string }
   | { kind: 'journal'; ts: string; round: number; agentId: string; agentName: string; thinking?: string }
-  | { kind: 'system'; ts: string; round: number; text: string; agentId?: string; thinking?: string }
+  /** `private: true` = recorded for analysis but NOT audible to the room
+   *  (context.ts filters it). A silent [PASS] is the case that needs it:
+   *  the choice must be measurable without the room being told. */
+  | { kind: 'system'; ts: string; round: number; text: string; agentId?: string; thinking?: string; private?: boolean }
   /** F4 websearch. `query`/`results` are requester-private (journal-class):
    *  context.ts renders only the notice line, and only when `notice` is
    *  true and the search ran. Humans see everything (viewer chevron).

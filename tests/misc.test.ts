@@ -16,7 +16,8 @@ test('conditions: house = control + baseline journal, deep-merged', () => {
   const c = resolveCondition('house');
   assert.equal(c.journal.enabled, true);
   assert.equal(c.journal.mode, 'replace');
-  assert.equal(c.journal.pass.enabled, false); // untouched key survives the merge
+  assert.equal(c.journal.recall, true); // untouched key survives the merge
+  assert.equal(c.pass.enabled, false);  // pass is its own axis now
   assert.equal(c.countdown, 'hidden');
   assert.equal(c.reasoningEffort, 'low');
 });

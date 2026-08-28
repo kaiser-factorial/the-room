@@ -1022,6 +1022,66 @@ Design notes:
 - Exploratory, out of all registered stats. One session, read against a
   control of the same length.
 
+### 9.7 Turn-taking agency — the floor (Corina 2026-08-28; step 1 built)
+
+Every condition so far varies what a seat may DO on its turn. None varies
+whether it gets one, or when. The order is drawn by the harness
+(`shuffledOrder`, randomised by design — D4 controls position effects) and
+each seat speaks exactly once per round. A room where the models choose the
+order is a different kind of agency from a room where they choose their
+actions, and it is the one the seats themselves keep gesturing at.
+
+**Built now — the minimum: `[PASS]` as its own axis (`floor`).** The
+harness still offers every seat its turn in the usual order, so no seat
+starves and a round remains a round; declining is theirs. This is the
+cheapest possible floor-agency: no extra completions, no change to the
+measurement unit, and the choice is real. Three defects fixed on the way
+in: `[PASS]` was gated behind `journal.enabled` (two axes welded by field
+placement), a chosen silence recorded no agentId (the entire signal), and
+its event text did not match the silence matcher, so passes were never
+counted. metrics.json now separates `passes` from `silences`.
+
+**Not built — the rungs above it**, in rising cost:
+- **Yield.** A seat names who speaks next. Same cost as now; the
+  who-yields-to-whom graph would sit alongside the address matrix and the
+  mimicry network. Needs a fairness backstop (a seat unheard for N rounds
+  is forced in) or two seats will ping-pong while a third goes silent for
+  the session — and that backstop, the room's politics against the
+  harness's floor, is itself the interesting object.
+- **Bidding.** Every seat is asked "do you want the floor?" each turn and
+  the highest bidder speaks. The purest form and the one to resist: SIX
+  completions per utterance, most of them spent watching seats decline.
+- **Free-running.** Seats run continuously; messages land when they land.
+  Every round-keyed metric would need rebuilding.
+
+**The cost that is not code.** `windowsOf(maxRound)` measures the early and
+late windows in ROUNDS, and convergence, style, mimicry and journal rate
+all inherit that unit. A round is currently "everyone speaks once" — equal
+turns per seat, position randomised. Endogenous order breaks both: turn
+counts become unequal (which IS the phenomenon — who holds the floor) but
+per-agent style comparisons then rest on unequal samples, and position
+stops being controlled. Fixable — window by message count, weight
+per-agent statistics by turns taken — but it is a change to the
+measurement layer rather than a knob, which is why anything past `[PASS]`
+waits for Phase B.
+
+**The other half of the question (Corina).** The seats remark that their
+context is rebuilt every message rather than maintained, and they are
+right: `buildTurnMessages` reconstructs the whole prompt from the event log
+on every call. No provider offers portable server-side conversation state
+across six models, and prompt caching reuses a prefix without being
+continuity. What the room can offer is state that persists as an ARTIFACT
+rather than as re-rendered text — the journal (append-only), shared files
+(room-public), the rolling summary (persistence by compression). The gap is
+a MUTABLE per-seat scratchpad, and it is the natural companion to floor
+agency rather than a separate feature: a seat that chooses to wait has
+nowhere to hold why it is waiting, so it reconstructs itself next turn
+with no record of its own intent. Build the two together or the first one
+is hollow. (`transcriptMode: 'turns'`, shipped 2026-08-27, already changes
+the SHAPE of that complaint — the room now arrives as the seat's own
+conversation rather than a document about one. Whether the remarks soften
+is a free test of whether the objection was about framing or about state.)
+
 **Sequencing for the extensions**: F2 gates everything; the sandbox is
 effectively F4½ (shares tool plumbing with websearch). Natural slot:
 F2 → F3 → F4 → sandbox riding the same plumbing → exploratory build

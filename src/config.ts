@@ -58,8 +58,11 @@ export const config: RoomConfig = {
     mode: 'replace',
     recall: true,
     maxTokens: 0,
-    pass: { enabled: false, notice: false },
   },
+
+  // Declining the floor. Off in the control; the axis it opens (who spends
+  // a turn, and who doesn't) is the cheapest form of turn-taking agency.
+  pass: { enabled: false, notice: true },
 
   search: {
     enabled: false, // control = the closed room; search conditions enable
@@ -102,7 +105,12 @@ export const config: RoomConfig = {
   // The room stopped telling agents their own name (Corina 2026-08-27).
   // Sessions before that date ran 'named'; the knob makes them
   // reproducible, and makes "do they work out who they are?" an axis.
-  selfDisclosure: 'anonymous',
+  // Back to 'named' 2026-08-28 (Corina: "fine with telling the models who
+  // they are as long as it's correct"). Under 'anonymous' a seat that is
+  // asked who it is has to guess, and at least one guessed "Opus" — the
+  // first name in the roster line. Telling them, correctly, beats a room
+  // full of confident wrong answers.
+  selfDisclosure: 'named',
 
   // The room reaches a seat as its own conversation, not as a document
   // about a conversation (Corina 2026-08-27). Sessions before that date

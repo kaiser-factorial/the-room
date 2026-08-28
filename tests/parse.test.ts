@@ -4,8 +4,7 @@ import { parseReply } from '../src/parse.js';
 import type { JournalConfig } from '../src/types.js';
 
 const J = (over: Partial<JournalConfig> = {}): JournalConfig => ({
-  enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0,
-  pass: { enabled: true, notice: true }, ...over,
+  enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0, ...over,
 });
 
 test('sentinel table: model-mangled variants parse as intended', () => {
@@ -16,8 +15,7 @@ test('sentinel table: model-mangled variants parse as intended', () => {
     ['  [journal] lowercase, leading space', 'replace', 'journal'],
     ['A normal message', 'replace', 'message'],
     ['Mentioning [JOURNAL] mid-sentence is speech', 'replace', 'message'],
-    ['[PASS]', 'replace', 'pass'],
-    ['**[PASS]**', 'replace', 'pass'],
+    // [PASS] rows now carry their own config — see the pass tests below.
     ['[PASS] but with trailing words', 'replace', 'message'],
     ['', 'replace', 'empty'],
     ['   \n ', 'replace', 'empty'],
@@ -29,11 +27,27 @@ test('sentinel table: model-mangled variants parse as intended', () => {
 
 test('journal disabled: sentinels are just speech', () => {
   assert.equal(parseReply('[JOURNAL] not private here', J({ enabled: false })).kind, 'message');
-  assert.equal(parseReply('[PASS]', J({ enabled: false })).kind, 'message');
 });
 
 test('pass disabled: [PASS] is spoken to the room', () => {
-  assert.equal(parseReply('[PASS]', J({ pass: { enabled: false, notice: false } })).kind, 'message');
+  assert.equal(parseReply('[PASS]', J()).kind, 'message');
+  assert.equal(parseReply('[PASS]', J(), undefined, undefined, { enabled: false, notice: true }).kind, 'message');
+});
+
+test('pass sentinel table', () => {
+  const P = { enabled: true, notice: true };
+  assert.equal(parseReply('[PASS]', J(), undefined, undefined, P).kind, 'pass');
+  assert.equal(parseReply('**[PASS]**', J(), undefined, undefined, P).kind, 'pass');
+  // Trailing words mean it wasn't a bare decline — that's a message.
+  assert.equal(parseReply('[PASS] but with trailing words', J(), undefined, undefined, P).kind, 'message');
+});
+
+test('pass stands on its own: no journal required', () => {
+  // It used to be gated behind journal.enabled, so a room could not offer
+  // the choice of silence without also opening the journal — two axes
+  // welded together by where the field happened to live.
+  const p = parseReply('[PASS]', J({ enabled: false }), undefined, undefined, { enabled: true, notice: true });
+  assert.equal(p.kind, 'pass');
 });
 
 test('alongside: entry + spoken split', () => {

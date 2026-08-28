@@ -1,7 +1,7 @@
 // Reply sentinel parsing, extracted pure from session.ts so the table of
 // model-mangled sentinel variants can be tested directly.
 
-import type { JournalConfig, SearchConfig, ToolsConfig } from './types.js';
+import type { JournalConfig, PassConfig, SearchConfig, ToolsConfig } from './types.js';
 
 // Loose sentinel matches: models bold/colon these more often than not —
 // and sometimes TYPO them ([GOURNAL], live 2026-08-25: a private entry was
@@ -129,9 +129,11 @@ function unfence(reply: string): string {
   return m ? m[1] : reply;
 }
 
-export function parseReply(rawReply: string, j: JournalConfig, s?: SearchConfig, t?: ToolsConfig): ParsedReply {
+export function parseReply(rawReply: string, j: JournalConfig, s?: SearchConfig, t?: ToolsConfig, p?: PassConfig): ParsedReply {
   const reply = unfence(rawReply);
-  if (j.enabled && j.pass.enabled && PASS_RE.test(reply)) return { kind: 'pass' };
+  // Declining the floor stands on its own: it used to require the journal
+  // to be enabled, which welded two independent axes together.
+  if (p?.enabled && PASS_RE.test(reply)) return { kind: 'pass' };
   const open = j.enabled ? reply.match(JOURNAL_OPEN_RE) : null;
   const opened = open && isJournalToken(open[1]);
   if (opened && j.mode === 'alongside') {

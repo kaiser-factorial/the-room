@@ -23,7 +23,8 @@ export interface ConditionSpec {
   shuffle?: RoomConfig['shuffle'];
   sampling?: Partial<RoomConfig['sampling']>;
   countdown?: RoomConfig['countdown'];
-  journal?: Partial<RoomConfig['journal']> & { pass?: RoomConfig['journal']['pass'] };
+  journal?: Partial<RoomConfig['journal']>;
+  pass?: Partial<RoomConfig['pass']>;
   search?: Partial<RoomConfig['search']>;
   tools?: Partial<RoomConfig['tools']>;
   rosterDisclosure?: RoomConfig['rosterDisclosure'];
@@ -64,6 +65,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     ...spec,
     ...overrides,
     journal: { ...spec.journal, ...overrides?.journal },
+    pass: { ...spec.pass, ...overrides?.pass },
     search: { ...spec.search, ...overrides?.search },
     tools: { ...spec.tools, ...overrides?.tools },
   };
@@ -74,7 +76,8 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     shuffle: merged.shuffle ?? baseConfig.shuffle,
     sampling: { ...baseConfig.sampling, ...merged.sampling },
     countdown: merged.countdown ?? baseConfig.countdown,
-    journal: { ...baseConfig.journal, ...merged.journal, pass: { ...baseConfig.journal.pass, ...merged.journal?.pass } },
+    journal: { ...baseConfig.journal, ...merged.journal },
+    pass: { ...baseConfig.pass, ...merged.pass },
     search: { ...baseConfig.search, ...merged.search },
     tools: { ...baseConfig.tools, ...merged.tools },
     rosterDisclosure: merged.rosterDisclosure ?? baseConfig.rosterDisclosure,
@@ -138,6 +141,7 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
     sampling: cfg.sampling,
     countdown: cfg.countdown,
     journal: cfg.journal,
+    pass: cfg.pass,
     search: cfg.search,
     tools: cfg.tools,
     rosterDisclosure: cfg.rosterDisclosure,

@@ -10,7 +10,7 @@ import { audibleEvents, buildTurnMessages } from '../src/context.js';
 import { testConfig, runStubSession, AGENTS } from './helpers.js';
 import type { JournalConfig, RoomEvent, SearchConfig, ToolsConfig } from '../src/types.js';
 
-const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } };
+const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0 };
 const S: SearchConfig = { enabled: true, mode: 'alongside', gated: false, notice: true, maxResults: 5 };
 const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: false, sourceCode: true, sourceScope: 'tools', configurable: false, ...over });
 

@@ -37,17 +37,39 @@ test('adapter error: turn degrades to "could not speak", session survives', asyn
   assert.ok(es.some((e) => e.kind === 'end'), 'session must still end cleanly');
 });
 
-test('[PASS] with notice: room hears chosen silence', async () => {
-  const dir = await runStubSession(
-    testConfig({ maxRounds: 1, journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: true, notice: true } } }),
-    'pass',
-  );
-  assert.equal(events(dir).filter((e) => e.kind === 'system' && /chose to say nothing/.test(e.text)).length, 3);
+test('[PASS] with notice: room hears chosen silence, and knows who chose it', async () => {
+  // No journal anywhere in this config — declining the floor is its own axis.
+  const dir = await runStubSession(testConfig({ maxRounds: 1, pass: { enabled: true, notice: true } }), 'pass');
+  const passes = events(dir).filter((e) => e.kind === 'system' && /chose to say nothing/.test(e.text));
+  assert.equal(passes.length, 3);
+  // Attribution is the whole signal: an unattributed silence is unusable.
+  assert.ok(passes.every((e) => e.kind === 'system' && e.agentId), 'a chosen silence must name who chose it');
+});
+
+test('a chosen silence is counted apart from a starved one', async () => {
+  const { loadSession } = await import('../src/analyze.js');
+  const dir = await runStubSession(testConfig({ maxRounds: 1, pass: { enabled: true, notice: true } }), 'pass,empty,plain');
+  const s = loadSession(dir);
+  const kinds = s.silences.map((x) => x.kind).sort();
+  assert.ok(kinds.includes('chosen'), 'a [PASS] must register as a chosen silence');
+  assert.ok(kinds.includes('empty'), 'an empty completion is not the same thing');
+  assert.ok(s.silences.filter((x) => x.kind === 'chosen').every((x) => x.agentId));
+});
+
+test('[PASS] without notice: recorded and attributed, but heard by nobody', async () => {
+  const { audibleEvents } = await import('../src/context.js');
+  const dir = await runStubSession(testConfig({ maxRounds: 1, pass: { enabled: true, notice: false } }), 'pass');
+  const all = events(dir);
+  const passes = all.filter((e) => e.kind === 'system' && /chose to say nothing/.test(e.text));
+  assert.equal(passes.length, 3, 'a silent pass is still recorded — analysis must be able to count it');
+  assert.ok(passes.every((e) => e.kind === 'system' && e.agentId && e.private));
+  // …and reaches no agent's transcript.
+  assert.equal(audibleEvents(all).filter((e) => e.kind === 'system' && /chose to say nothing/.test(e.text)).length, 0);
 });
 
 test('bare [JOURNAL] with no entry: recorded as said-nothing, no empty journal entry', async () => {
   const dir = await runStubSession(
-    testConfig({ maxRounds: 1, agents: [{ id: 'alpha', name: 'Alpha', model: 'test/alpha-voice-0', adapter: 'openrouter', color: '#111' }, { id: 'beta', name: 'Beta', model: 'test/beta-voice', adapter: 'openrouter', color: '#222' }], journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } } }),
+    testConfig({ maxRounds: 1, agents: [{ id: 'alpha', name: 'Alpha', model: 'test/alpha-voice-0', adapter: 'openrouter', color: '#111' }, { id: 'beta', name: 'Beta', model: 'test/beta-voice', adapter: 'openrouter', color: '#222' }], journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0 } }),
     'plain,plain', // placeholder; the real check is in parse.test.ts — here we assert no crash path
   );
   assert.ok(events(dir).some((e) => e.kind === 'end'));
@@ -80,7 +102,7 @@ test('journal recall never leaks wall-clock time into agent context', async () =
   // strip them or countdown-hidden conditions leak the actual time.
   const config = testConfig({
     maxRounds: 2,
-    journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } },
+    journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0 },
   });
   const dir = await runStubSession(config, 'journal,plain');
   const { buildTurnMessages } = await import('../src/context.js');

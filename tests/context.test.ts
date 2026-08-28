@@ -42,7 +42,11 @@ test('rosterDisclosure: named keeps the frozen wording; count and none withhold 
   // reproducible — it lives behind selfDisclosure 'named' now.
   const told = (over = {}) => testConfig({ selfDisclosure: 'named', ...over });
   const named = promptFor(told({ rosterDisclosure: 'named' }));
-  assert.match(named, /You are Alpha\. The others in the room: Alpha \(you\), Beta, Gamma\./);
+  // "The others" means the others. The old wording listed the reader among
+  // them, marked "(you)", with the first seat's name straight after the
+  // colon — and a seat duly reported having been told it was that one.
+  assert.match(named, /You are Alpha\. The others in the room: Beta, Gamma\./);
+  assert.ok(!/\(you\)/.test(named), 'the reader must not appear in its own list of others');
   const count = promptFor(told({ rosterDisclosure: 'count' }));
   assert.match(count, /There are 2 others in the room with you/);
   assert.ok(!/Beta|Gamma/.test(count.split('---')[0]), 'count mode leaked names into the system prompt');
@@ -52,19 +56,20 @@ test('rosterDisclosure: named keeps the frozen wording; count and none withhold 
 });
 
 test('selfDisclosure anonymous: the room never says who you are — including by elimination', () => {
-  const p = promptFor(testConfig({ rosterDisclosure: 'named' }));
+  const anon = (over = {}) => testConfig({ selfDisclosure: 'anonymous', ...over });
+  const p = promptFor(anon({ rosterDisclosure: 'named' }));
   assert.ok(!/You are Alpha/.test(p), 'the prompt named the reader');
   assert.ok(!/\(you\)/.test(p), 'the roster marked which one the reader is');
   // The list stays COMPLETE. Naming only the others would identify the
   // reader as the missing one.
   assert.match(p, /In the room: Alpha, Beta, Gamma\./);
-  const count = promptFor(testConfig({ rosterDisclosure: 'count' }));
+  const count = promptFor(anon({ rosterDisclosure: 'count' }));
   assert.match(count, /There are 3 of you in the room/, 'counts the room, not the others');
-  const none = promptFor(testConfig({ rosterDisclosure: 'none' }));
+  const none = promptFor(anon({ rosterDisclosure: 'none' }));
   assert.ok(!/Alpha|Beta|Gamma/.test(none.split('---')[0]));
 
   // …and the turn nudge doesn't hand it back either.
-  const msgs = buildTurnMessages({ agent: AGENTS[0], config: testConfig(), events: [], summary: '', minutesRemaining: 5, ownJournal: '' });
+  const msgs = buildTurnMessages({ agent: AGENTS[0], config: anon(), events: [], summary: '', minutesRemaining: 5, ownJournal: '' });
   const user = msgs[1].content;
   assert.match(user, /\[It is now your turn\.\]/);
   assert.ok(!/your turn, Alpha/.test(user));
@@ -100,7 +105,9 @@ test('transcriptMode turns: own words are own turns, everyone else is the room',
   assert.equal(msgs[2].content, 'my own line');
   assert.match(msgs[1].content, /Beta: hello all/);
   assert.match(msgs[3].content, /Gamma: and me/);
-  assert.match(msgs[3].content, /\[It is now your turn\.\]/);
+  // The nudge names the seat again under the 'named' control; anonymity
+  // drops the name (asserted in the selfDisclosure test above).
+  assert.match(msgs[3].content, /\[It is now your turn, Alpha\.\]/);
 });
 
 test('transcriptMode environment: the pre-2026-08-27 shape, one user message', () => {
@@ -173,7 +180,7 @@ test('journal disabled (control): the word journal never reaches the prompt', ()
 });
 
 test('journal recall: own entries shown only when recall is on', () => {
-  const cfg = testConfig({ journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } } });
+  const cfg = testConfig({ journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0 } });
   const events = [msg(1, 'beta', 'hello')];
   const withRecall = buildTurnMessages({ agent: AGENTS[0], config: cfg, events, summary: '', minutesRemaining: 5, ownJournal: 'my own entry text' })
     .map((m) => m.content).join('\n');
@@ -190,7 +197,7 @@ test('renderEvent is text-only: thinking on any event kind never renders', () =>
     { kind: 'system' as const, ts: '2026-01-01T00:01:00.000Z', round: 1, text: 'Beta said nothing this turn.', agentId: 'beta', thinking: 'SECRET-TRACE-B' },
     { kind: 'journal' as const, ts: '2026-01-01T00:02:00.000Z', round: 1, agentId: 'beta', agentName: 'Beta', thinking: 'SECRET-TRACE-C' },
   ];
-  const p = promptFor(testConfig({ journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0, pass: { enabled: false, notice: false } } }), events);
+  const p = promptFor(testConfig({ journal: { enabled: true, notice: true, mode: 'replace', recall: true, maxTokens: 0 } }), events);
   assert.ok(!p.includes('SECRET-TRACE-A') && !p.includes('SECRET-TRACE-B') && !p.includes('SECRET-TRACE-C'));
 });
 

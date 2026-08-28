@@ -136,7 +136,7 @@ follow-up it left).
   room is told. Trace-rich + journal (the one private channel left).
   §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
   built now, spent later. Tag out of standard §2.5 comparisons.
-- **Code quality**: 114-test suite (`npm test`), typechecked including tests/ since 2026-08-27, incl. the privacy
+- **Code quality**: 118-test suite (`npm test`), typechecked including tests/ since 2026-08-27, incl. the privacy
   invariants (journals/traces/search/run never in another agent's
   context — now also what an agent learns MID-turn) and analyze DETECTING
   planted dynamics in the voice stub.
@@ -174,9 +174,19 @@ follow-up it left).
   (entry+speech+reasoning shared one cap and starved Seed), recall
   strips timestamps (they leaked wall-clock time into countdown-hidden
   prompts).
-- **Prompt surgery (2026-08-27, Corina)**: the room no longer tells a seat
-  who it is — new `selfDisclosure` knob, `anonymous` is the control ('named'
-  keeps every earlier session reproducible). No "You are Opus 5.", no name
+- **Identity line FIXED + control back to `named` (2026-08-28)**: a seat
+  reported that its system prompt had told it it was Opus. Rendering was
+  checked for all six seats in every mode and is correct per-seat — the
+  fault was the wording itself, frozen since August: "You are DeepSeek V4.
+  The others in the room: Opus 5, …, DeepSeek V4 (you), …" says "the
+  others" and then lists the reader among them, with Opus first. Under
+  `named` the list now excludes the reader; under `anonymous` it stays
+  complete and unmarked (omitting the reader identifies them by
+  elimination). Control is `named` again — Corina: "fine with telling the
+  models who they are as long as it's correct", and under anonymity a seat
+  that is asked who it is has to guess.
+- **Prompt surgery (2026-08-27, Corina)**: the `selfDisclosure` knob
+  ('anonymous' available, no longer the control). No "You are Opus 5.", no name
   in the turn nudge, and the named roster renders complete and unmarked
   (listing only the others identifies the reader by elimination). The
   roster axis survives: control lists the six names, `roster-hidden` lists
@@ -218,6 +228,15 @@ follow-up it left).
   Opus-orange (a truth channel the room lacks). Pins `selfDisclosure:
   'named'`. The question: does a name pull a voice? Read styleByAgent +
   retentionDrift for the two seats against a control session.
+- **Floor agency, step 1 (2026-08-28, §9.7)**: `[PASS]` is its own axis
+  (`pass`, not `journal.pass`) and the `floor` condition turns it on — the
+  harness still offers every seat its turn, spending it is optional. It was
+  gated behind `journal.enabled`, a chosen silence recorded no agentId, and
+  its event text missed the silence matcher entirely, so passes were
+  neither attributable nor counted. metrics.json now separates `passes`
+  from `silences`. A silent pass (`notice: false`) is recorded `private` —
+  measurable, inaudible. §9.7 sketches the rungs above it (yield, bidding,
+  free-running) and why they wait: the round is the measurement unit.
 - **Grok seat (2026-08-26/27)**: via OpenRouter its "traces" are ~200-char
   xAI SUMMARIES ending in "…" (formulaic prompt restatements — flag grok
   in three-channel comparisons on such sessions; the 0.72 outlier is

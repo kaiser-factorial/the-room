@@ -1,0 +1,4 @@
+{
+  "description": "Turn-taking agency, minimum form (2026-08-28): the harness still OFFERS every seat its turn in the usual shuffled order — so nobody starves and a round stays a round — but a seat may decline it with [PASS], and the room is told who chose silence. The cheapest way to make speaking a choice rather than a schedule. Journal off, as in control: [PASS] is its own axis now, not a journal feature. Read `passes` per seat in metrics.json against `silences`: declining is not the same event as starving on your own reasoning.",
+  "pass": { "enabled": true, "notice": true }
+}
