@@ -11,7 +11,7 @@ import { listConditions } from './conditions.js';
 const entries = [
   {
     name: 'control',
-    description: 'The base state — every knob at its SUMMARY.md control value (no journal, hidden countdown, named roster, full context, effort low, cap 1200). Every other condition is diffs on top of this.',
+    description: 'The base state — every knob at its SUMMARY.md control value: no journal, no tools, hidden countdown, named roster but NO self-disclosure (the room never says which of the six you are), the transcript as your own turns, full context, effort low, and a 1200-token VISIBLE cap with reasoning allowed on top. Every other condition is diffs on top of this.',
     overrides: {},
   },
   ...listConditions().map((name) => {

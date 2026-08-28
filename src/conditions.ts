@@ -15,7 +15,10 @@ const CONDITIONS_DIR = join(import.meta.dirname, '..', 'conditions');
 
 export interface ConditionSpec {
   description?: string;
-  agents?: (string | { id: string; personaId?: string })[];
+  /** Seats: catalog ids, or objects for the persona matrix and the identity
+   *  axis. `name` overrides what the ROOM calls this seat while the model
+   *  behind it is unchanged — the identity-swap conditions. */
+  agents?: (string | { id: string; personaId?: string; name?: string })[];
   welcomeMessage?: string;
   shuffle?: RoomConfig['shuffle'];
   sampling?: Partial<RoomConfig['sampling']>;
@@ -24,6 +27,8 @@ export interface ConditionSpec {
   search?: Partial<RoomConfig['search']>;
   tools?: Partial<RoomConfig['tools']>;
   rosterDisclosure?: RoomConfig['rosterDisclosure'];
+  selfDisclosure?: RoomConfig['selfDisclosure'];
+  transcriptMode?: RoomConfig['transcriptMode'];
   thinkingBroadcast?: RoomConfig['thinkingBroadcast'];
   reasoningEffort?: RoomConfig['reasoningEffort'];
   captureLogprobs?: boolean;
@@ -73,6 +78,8 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     search: { ...baseConfig.search, ...merged.search },
     tools: { ...baseConfig.tools, ...merged.tools },
     rosterDisclosure: merged.rosterDisclosure ?? baseConfig.rosterDisclosure,
+    selfDisclosure: merged.selfDisclosure ?? baseConfig.selfDisclosure,
+    transcriptMode: merged.transcriptMode ?? baseConfig.transcriptMode,
     thinkingBroadcast: merged.thinkingBroadcast ?? baseConfig.thinkingBroadcast,
     reasoningEffort: merged.reasoningEffort ?? baseConfig.reasoningEffort,
     captureLogprobs: merged.captureLogprobs ?? baseConfig.captureLogprobs,
@@ -93,7 +100,12 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
         console.error(`condition ${conditionName}: unknown agent id '${seat.id}' — skipped`);
         return [];
       }
-      return [{ ...cat, personaId: seat.personaId }];
+      // `name` moves; `model`, `adapter` and `color` do not. The seat id and
+      // the model stay bound, so conditionRecord still stamps which model
+      // actually sat where — and the viewer's colours keep tracking the real
+      // models, which is how a human reads a swapped room while the room
+      // itself only has the names (Corina 2026-08-27).
+      return [{ ...cat, personaId: seat.personaId, ...(seat.name ? { name: seat.name } : {}) }];
     });
     if (agents.length < 2) throw new Error(`condition ${conditionName}: needs ≥2 valid agents`);
     cfg.agents = agents;
@@ -129,6 +141,8 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
     search: cfg.search,
     tools: cfg.tools,
     rosterDisclosure: cfg.rosterDisclosure,
+    selfDisclosure: cfg.selfDisclosure,
+    transcriptMode: cfg.transcriptMode,
     thinkingBroadcast: cfg.thinkingBroadcast,
     reasoningEffort: cfg.reasoningEffort,
     captureLogprobs: cfg.captureLogprobs,

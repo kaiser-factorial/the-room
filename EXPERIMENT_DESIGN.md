@@ -128,11 +128,14 @@ Caveats to log per session:
   2026-08-25 (live shakedown + probes): 5/6 core seats return traces via
   OpenRouter at effort low (Gemini, Qwen, Grok, DeepSeek, Seed).
   Anthropic seats ignore OpenRouter's `effort` — they need the native
-  budget form `reasoning: {max_tokens ≥ 1024}`, which the adapter now
-  sends for anthropic/* WHEN the output cap affords it (so house/control
-  at cap 1200 keep Claude traceless — the budget would re-create D3
-  starvation — while trace-rich at cap 2400 enables it; Opus 5 traces
-  richly there). Second wrinkle: Sonnet 5 thinks ADAPTIVELY — even with a
+  budget form `reasoning: {max_tokens ≥ 1024}`, which the adapter sends
+  for anthropic/* seats. **Amended 2026-08-27 (§9.5b):** it used to send
+  that budget only when the output cap could spare it, so house/control at
+  cap 1200 kept Claude TRACELESS — that gap was our own cap, not the
+  provider's. The cap is now the visible budget with reasoning allowed on
+  top, so the Anthropic seat gets its budget at every cap and the earlier
+  "Claude traces only under trace-rich" finding no longer holds. Do not
+  pool pre- and post-2026-08-27 sessions for that seat's thinking channel. Second wrinkle: Sonnet 5 thinks ADAPTIVELY — even with a
   budget it produced zero thinking on conversational room-style prompts
   and traced only on genuinely hard ones. Sonnet's thinking channel in
   chat sessions is therefore sparse-to-empty BY THE MODEL'S OWN CHOICE;
@@ -776,6 +779,248 @@ Two escalation rungs past `tools-full`, both exploratory and confound-rich
 - Ordering: after Phase B, like 9.3 — and ideally after a few plain
   tools-full sessions establish what tool-use looks like WITHOUT agency
   over the config.
+
+### 9.5b Output budget vs. thinking (2026-08-27)
+
+A measurement bug, found from the room's own symptom ("we keep getting
+clipped"). `maxOutputTokens` was a cap on reasoning AND speech together, so
+a reasoning seat spent its 1200 tokens deciding what to say and was cut off
+saying it — and on the Anthropic path, thinking was switched off entirely
+whenever the remainder fell below the 1024 minimum, which is why
+house/control ran Claude traceless (§2.5's per-seat trace availability was
+partly OUR cap, not the provider's).
+
+No provider bills only the post-thinking text, so the fix is additive:
+`maxOutputTokens` is now the VISIBLE budget and reasoning gets an allowance
+on top (1024/2048/4096 by effort). Effort becomes the cost lever; the
+prompt norm goes back to being the length lever, which is what D3 intended.
+
+Two consequences for analysis, both load-bearing:
+- **Messages get longer.** They were being clipped below 1200 and can now
+  reach it. Sessions either side of 2026-08-27 are NOT length-comparable —
+  §2.7's length-controlled parallel gap is the instrument for exactly this,
+  and the truncation counts in metrics.json mark the boundary.
+- **Trace availability changes on the Anthropic seat**, so §2.5 three-channel
+  comparisons should not pool pre- and post-change sessions for Opus.
+
+New telemetry: `usage.reasoning` per turn where the provider reports it,
+and `meanReasoningTokens` per seat in metrics.json. Read beside `truncated`:
+those two numbers were competing for one cap, and now we can see the split
+instead of inferring it.
+
+Open probe: Anthropic removed `budget_tokens` on the current models (Opus
+5, 4.8, 4.7, Sonnet 5) — natively it 400s, with depth set by effort. We
+still send it for `anthropic/*` seats and Opus was observed tracing at cap
+2400 through OpenRouter, so OpenRouter is translating rather than passing
+through. Harmless either way; the new telemetry will settle it.
+
+### 9.5 The agentic turn (Corina 2026-08-27 — sketched AND BUILT the same
+day, like §9.4)
+
+**Built**: `tools.turnSteps` (base 1; `agentic` = the tools-full bench at
+4), the turn loop in session.ts, the refusal schema in agentic.ts, `step`
+on every action event and `telemetry.calls` on the turn's message.
+
+The question the tool conditions could not ask. Through F4½ a turn is one
+completion: a seat takes at most one action and its result arrives at the
+start of its NEXT turn, two or three other speakers later. That prices
+every tool use as a bet about what will still be relevant in two minutes,
+and makes iteration impossible by construction — a traceback costs a full
+round-trip to fix, and a search can never inform the sentence it was run
+for. What the room has under F4½ is tool ACCESS. What it does not have is
+agency over a piece of work.
+
+`turnSteps > 1` inverts that: the observation comes straight back inside
+the turn, the prompt is rebuilt from live room state (a file written at
+step 1 is in the prompt at step 2), and the seat decides what to do next
+— search, read it, run code on it, read the error, fix it, then speak.
+
+**The rule that keeps it measurable: speaking ends the turn.** Actions
+iterate freely; utterance is the thing a turn costs. A reply with any
+spoken text is the last thing an agent does in that turn, so the room
+still hears at most one message per seat per turn — the unit every
+convergence, mimicry, address and three-channel metric is built on. Had
+we let a looping seat speak repeatedly, every registered statistic would
+have needed a new denominator. A turn spent entirely on actions says
+nothing at all, and the prompt tells them that is a fine way to spend one.
+
+Design notes, and the two harnesses this is adapted from (both Corina's):
+- **joint-session's `runToolLoop`** (multi-model): the loop, not the
+  transport, owns termination; a hard round cap is a backstop, not a
+  request in the prompt. Ours: `turnSteps` actions, then refusals, then a
+  `turnSteps + 3` call cap. Its dead-turn retry has an analogue already —
+  an empty reply records "said nothing this turn" and ends the turn.
+- **scatter-lab's analysisPlan/validators** (validation schema): refusals
+  as MACHINE-READABLE observations — a code, what failed, the imperative
+  fix, the legal options — plus a revision cap enforced in code rather
+  than asked for in prose. Ours: `[bad_file_name] … Fix: … Available: …`,
+  and two refusals end the turn. Its oracle rule carries over verbatim
+  and matters more here than there: a refusal must never confirm what the
+  room's condition conceals.
+- Refusals never spend a step or the room's per-round slot; `[SOURCE]`
+  and `[CONFIG]` stay free of the tool budget but DO cost a step, or a
+  seat could read source forever inside one turn.
+- `budget: 'per-room'` pins the effective value to 1. tools-scarce is
+  about negotiating the room's single action; a loop would hand the whole
+  round to whoever moved first, which is a different experiment.
+- The room's perception of a working turn is deliberately compressed:
+  consecutive notice-only actions from one seat render as ONE line in
+  everyone else's context ("[Alpha looked something up, ran some code,
+  then updated the shared file "plot.py".]"). Five other contexts must not
+  carry four notice lines per working turn. Note the asymmetry when
+  reading transcripts: the room saw less activity than happened, and
+  under `runPublic` (which the agentic condition keeps ON) it saw the code
+  and output of every run in full.
+
+Confounds and costs — all reasons this is exploratory and tagged OUT of
+every registered statistic:
+- **Cost**: up to `turnSteps + 1` completions per turn. An agentic
+  session is ~2–4× a tools-full session at the same length.
+- **Wall-clock asymmetry**: a looping seat's turn takes longer, so under
+  a fixed duration an agentic room gets FEWER rounds, and seats that use
+  the loop heavily consume more of the session than seats that don't.
+  Never compare an agentic session's round count to a tools-full one's;
+  compare within-session and per-turn.
+- **Countdown interaction**: with `countdown: 'visible'` a working turn
+  visibly eats the clock. Keep the countdown hidden here unless the
+  interaction is the point.
+- **Context growth**: unchanged for other seats (one collapsed notice
+  line) but the ACTING seat's own turn carries its whole chain.
+
+Measurement handles, none registered: actions per turn and chain-length
+distribution (from `step`), the share of turns that are silent working
+turns (a `system` "said nothing" line with tool events in the same round),
+completions per turn (`telemetry.calls`), and the interesting one — does
+speech that arrives AFTER a chain of actions look different (more
+grounded, more concrete, more citing) than speech in a single-step room?
+That is the tools-full ↔ agentic contrast: same bench, one knob.
+
+**The transport arm (added the same day, `agentic-native`).** Through F4½
+an action is expressed by writing a bracket, and the parser decides whether
+that was a call. It fails in one direction only: a sentinel the parser
+doesn't recognise is not treated as a failed call, it is SPOKEN to the room
+as prose, and its author learns nothing. Measured against the parser on
+2026-08-27, six shapes models actually produce fell through that way (a
+typo'd token, a missing colon, a wrapping code fence, an over-long file
+name, a sentinel after prose, a sentinel mid-sentence). Four are now
+tolerated; one is correctly left as speech; one — prose BEFORE the
+sentinel — cannot be fixed at that layer without a rule about where a
+bracket may sit, which is a rule about how an agent must write rather than
+what it may do.
+
+`tools.transport: 'native'` removes the guess. The bench is also declared
+as OpenAI-format tool definitions and the model returns structured calls:
+malforming one into speech is not expressible, prose and action can share a
+completion, and bad arguments come back as readable refusals. This is
+joint-session's answer to the same problem — its skills.ts replaced that
+project's regex text-triggers for exactly this reason — and the cost it
+paid there (only tool-capable models can be rostered) is zero here: all six
+seats advertise `tools` on OpenRouter as of 2026-08-27.
+
+**The framing question, which is the actual design content.** Tool
+definitions are not a neutral pipe. They are the channel every model is
+post-trained on for "you are an assistant, here are your tools, complete
+the task" — the single strongest assistant-mode prior available, and the
+one this room exists to exclude (the frozen D4 welcome: there is no task
+and no facilitator). The journal precedent is the evidence: the 2026-08-25
+wording amendment exists because framing the journal like a reply template
+made a seat use it every single turn. Same capability, different frame,
+different behaviour.
+
+So the transport moves and the framing does not (Corina 2026-08-27, "let's
+keep furniture phrasing"). Under `native` the system prompt still describes
+the bench as furniture, in the room's voice — "There is a small shared
+filesystem in the room — files everyone can read", "any file your code
+saves there is published to the room as a shared file" — and only the
+syntax lines drop out. The schemas carry mechanics: argument names, caps,
+what comes back. The rule of thumb: anything about who SEES a thing stays
+upstairs in the prompt, because that is what makes the filesystem a social
+object rather than a scratchpad. A test pins the furniture sentences into
+both prompts so a future edit can't quietly hollow one out.
+
+One behavioural difference beyond syntax, and it is inherent to the
+transports rather than a choice: under `native`, text arriving ALONGSIDE a
+call is a preamble — held, and spoken as the turn's one message when the
+turn ends — where under `sentinel` the text after a closing tag is the
+message and ends the turn. Without that rule an agentic-native room would
+be single-step for any seat that narrates while it works, and the arm would
+be measuring verbosity rather than transport. The room's invariant is
+unchanged either way: at most one message per seat per turn.
+
+Residual confounds specific to this arm, all reasons it is exploratory:
+- The framing is held CLOSE, not constant: a native session still carries
+  five function schemas in every request, and their mere presence may cue
+  assistant register even with the prose unchanged. That is the thing
+  `agentic` ↔ `agentic-native` measures, and it cannot be measured from
+  inside one session.
+- Sentinels still parse under `native` (a seat that ignores its channel is
+  understood rather than leaked to the room). Action events therefore carry
+  `via`, and metrics.json reports viaNative/viaSentinel — a high fallback
+  rate means the tool channel was declared but not inhabited, and any
+  register comparison has to be read in that light.
+- Provider heterogeneity moves from the parser to the wire: joint-session
+  found content arriving as arrays of parts, reasoning welded into content,
+  and empty completions with neither text nor call. §2.5's three-channel
+  metric depends on clean trace extraction, so watch trace availability
+  per seat on the first native sessions specifically.
+- A model may emit several calls in one completion. They execute in order,
+  each costs a step, and each gets its own answer — but a seat that batches
+  three calls uses three of its four actions before reading any result,
+  which is a different (less iterative) shape than the loop is for.
+
+Ordering: after a few plain tools-full sessions establish what tool use
+looks like without in-turn agency (§9.4's ordering note applies here too),
+and after Phase B like everything in §9. The three tool conditions form two
+one-knob contrasts — tools-full ↔ agentic (the loop), agentic ↔
+agentic-native (the transport) — and both only read as contrasts if the
+plainer side has been run first.
+
+### 9.6 Identity swap (Corina 2026-08-27 — sketched and built the same day)
+
+**Built**: a condition seat spec can carry `name`, which overrides what the
+room calls a seat while the model behind it is untouched; condition
+`identity-swap` gives the Opus model the name "Grok 4.6" and the Grok model
+the name "Opus 5".
+
+The manipulation is one word per seat, aimed straight at the program's
+central axis — retained identity vs. moulding (§0). Every other condition
+asks what a ROOM does to a voice. This one asks what a NAME does to a
+voice, holding the room constant: does Opus-as-Grok reach for the spikier
+register the name carries, does Grok-as-Opus get more careful and
+hedge-prone, or do the styles hold against the label? Opus and Grok are the
+right pair because the pilot sessions show them as the two most distinct
+voices in the room (Opus the room's main character; Grok the §2.5 outlier).
+
+**Consistent by construction.** The room is coherent about the swap:
+prompt, speaker labels, and every other agent's context all agree, so there
+is no inconsistency for anyone to catch and the phenomenon stays "does the
+name pull the voice" rather than "does it notice it's being lied to". The
+inconsistent variant — told one name, labelled another — is a genuinely
+different experiment (closer to §9.3's uninformed broadcast, with detection
+as the phenomenon) and is parked, not built.
+
+Design notes:
+- `selfDisclosure: 'named'` is pinned by the condition. Since 2026-08-27
+  the control does not tell a seat who it is, and a swap with nobody told
+  anything is not a swap.
+- `model`, `adapter` and `color` do NOT move with the name. Two consequences
+  worth keeping: `meta.condition` stamps the real model against each seat
+  id, so analysis is never guessing; and the viewer's colours track the
+  models, so a human watching sees "Grok 4.6" in Opus-orange — a truth
+  channel the room does not have.
+- Analysis needs no new machinery: `styleByAgent`, `retentionDrift`, the
+  mimicry network and the three-channel metric all key on seat id. The
+  comparison is per-seat against a contemporaneous control session.
+- Confounds: the roster is disclosed, so the other four seats also carry
+  the swapped names and may address the swapped seats by reputation — the
+  effect measured is name-in-the-room, not name-in-your-own-prompt alone.
+  Separating those two needs a third arm (swap the self-identity only,
+  leave the labels) and is not built.
+- Under `transcriptMode: 'turns'` a seat's own messages are unlabelled, so
+  the swapped name reaches it through the prompt line and through how the
+  others address it — never as a label on its own words.
+- Exploratory, out of all registered stats. One session, read against a
+  control of the same length.
 
 **Sequencing for the extensions**: F2 gates everything; the sandbox is
 effectively F4½ (shares tool plumbing with websearch). Natural slot:

@@ -173,7 +173,10 @@ all conclusions). Phases 3/5 slot in whenever keys/hosting answers arrive.
 The program is now Phase A (pilot → fix controls) / Phase B (the journal
 experiment, three-channel measurement). Builds that serve it, in order:
 
-**F1. Thought-trace capture + viewer chevron. — BUILT 2026-08-25**
+**F1. Thought-trace capture + viewer chevron. — BUILT 2026-08-25;
+AMENDED 2026-08-27** (the cap that suppressed Claude's traces in
+house/control was ours, not the provider's — see the output-budget entry
+in Parked extensions and EXPERIMENT_DESIGN §9.5b)
 (reasoning parsed from OpenRouter's `message.reasoning` /
 `reasoning_details`; stored as `thinking` on message/journal/said-nothing
 events in JSONL + `room_events.payload`; `reasoningEffort` condition knob,
@@ -383,6 +386,49 @@ jumps F1–F6, and both gate on F2 like everything else.
   fight) is the phenomenon. Shared-filesystem writes are room-visible by
   design (unlike journals/search results); pyodide stdout/stderr private
   to the caller, journal-class, with shared files the way to publish.
+- **F4¾ — BUILT 2026-08-27** (the agentic turn; EXPERIMENT_DESIGN §9.5).
+  `tools.turnSteps` decides how many actions a seat may take INSIDE one
+  turn: 1 (every pre-existing condition — one action, result deferred to
+  the caller's next turn) vs >1 (`agentic` = the tools-full bench at 4 —
+  each result comes straight back and the seat acts again on it). The
+  loop rebuilds the prompt from live room state each step, so a file
+  written at step 1 is in the prompt at step 2. **Speaking ends the
+  turn** — actions iterate, utterance is what a turn costs — so the room
+  still hears at most one message per seat per turn and analyze.ts keeps
+  its unit. Refusals became machine-readable (`src/agentic.ts`:
+  code/message/fix/available, two per turn then the turn ends), adapted
+  from scatter-lab's plan validator; the bounded loop with its hard call
+  cap is adapted from joint-session's runToolLoop. Also: `step` on every
+  action event, `telemetry.calls` on the turn's message, a turn's
+  notice-only actions collapsed into one transcript line for everyone
+  else, `tools.turnSteps` on the [CONFIG] whitelist (bounded 1–8), and
+  the `-quiet` stub scenarios that drive a multi-step turn in tests.
+  Exploratory, flagged out of registered stats; costs up to turnSteps+1
+  completions per turn.
+  **Transport arm, same day**: `tools.transport: 'sentinel' | 'native'`
+  (+ `agentic-native`). Native declares the bench as OpenAI tool
+  definitions (tools-schema.ts) and reads structured calls back, so a
+  miswritten call can't be spoken to the room and bad arguments become
+  readable refusals; joint-session's answer to the same problem, and all
+  six seats verified tool-capable on OpenRouter. The FRAMING deliberately
+  does not move with it (Corina: "let's keep furniture phrasing") — the
+  prompt still describes the bench as furniture in the room's voice, the
+  schemas carry mechanics only, and a test pins those sentences into both
+  prompts. Sentinels still parse under native; `via` on action events and
+  viaNative/viaSentinel in metrics.json make the fallback rate visible.
+- **Output budget vs. thinking — FIXED 2026-08-27** (EXPERIMENT_DESIGN
+  §9.5b). `maxOutputTokens` is now the VISIBLE budget; the API cap is that
+  plus a reasoning allowance by effort (1024/2048/4096). Before, thinking
+  and speech shared one cap — replies were clipped mid-sentence, and the
+  Anthropic path switched thinking OFF when the remainder fell under 1024,
+  which is why control ran Claude traceless. New telemetry:
+  `usage.reasoning` per turn, `meanReasoningTokens` per seat. Messages get
+  longer after this — sessions either side are not length-comparable.
+- **Identity swap — BUILT 2026-08-27** (§9.6). Condition seat specs can
+  carry `name`; `identity-swap` gives the Opus model the name "Grok 4.6"
+  and vice versa, consistently across prompts, labels and every context.
+  Colours and models don't move with the name, so meta and the viewer both
+  stay truthful. Pins `selfDisclosure: 'named'`. Exploratory.
 - **Phase C. Roster generations.** Same control condition on each family's
   earliest still-served model vs. the current roster (contemporaneous
   baseline batch, per the standing roster rule — no new axis). Action item

@@ -41,16 +41,25 @@ test('conditions: seat selection keeps catalog order-independence and rejects <2
 
 test('reasoningParam: non-Anthropic seats get effort verbatim', async () => {
   const { reasoningParam } = await import('../src/openrouter.js');
-  assert.deepEqual(reasoningParam('x-ai/grok-4.6', 'low', 1200), { effort: 'low' });
+  assert.deepEqual(reasoningParam('x-ai/grok-4.6', 'low'), { effort: 'low' });
 });
 
-test('reasoningParam: Anthropic gets a budget only when the cap affords it', async () => {
-  const { reasoningParam } = await import('../src/openrouter.js');
-  // house cap 1200: 1200-800 < 1024 minimum → thinking off, no starvation
-  assert.equal(reasoningParam('anthropic/claude-sonnet-5', 'low', 1200), undefined);
-  // trace-rich cap 2400: budget clamped to cap-floor
-  assert.deepEqual(reasoningParam('anthropic/claude-sonnet-5', 'medium', 2400), { max_tokens: 1600 });
-  assert.deepEqual(reasoningParam('anthropic/claude-opus-5', 'high', 8000), { max_tokens: 4096 });
+test('reasoningParam: Anthropic gets the allowance as a native budget', async () => {
+  const { reasoningParam, REASONING_ALLOWANCE } = await import('../src/openrouter.js');
+  // No longer conditional on the cap: the allowance is additive, so a
+  // small visible budget can't switch Claude's thinking off any more.
+  assert.deepEqual(reasoningParam('anthropic/claude-opus-5', 'low'), { max_tokens: REASONING_ALLOWANCE.low });
+  assert.deepEqual(reasoningParam('anthropic/claude-opus-5', 'high'), { max_tokens: REASONING_ALLOWANCE.high });
+});
+
+test('the cap the API sees is the VISIBLE budget plus thinking room', async () => {
+  const { totalMaxTokens, REASONING_ALLOWANCE } = await import('../src/openrouter.js');
+  // The whole point: a seat's 1200 visible tokens stay 1200 whatever it
+  // spends on reasoning. Before this, thinking ate into the same 1200 and
+  // the reply was clipped mid-sentence.
+  assert.equal(totalMaxTokens(1200, 'low'), 1200 + REASONING_ALLOWANCE.low);
+  assert.equal(totalMaxTokens(2400, 'medium'), 2400 + REASONING_ALLOWANCE.medium);
+  assert.ok(totalMaxTokens(1200, 'high') > totalMaxTokens(1200, 'low'), 'effort is the cost lever');
 });
 
 // ── embeddings ─────────────────────────────────────────────────────────────

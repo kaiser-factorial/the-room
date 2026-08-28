@@ -73,6 +73,13 @@ export const config: RoomConfig = {
     files: false, // control = no tools; 'tools-full'/'tools-scarce' enable
     python: false,
     budget: 'per-seat',
+    // F4¾: 1 = the original economics (one action per turn, its result
+    // delivered next turn). The 'agentic' condition raises it — see
+    // agentic.ts for why speaking still ends the turn at any value.
+    turnSteps: 1,
+    // 'sentinel' keeps every condition run so far intact; the
+    // 'agentic-native' condition is the one that flips it (F4¾).
+    transport: 'sentinel',
     notice: true,
     // 20s: micropip installs and matplotlib renders happen inside the
     // agent's window (preload has its own cap in sandbox.ts).
@@ -91,6 +98,16 @@ export const config: RoomConfig = {
   // Control keeps the original named roster (comparability with every
   // session run so far); 'count'/'none' are the discovery conditions.
   rosterDisclosure: 'named',
+
+  // The room stopped telling agents their own name (Corina 2026-08-27).
+  // Sessions before that date ran 'named'; the knob makes them
+  // reproducible, and makes "do they work out who they are?" an axis.
+  selfDisclosure: 'anonymous',
+
+  // The room reaches a seat as its own conversation, not as a document
+  // about a conversation (Corina 2026-08-27). Sessions before that date
+  // ran 'environment'.
+  transcriptMode: 'turns',
 
   thinkingBroadcast: 'off', // §9.3; 'broadcast-informed'/'-uninformed' invert it
 

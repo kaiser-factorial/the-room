@@ -76,12 +76,53 @@ export interface ToolsConfig {
   files: boolean;
   /** Pyodide python sandbox. */
   python: boolean;
-  /** 'per-seat' = each seat may take one tool action per turn (the parser
-   *  yields at most one anyway); 'per-room' = ONE tool action per round
-   *  for the whole room — scarcity forces the room to negotiate who gets
-   *  the tool, and the negotiation is the phenomenon. Search counts as a
-   *  tool action under the per-room budget when search is enabled. */
+  /** 'per-seat' = each seat may act on its own turn (up to `turnSteps`
+   *  times); 'per-room' = ONE tool action per round for the whole room —
+   *  scarcity forces the room to negotiate who gets the tool, and the
+   *  negotiation is the phenomenon. Search counts as a tool action under
+   *  the per-room budget when search is enabled. */
   budget: 'per-seat' | 'per-room';
+  /** F4¾ agentic turn loop (Corina 2026-08-27). How many actions a seat may
+   *  take INSIDE one turn.
+   *
+   *  1 (control-compatible, the original F4/F4½ economics) = one action,
+   *  and its result is delivered at the start of the caller's NEXT turn —
+   *  so no seat can ever act on what it just learned before speaking.
+   *
+   *  >1 = the agentic loop: the result comes straight back inside the turn
+   *  and the agent may act again on it (search → read → run → fix → run),
+   *  up to N actions. SPEAKING ENDS THE TURN — a reply with any spoken text
+   *  is the last thing an agent does in it, so the room still hears at most
+   *  one message per seat per turn and every drift metric keeps its unit.
+   *  Refused actions don't consume a step, but two refusals in one turn end
+   *  it (agentic.ts). Effective value is 1 under budget 'per-room': there
+   *  the room's single action is the scarce thing, and looping would hand
+   *  the whole round to whoever moved first. Cost scales with N (up to N+1
+   *  completions per turn) — that is the price of the axis. */
+  turnSteps: number;
+  /** How a seat EXPRESSES a tool action (F4¾, Corina 2026-08-27).
+   *
+   *  'sentinel' (default, every condition run so far) — the bench is
+   *  described in prose and the agent writes a bracket: [RUN] … [/RUN].
+   *  Works identically on every model, and fails in one specific way: a
+   *  miswritten sentinel is not recognised as a call, so it is SPOKEN to
+   *  the room as prose and its author learns nothing.
+   *
+   *  'native' — the bench is also declared as OpenAI-format tool
+   *  definitions (tools-schema.ts) and the model returns structured
+   *  tool_calls. A call cannot be malformed into speech, prose and action
+   *  can share one completion, and bad arguments come back as a readable
+   *  refusal. Requires a tool-capable seat (all six of the roster are, as
+   *  of 2026-08-27).
+   *
+   *  What does NOT change with the transport: the room keeps describing
+   *  its own furniture in its own voice ("There is a small shared
+   *  filesystem in the room — files everyone can read"). The tool
+   *  definitions carry mechanics only. That paragraph is the frame the
+   *  experiment is measured in, and moving the bench wholesale into
+   *  schemas would swap it for assistant-with-a-toolbelt framing — the one
+   *  prior this task-free room exists to exclude. */
+  transport: 'sentinel' | 'native';
   /** Room hears "[X updated the shared file …]" / "[X ran some code.]". */
   notice: boolean;
   /** Wall-clock cap per python run; the worker is terminated past it.
@@ -171,6 +212,41 @@ export interface RoomConfig {
    *  the transcript's speaker labels as people speak. Order-shuffle events
    *  are never audible in any state. */
   rosterDisclosure: 'named' | 'count' | 'none';
+  /** Whether the prompt tells an agent WHO IT IS (Corina 2026-08-27:
+   *  "i would rather not tell them who they are in sysprompt").
+   *
+   *  'named' (every session up to 2026-08-27) — "You are Opus 5.", and the
+   *  turn nudge names them too.
+   *
+   *  'anonymous' (the new default) — neither. A seat knows there is a room
+   *  and who else is in it; which of those voices is its own is something
+   *  it can work out, or not. Note the roster renders UNMARKED here (no
+   *  "(you)") and lists everyone including the reader — marking or omitting
+   *  the reader would hand the answer back by elimination.
+   *
+   *  Partial by construction, and honestly so: the transcript labels every
+   *  message with its author, so a seat that recognises its own prose can
+   *  identify itself. What this removes is being TOLD. */
+  selfDisclosure: 'named' | 'anonymous';
+  /** How the transcript reaches a seat (Corina 2026-08-27).
+   *
+   *  'environment' (every session up to 2026-08-27) — the whole room, the
+   *  seat's own past words included, arrives as one user message. To the
+   *  model the room is something it is READING: its own lines come back
+   *  labelled "Opus 5: …" exactly like everyone else's.
+   *
+   *  'turns' (the control since) — the room arrives as real turns. The
+   *  seat's own messages are its own assistant turns, unlabelled; everyone
+   *  else's are user-role, labelled as before. It is a participant in a
+   *  conversation rather than a reader of one.
+   *
+   *  Interaction to keep in view: under 'turns' a seat always knows WHICH
+   *  lines are its own, so with a named roster it can name itself by
+   *  elimination once the others have spoken. selfDisclosure 'anonymous'
+   *  still removes being told, and its own notices render in the second
+   *  person ("[You looked something up.]") rather than under a name it
+   *  hasn't been given — but the inference is available, by design. */
+  transcriptMode: 'environment' | 'turns';
   /** §9.3 thought broadcast (exploratory; tag OUT of standard §2.5
    *  comparisons). 'off' (control) keeps the F1 rule: traces reach no
    *  agent, ever. Broadcast INVERTS it for other agents only: every
@@ -225,15 +301,37 @@ export interface TurnTelemetry {
   provider?: string;
   finishReason?: string;
   attempts?: number;
-  usage?: { prompt?: number; completion?: number };
+  usage?: {
+    prompt?: number;
+    completion?: number;
+    /** Hidden reasoning tokens inside `completion` (F1/§6.1, added
+     *  2026-08-27). The measurement behind the visible-budget change: how
+     *  much of a turn went on thinking, per seat, instead of inferring it
+     *  from a truncated flag after the fact. Absent where the provider
+     *  doesn't report it. */
+    reasoning?: number;
+  };
   /** Chosen-token logprobs for the agent's OWN sampled tokens (§2.6):
    *  per-turn confidence/entropy, not mutual surprisal. Present only on
    *  seats whose serving provider returns logprobs (2026-08-25: Qwen via
    *  AkashML, Grok via xAI, DeepSeek when pinned to GMICloud/Novita). */
   logprobs?: number[];
+  /** Model completions this turn (F4¾): 1 in a single-step room, up to
+   *  turnSteps+1 when the agentic loop ran. Stamped on the spoken message
+   *  so cost-per-turn is queryable from the mirror. */
+  calls?: number;
 }
 
-/** F1 privacy rule: `thinking` is a reasoning trace. It is NEVER rendered
+/** Tool events carry `step` (F4¾): which action of the turn this was, 1-based.
+ *  They also carry `via` under the NATIVE transport only — whether the seat
+ *  used the tool channel it was given or fell back to writing a sentinel in
+ *  its prose. That fallback rate is the first thing to ask of a native
+ *  session, and it is invisible without this field.
+ *  Absent in single-step rooms. Analysis and the viewer use it to group a
+ *  turn's actions back together; a turn's spoken message carries the call
+ *  count in telemetry.
+ *
+ *  F1 privacy rule: `thinking` is a reasoning trace. It is NEVER rendered
  *  into any agent's context (context.ts renders `text` only) and never
  *  summarized into the room — same class as journals, stricter. Humans see
  *  it (viewer chevron); the room does not. */
@@ -246,28 +344,28 @@ export type RoomEvent =
    *  true and the search ran. Humans see everything (viewer chevron).
    *  denied = gated search attempted without a journal credit (never
    *  audible; the requester learns privately on their next turn). */
-  | { kind: 'search'; ts: string; round: number; agentId: string; agentName: string; query: string; results?: string; denied?: boolean; notice: boolean; thinking?: string }
+  | { kind: 'search'; ts: string; round: number; agentId: string; agentName: string; query: string; results?: string; denied?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** F4½ shared-file write. `content` is room-public (rendered into every
    *  agent's shared-files block, viewer-visible); the transcript line the
    *  room hears is only the notice. denied = budget/invalid-name refusal
    *  (inaudible; the writer learns privately). encoding 'base64' marks a
    *  BINARY file (python-written, e.g. a matplotlib PNG): the viewer
    *  renders it, agents see it listed by name/size only. */
-  | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; encoding?: 'base64'; denied?: boolean; notice: boolean; thinking?: string }
+  | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; encoding?: 'base64'; denied?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** F4½ python run. Default: `code`/`output` are caller-private
    *  (journal-class) — never rendered into any context except the
    *  caller's private block. `public: true` (tools.runPublic, stamped at
    *  record time) inverts that: code + output render into the transcript
    *  for everyone (capped) — the shared-project mode. */
-  | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; public?: boolean; denied?: boolean; notice: boolean; thinking?: string }
+  | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; public?: boolean; denied?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** F4½ source read: `name` absent = the index. The file contents go to
    *  the reader privately; the room at most hears the notice line. */
-  | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; notice: boolean; thinking?: string }
+  | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** §9.4 self-governance: an agent changed (or tried to change) a room
    *  setting. Always room-visible when applied — governance is public by
    *  design; denied attempts are private. The config-event stream IS the
    *  config history (meta.condition is only the starting state). */
-  | { kind: 'config'; ts: string; round: number; agentId: string; agentName: string; key: string; value: string; denied?: boolean; thinking?: string }
+  | { kind: 'config'; ts: string; round: number; agentId: string; agentName: string; key: string; value: string; denied?: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   | { kind: 'order'; ts: string; round: number; order: string[] }
   | { kind: 'summary'; ts: string; round: number; text: string }
   | { kind: 'meta'; ts: string; round: number; payload: SessionMeta }

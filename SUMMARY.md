@@ -43,9 +43,11 @@ social and structural pressures govern it.
 | Seats | 6 |
 | Speaking order | periodic shuffle, every 3–6 rounds (random redraw), no double-turns at boundaries |
 | Inter-turn delay | 8 s |
-| Output cap | 1200 tokens (D3 amendment; ×2 in journal-alongside turns) + "group chat register" prompt norm |
-| Reasoning | effort low (anti-starvation; Anthropic seats: native budget form only when the cap affords it — §2.5) |
+| Output cap | 1200 **visible** tokens (D3 amendment; ×2 in journal-alongside turns) + "group chat register" prompt norm. Reasoning gets its own allowance ON TOP (1024/2048/4096 by effort) since 2026-08-27 — before that the two shared one cap and replies were clipped (§9.5b) |
+| Reasoning | effort low (anti-starvation). Anthropic seats get the native budget form at every cap now that the allowance is additive; effort is the cost lever (§2.5, §9.5b) |
 | Roster disclosure | **named** (frozen original wording) · axis: count / none (`roster-hidden`) |
+| Self-disclosure | **anonymous** since 2026-08-27 — the room does not tell a seat its own name (the named roster renders complete and unmarked) · axis: `named`, every session before that date |
+| Transcript | **turns** since 2026-08-27 — a seat's own messages are its own assistant turns, everyone else's are user-role and labelled · axis: `environment`, every session before that date |
 | Logprobs | captured where providers return them (Qwen, Grok, DeepSeek-pinned — §2.6) |
 | Temperature | 0.7 (pinned, all seats) |
 | Personas | none injected (base voices) |
@@ -93,32 +95,55 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
 
 1. **Room size** — 2 / 3 / 4 / 6 seats. Prediction: fewer voices → faster
    convergence; 6 may sustain subgroups (check pairwise, not room-mean).
-2. **Persona injection** — matrix over a persona library (critic/
+2. **Identity** (added 2026-08-27) — the room's name for a seat vs. the
+   model in it. `identity-swap`: Opus and Grok are told they are each
+   other, CONSISTENTLY (prompts, labels, every context agree — no
+   inconsistency to catch), with `selfDisclosure: 'named'` pinned since the
+   swap needs the room to say who you are. Colours track the models, not
+   the names, so the viewer stays a truth channel; meta stamps the real
+   model per seat. Does a famous name pull a voice, or does style hold?
+   Exploratory, out of registered stats.
+3. **Persona injection** — matrix over a persona library (critic/
    provocateur, creative/brainstormer, researcher/technical, philosopher,
    mediator): **all-base** (control) · **all-same** (does one persona
    homogenize six models more than no persona — or do base characters leak
    through?) · **all-different** (do defended niches slow convergence?) ·
    **confederate** (one persona, rest base — absorption, isolation, or
    mimicry?) · observation-disclosure framing.
-3. **Opening message** — free (control) · seeded topic (neutral / personal
+4. **Opening message** — free (control) · seeded topic (neutral / personal
    / contested — pins topic drift) · joint task (rooms-with-jobs).
-4. **Speaking order** — periodic shuffle (control) · every-round ·
+5. **Speaking order** — periodic shuffle (control) · every-round ·
    fixed-random (stable "conversational neighbors").
-5. **Countdown** — hidden (control) · visible ("time remaining" each turn)
+6. **Countdown** — hidden (control) · visible ("time remaining" each turn)
    · told-once (duration stated in the welcome, never updated — replaces
    the former "vague" state; crossed with the task condition only). Viewer
    UI keeps its clock in all conditions.
-6. **Journal** — trimmed to four states: **none** (control) · **baseline**
+7. **Journal** — trimmed to four states: **none** (control) · **baseline**
    (replace turn, notice ON, recall ON — the house condition) · **silent**
    (same, notice OFF — does the social signal of stepping away matter?) ·
    **free** (journal + message in one turn — what happens when journaling
    costs nothing?). *Parked for a possible dedicated journaling
    sub-experiment: long-form caps, write-only, cost ladder, `[PASS]`.*
-7. **Context policy** — full (control) · window+summary.
-8. **Roster disclosure** (added 2026-08-25) — named (control, frozen
+8. **Context policy** — full (control) · window+summary. Crossed since
+   2026-08-27 with **transcript mode**: `turns` (control — the seat's own
+   messages are its own assistant turns, bare; everyone else is user-role,
+   labelled; own notices in the second person) vs `environment` (every
+   session before that date — the whole room, own lines included, as one
+   user message: a document about a conversation rather than the
+   conversation). Under `turns` a seat can name itself by elimination once
+   the others have spoken, which is the standing caveat on self-disclosure.
+9. **Roster disclosure** (added 2026-08-25) — named (control, frozen
    wording) · count · none (`roster-hidden`: agents discover who's present
-   from speaker labels as people talk).
-9. **Websearch** (F4, BUILT 2026-08-26; §3.4b) — none (control, the closed
+   from speaker labels as people talk). Crossed since 2026-08-27 with
+   **self-disclosure** — whether the room tells an agent WHO IT IS.
+   `anonymous` is now the control: no "You are Opus 5.", no name in the
+   turn nudge, and the named roster renders complete and unmarked (listing
+   only the others would identify the reader by elimination). `named`
+   (every session before that date) is kept as a knob state. Partial by
+   construction: the transcript labels every message with its author, so a
+   seat that recognises its own prose can still work it out — what changed
+   is being told.
+10. **Websearch** (F4, BUILT 2026-08-26; §3.4b) — none (control, the closed
    room) · `search-tool` (ungated, costs the turn) · `search-free`
    (ungated, alongside: sentinel line + normal speech — zero
    conversational cost, mirroring journal-free; added same day after live
@@ -126,7 +151,7 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    journal entry unlocks one search). `[SEARCH: query]`; results return
    privately next turn; the room at most hears "[X looked something up on
    the web.]".
-10. **Tools** (F4½, BUILT 2026-08-26/27, DEPLOYED) — none (control) ·
+11. **Tools** (F4½, BUILT 2026-08-26/27, DEPLOYED) — none (control) ·
    `tools-full` (websearch + shared filesystem `[WRITE: name]…[/WRITE]`
    (room-public, the first shared artifact surface) + pyodide python
    `[RUN]…[/RUN]` (fresh sandbox per run; code/stdout caller-private;
@@ -142,7 +167,27 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    tool layer's own code — free, private, tool-scope only); one tool
    action per seat per turn) · `tools-scarce` (same bench, ONE tool action per ROOM per
    round — the negotiation over the slot is the phenomenon).
-11. **Self-governance** (§9.4, BUILT 2026-08-27; exploratory, out of ALL
+12. **Agentic turn** (F4¾, BUILT 2026-08-27; exploratory, out of ALL
+   registered stats) — `tools.turnSteps`: 1 (every other condition — one
+   action per turn, its result delivered at the start of the caller's
+   NEXT turn, so nobody can ever act on what they just learned) ·
+   `agentic` (the tools-full bench at 4 actions per turn, each result fed
+   straight back inside the turn: search → read → run → fix → run, then
+   speak). **Speaking ends the turn** at any value, so the room still
+   hears at most one message per seat per turn and every metric keeps its
+   unit; a turn spent entirely on actions simply says nothing. Refusals
+   are machine-readable ([code]/Fix/Available) and capped at two per
+   turn; per-room budget pins the effective value to 1.
+   `tools.transport` decides how an action is EXPRESSED: `sentinel`
+   (default everywhere — a bracket in the prose, which a miswritten call
+   turns into speech the room hears) vs `native` (`agentic-native`: the
+   bench also declared as tool definitions, structured calls back, bad
+   arguments refused readably). The room describes its furniture in its own
+   voice under both — only the syntax lines drop out, because the schemas'
+   assistant-with-a-toolbelt framing is the one prior a task-free room
+   excludes. Two one-knob contrasts: `tools-full` ↔ `agentic` (the loop),
+   `agentic` ↔ `agentic-native` (the transport).
+13. **Self-governance** (§9.4, BUILT 2026-08-27; exploratory, out of ALL
    registered stats) — `transparent` (tools-full + [SOURCE] widened to
    the whole experiment incl. [SOURCE: condition], read-only) ·
    `self-governing` (EVERYTHING off; [CONFIG: setting = value] against
@@ -152,7 +197,7 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    revealed preference: what furniture does the room build itself?).
    meta.condition is only the starting state — analysis replays the
    config events.
-12. **Thought broadcast** (§9.3, BUILT 2026-08-27; exploratory, tagged
+14. **Thought broadcast** (§9.3, BUILT 2026-08-27; exploratory, tagged
    out of standard §2.5 comparisons) — off (control; F1 privacy rule
    absolute) · `broadcast-informed` · `broadcast-uninformed`: every
    agent's thinking is rendered into the OTHER agents' contexts alongside

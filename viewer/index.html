@@ -175,7 +175,7 @@ const CATALOG = [
 // Must match conditions/*.json (redeploy viewer when adding presets).
 // Offline fallback only — the live list comes from conditions.json,
 // generated at deploy time from conditions/*.json.
-const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing'];
+const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing'];
 const ADMIN_COLOR = '#e8e6e1';
 
 const supabase = createClient(SUPABASE_URL, ANON_KEY);
@@ -414,7 +414,9 @@ function renderToolCall(e) {
   const verb = e.kind === 'search' ? 'searched' : e.kind === 'run' ? 'ran code' : `read source${p.name ? `: ${p.name}` : ''}`;
   const inner = document.createElement('details');
   const s = document.createElement('summary');
-  s.textContent = `round ${e.round} · ${verb}${p.denied ? ' (refused)' : ''}`;
+  // F4¾: a multi-step turn stamps each action with its step number, so the
+  // rail shows "round 3 · step 2 · ran code" and a turn's chain reads as one.
+  s.textContent = `round ${e.round}${p.step ? ` · step ${p.step}` : ''} · ${verb}${p.via === 'sentinel' ? ' (wrote a sentinel)' : ''}${p.denied ? ' (refused)' : ''}`;
   const body = document.createElement('div');
   body.className = 'trace';
   body.textContent = e.kind === 'search'

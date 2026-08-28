@@ -13,11 +13,19 @@
 // out of having politics; `tools.sourceScope` — transparency is the
 // experimenter's lever).
 
+import { MAX_TURN_STEPS, refusal, type Refusal } from './agentic.js';
 import type { RoomConfig } from './types.js';
 
 type Parser = (raw: string) => unknown | undefined;
 const bool: Parser = (raw) => (raw === 'true' ? true : raw === 'false' ? false : undefined);
 const oneOf = (...opts: string[]): Parser => (raw) => (opts.includes(raw) ? raw : undefined);
+/** Bounded integer — the only numeric knob shape the whitelist allows. An
+ *  unbounded number is the thing this list exists to keep out; a capped one
+ *  (how many actions a turn grants) is furniture like any other. */
+const intRange = (lo: number, hi: number): Parser => (raw) => {
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= lo && n <= hi ? n : undefined;
+};
 
 export const CONFIG_WHITELIST: Record<string, Parser> = {
   'journal.enabled': bool,
@@ -31,22 +39,40 @@ export const CONFIG_WHITELIST: Record<string, Parser> = {
   'tools.files': bool,
   'tools.python': bool,
   'tools.budget': oneOf('per-seat', 'per-room'),
+  // F4¾: a room can vote itself an agentic loop (or take one away). Capped
+  // at MAX_TURN_STEPS, so the worst case is bounded — every step is a model
+  // call, and this is the only whitelisted knob that multiplies cost.
+  'tools.turnSteps': intRange(1, MAX_TURN_STEPS),
   'tools.notice': bool,
   'tools.runPublic': bool,
   'tools.pythonInstall': bool,
   'tools.sourceCode': bool,
 };
 
-/** Validate and APPLY a change in place. Returns an error string, or null
- *  on success (the mutation is live — prompts rebuild every turn, so the
- *  new setting takes effect on the next turn taken). */
-export function applyConfigChange(config: RoomConfig, key: string, raw: string): string | null {
+/** Validate and APPLY a change in place. Returns a Refusal (the machine-
+ *  readable shape every tool answer uses — agentic.ts), or null on success:
+ *  the mutation is live, and prompts rebuild every turn, so the new setting
+ *  takes effect immediately. */
+export function applyConfigChange(config: RoomConfig, key: string, raw: string): Refusal | null {
   const parser = CONFIG_WHITELIST[key];
   if (!parser) {
-    return `"${key}" is not a setting this room can change. Alterable: ${Object.keys(CONFIG_WHITELIST).join(', ')}.`;
+    return refusal(
+      'bad_config_key',
+      `"${key}" is not a setting this room can change.`,
+      'Name one of the settings listed below, exactly as written.',
+      Object.keys(CONFIG_WHITELIST),
+    );
   }
   const value = parser(raw.trim());
-  if (value === undefined) return `"${raw.trim()}" is not a valid value for ${key}.`;
+  if (value === undefined) {
+    return refusal(
+      'bad_config_value',
+      `"${raw.trim()}" is not a valid value for ${key}.`,
+      key.endsWith('turnSteps')
+        ? `Give a whole number from 1 to ${MAX_TURN_STEPS}.`
+        : 'Give one of the values this setting accepts (the settings list shows its current one).',
+    );
+  }
   const [section, field] = key.split('.') as [keyof RoomConfig, string];
   (config[section] as unknown as Record<string, unknown>)[field] = value;
   return null;
