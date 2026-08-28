@@ -276,11 +276,13 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **THE RUNNER IS RUNNING PRE-SESSION CODE.** Everything from this
-   session lives on `claude/model-agentic-refinement-jq8pkp` (PR #15) and
-   none of it is deployed — verified by reading the live Space's
-   `src/parse.ts`, which still has the position-strict, colon-required
-   sentinel regexes. So a live room today still: speaks a miswritten tool
+0. **THE RUNNER IS RUNNING PRE-SESSION CODE.** PR #15 is MERGED (main is
+   `188cfb8`), but nothing is deployed — verified by reading the live
+   Space's `src/parse.ts`, which still has the position-strict,
+   colon-required sentinel regexes. The redeploy could not be done from
+   the build session: that container has no `hf` CLI and no HF write
+   token, and the private runner Space's probe is unreachable without
+   one. So a live room today still: speaks a miswritten tool
    call to the room as prose, shares one cap between thinking and speech,
    tells each seat its own name, and hands it the transcript as one user
    message. Redeploy (`./deploy/deploy.sh brick-factorial runner`, HF
@@ -310,8 +312,8 @@ so an old session can be reproduced exactly, but the control moved.
 ## Next up (the queue — roadmap artifact has the full rationale)
 
 **Agentic sprint DONE (F4¾ loop + native transport + prompt/transcript
-surgery + the output-budget fix + identity swap; PR #15, MERGED TO BRANCH,
-NOT DEPLOYED)** — reminder 0 above is the blocker for running any of it.
+surgery + the output-budget fix + identity swap; PR #15 MERGED to main
+2026-08-28, NOT DEPLOYED)** — reminder 0 above is the blocker for running any of it.
 The three new conditions give three one-knob contrasts, and each only
 reads as one if the plainer side is run first: `tools-full` ↔ `agentic`
 (the in-turn loop), `agentic` ↔ `agentic-native` (the transport, and with
