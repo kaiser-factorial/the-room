@@ -2,11 +2,10 @@
 
 Multi-agent room experiment: 6 different AI models locked in a task-free,
 facilitator-free group conversation; we measure linguistic drift/moulding.
-Everything below is true as of **2026-08-27** (end of the FOURTH build
-session — the agentic refinement sprint. The third session's tooling work
-— F4 websearch, F4½ tools, xAI adapter — is merged AND deployed; this
-session's work is merged to a branch and **NOT deployed**: see the
-reminders).
+Everything below is true as of **2026-08-28** (end of the FOURTH build
+session — the agentic refinement sprint. Merged to main AND deployed to
+both Spaces; see reminder 0 for the deploy record and the one credential
+follow-up it left).
 
 ## Read these, in order
 
@@ -72,7 +71,7 @@ reminders).
   files (current contents per file, images inline) + tool calls
   (per-agent accordion, one chevron per search/run/source read, refusals
   marked) above the journals rail; everything also in feed chevrons.
-- **The agentic turn is BUILT (F4¾ / §9.5, 2026-08-27, NOT yet deployed)** —
+- **The agentic turn is BUILT + DEPLOYED (F4¾ / §9.5, 2026-08-27/28)** —
   `tools.turnSteps`: how many actions a seat may take INSIDE one turn.
   Every pre-existing condition stays at 1 (one action, result deferred to
   the caller's next turn — nobody can act on what they just learned). The
@@ -96,8 +95,8 @@ reminders).
   silent working turns, completions per turn — exploratory), and `-quiet`
   stub scenarios. Out of registered stats; costs up to turnSteps+1
   completions per turn.
-- **Native tool transport is BUILT (F4¾ transport arm, 2026-08-27, NOT
-  deployed)** — `tools.transport: 'sentinel' | 'native'`. Found while
+- **Native tool transport is BUILT + DEPLOYED (F4¾ transport arm,
+  2026-08-27/28)** — `tools.transport: 'sentinel' | 'native'`. Found while
   answering "does the loop tell them what they did wrong?": it does, but
   only once a reply PARSES as an action; a miswritten sentinel is spoken to
   the room as prose and its author learns nothing. Parser tolerance now
@@ -121,8 +120,7 @@ reminders).
   that narrates, and the arm measures verbosity instead of transport.
   Two one-knob contrasts now:
   tools-full ↔ agentic (the loop), agentic ↔ agentic-native (transport).
-  **Neither is deployed — the runner needs a redeploy (check the liveness
-  probe first: a deploy kills a live round).**
+  Both deployed 2026-08-28 (reminder 0).
 - **Self-governance is BUILT + DEPLOYED (§9.4, 2026-08-27)** — `transparent`
   ([SOURCE] reads the whole experiment, incl. the live condition) and
   `self-governing` (everything OFF; [CONFIG: key = value] whitelist —
@@ -276,13 +274,21 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **THE RUNNER IS RUNNING PRE-SESSION CODE.** PR #15 is MERGED (main is
-   `188cfb8`), but nothing is deployed — verified by reading the live
-   Space's `src/parse.ts`, which still has the position-strict,
-   colon-required sentinel regexes. The redeploy could not be done from
-   the build session: that container has no `hf` CLI and no HF write
-   token, and the private runner Space's probe is unreachable without
-   one. So a live room today still: speaks a miswritten tool
+0. **DEPLOYED 2026-08-28.** PR #15 merged (main `188cfb8`) and both Spaces
+   redeployed: runner commit `07a6d27`, viewer commit `137ed59`. Verified
+   live — the probe was checked FIRST (`state: idle`, so no round was
+   killed), the runner then restarted onto the new build (uptime reset
+   44497s → 14s), the deployed `src/parse.ts` carries the new
+   colon-optional regexes, and `conditions/` holds agentic,
+   agentic-native and identity-swap. The viewer's regenerated
+   conditions.json lists all 20.
+   *Deploying from a Claude session needs two things the container lacks
+   by default: `pip install huggingface_hub` for the `hf` CLI (works
+   fine), and an `HF_TOKEN` with write scope — the HF MCP connector is
+   read-only (its OAuth credential has `contribute-repos`, but no tool
+   exposes a write, and it never returns the token). A token pasted into
+   the session transcript on 2026-08-28 for this deploy SHOULD BE
+   ROTATED.* So a live room today still: speaks a miswritten tool
    call to the room as prose, shares one cap between thinking and speech,
    tells each seat its own name, and hands it the transcript as one user
    message. Redeploy (`./deploy/deploy.sh brick-factorial runner`, HF
@@ -312,9 +318,9 @@ so an old session can be reproduced exactly, but the control moved.
 ## Next up (the queue — roadmap artifact has the full rationale)
 
 **Agentic sprint DONE (F4¾ loop + native transport + prompt/transcript
-surgery + the output-budget fix + identity swap; PR #15 MERGED to main
-2026-08-28, NOT DEPLOYED)** — reminder 0 above is the blocker for running any of it.
-The three new conditions give three one-knob contrasts, and each only
+surgery + the output-budget fix + identity swap; PR #15 MERGED to main and
+DEPLOYED 2026-08-28)** — all three new conditions are one admin-panel click
+away. The three new conditions give three one-knob contrasts, and each only
 reads as one if the plainer side is run first: `tools-full` ↔ `agentic`
 (the in-turn loop), `agentic` ↔ `agentic-native` (the transport, and with
 it the furniture-vs-toolbelt framing question), `control` ↔
