@@ -293,14 +293,18 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **DEPLOYED 2026-08-28.** PR #15 merged (main `188cfb8`) and both Spaces
-   redeployed: runner commit `07a6d27`, viewer commit `137ed59`. Verified
+0. **DEPLOYED 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
+   Spaces deployed (runner `07a6d27`, viewer `137ed59`); then the floor +
+   identity work (main `6bbccf5`) deployed on top — runner `568daed`,
+   viewer `79c83ed`, verified live at 22:22 UTC (probe idle before, uptime
+   reset after, `floor` in the admin dropdown, `pass` in the deployed
+   config). Verified
    live — the probe was checked FIRST (`state: idle`, so no round was
    killed), the runner then restarted onto the new build (uptime reset
    44497s → 14s), the deployed `src/parse.ts` carries the new
    colon-optional regexes, and `conditions/` holds agentic,
    agentic-native and identity-swap. The viewer's regenerated
-   conditions.json lists all 20.
+   conditions.json lists all 21.
    *Deploying from a Claude session needs two things the container lacks
    by default: `pip install huggingface_hub` for the `hf` CLI (works
    fine), and an `HF_TOKEN` with write scope — the HF MCP connector is
