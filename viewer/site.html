@@ -90,10 +90,18 @@ const FILE = params.get('file') || 'index.html';
 // whole history browsable: v1 → vN, each with its author and round. The room
 // is never told any of this exists; it is a read-only view of the mirror.
 let session = params.get('session') || null;
+// `versions` holds METADATA ONLY — id, seq, ts, round, author. The pages
+// themselves are fetched one at a time, by id, and cached. A site room's
+// page is up to 60k characters and every version is its own row, so the
+// obvious `select('*')` turns a dropdown into a multi-megabyte download
+// (86 file rows in the mirror today already carry ~957 KB of payload, and
+// the session poll re-ran that query every 15 seconds).
 let versions = [];   // every non-refused write of FILE in this session, oldest first
+let content = new Map(); // row id -> payload, once fetched (or delivered live)
 let at = -1;         // which version is on screen
 let follow = true;   // stay on the newest as writes land (false once you scrub back)
 let channel = null;
+let renderSeq = 0;   // guards against a slow fetch landing after a newer scrub
 
 const fmt = (ts) => new Date(ts).toLocaleString();
 
@@ -105,22 +113,21 @@ const fmt = (ts) => new Date(ts).toLocaleString();
  *  session. srcdoc rather than a blob URL for the same reason: a blob: URL
  *  inherits this origin. The room gets a real browser; it does not get our
  *  credentials. */
-function render() {
+/** The page for one version. Realtime hands us the payload with the row;
+ *  everything else is fetched once, by id, and kept. */
+async function pageFor(row) {
+  if (row.payload) { content.set(row.id, row.payload); return row.payload; }
+  if (content.has(row.id)) return content.get(row.id);
+  const { data, error } = await supabase.from('room_events').select('payload').eq('id', row.id).maybeSingle();
+  if (error || !data) return null;
+  content.set(row.id, data.payload);
+  return data.payload;
+}
+
+async function render() {
   const row = versions[at];
   if (!row) return;
-  let frame = document.querySelector('#wrap iframe');
-  if (!frame) {
-    $('wrap').innerHTML = '';
-    frame = document.createElement('iframe');
-    frame.setAttribute('sandbox', 'allow-scripts allow-popups allow-forms allow-modals');
-    frame.title = "the room's website";
-    $('wrap').appendChild(frame);
-  }
-  const p = row.payload || {};
-  // Base64 is the binary marker (a python-published file); a page written
-  // with [WRITE] arrives as text.
-  frame.srcdoc = p.encoding === 'base64' ? atob(p.content || '') : (p.content || '');
-
+  const mine = ++renderSeq;
   $('versions').hidden = versions.length < 1;
   $('scrub').max = String(versions.length);
   $('scrub').value = String(at + 1);
@@ -140,19 +147,36 @@ function render() {
   const q = new URLSearchParams({ session: row.session_id, v: String(at + 1) });
   if (FILE !== 'index.html') q.set('file', FILE);
   history.replaceState(null, '', `?${q}`);
+
+  const p = await pageFor(row);
+  // Scrubbing fast can resolve fetches out of order; only the newest paints.
+  if (mine !== renderSeq || !p) return;
+  let frame = document.querySelector('#wrap iframe');
+  if (!frame) {
+    $('wrap').innerHTML = '';
+    frame = document.createElement('iframe');
+    frame.setAttribute('sandbox', 'allow-scripts allow-popups allow-forms allow-modals');
+    frame.title = "the room's website";
+    $('wrap').appendChild(frame);
+  }
+  // Base64 is the binary marker (a python-published file); a page written
+  // with [WRITE] arrives as text.
+  frame.srcdoc = p.encoding === 'base64' ? atob(p.content || '') : (p.content || '');
 }
 
 function goTo(i, byHand) {
   if (!versions.length) return;
   at = Math.max(0, Math.min(versions.length - 1, i));
   if (byHand) follow = at === versions.length - 1;
-  render();
+  void render();
 }
 
 /** Sessions that have written this file, newest first. */
 async function loadSessions() {
   const { data, error } = await supabase.from('room_events')
-    .select('session_id, ts, payload')
+    // Not `payload` — see the note on `versions`. `denied` comes back as
+    // the string 'true' or null, which is all this needs.
+    .select('session_id, ts, denied:payload->>denied')
     .eq('kind', 'file').eq('payload->>name', FILE)
     // ts, not seq: seq is a per-runner-process counter and does not order
     // rows ACROSS sessions. Within a session it still de-duplicates.
@@ -161,7 +185,7 @@ async function loadSessions() {
   const seen = new Set();
   const out = [];
   for (const r of data || []) {
-    if (r.payload?.denied || seen.has(r.session_id)) continue;
+    if (r.denied || seen.has(r.session_id)) continue;
     seen.add(r.session_id);
     out.push({ id: r.session_id, ts: r.ts });
   }
@@ -186,11 +210,11 @@ function fillSessions(sessions) {
 /** Every version of the file in one session, oldest first. */
 async function loadVersions(sessionId) {
   const { data, error } = await supabase.from('room_events')
-    .select('*')
+    .select('id, seq, ts, round, agent_name, session_id, denied:payload->>denied')
     .eq('kind', 'file').eq('payload->>name', FILE).eq('session_id', sessionId)
     .order('ts', { ascending: true }).limit(500);
   if (error) { $('who').textContent = error.message; return []; }
-  return (data || []).filter((r) => !r.payload?.denied);
+  return (data || []).filter((r) => !r.denied);
 }
 
 async function show(sessionId, wantVersion) {
@@ -224,6 +248,7 @@ async function watch(sessionId) {
           if (r.kind === 'end') { $('live').textContent = ''; return; }
           if (r.kind !== 'file' || r.payload?.name !== FILE || r.payload?.denied) return;
           if (versions.some((x) => x.seq === r.seq)) return;
+          content.set(r.id, r.payload);
           versions.push(r);
           // Someone reading an older version is not yanked forward; the
           // counter grows under them and `latest` takes them to the end.
