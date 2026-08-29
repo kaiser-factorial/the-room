@@ -378,7 +378,31 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **DEPLOYED 2026-08-29, twice.** PR #16 merged (main `28f1a6f`), viewer
+0. **DEPLOYED 2026-08-29, three times — the third needs ONE check finished
+   (see the end of this entry).** Third pass: PR #18 merged (main
+   `7846d40`) — the prose-before-sentinel rescue, the three-silences fix
+   and `site-unending` — deployed as **viewer `7f1c893`, runner
+   `445c818`**. Probe checked before AND immediately before the runner
+   push (`idle`, uptime 5756s then 5778s). Verified after: the viewer
+   serves the silence styling and `conditions.json` lists 25 with all four
+   site arms; the runner REPO carries the work, checked file by file
+   (`lineStartSentinel` + `preamble` in `src/parse.ts`, `thinking,
+   telemetry` and `parsed.preamble` in `src/session.ts`, the `telemetry`
+   field on the system event in `src/types.ts`, `"enabled": false` in
+   `conditions/site-unending.json`, and all four site conditions present).
+   **OUTSTANDING: the runner container restart was NOT confirmed.** The
+   wait loop used to watch for it matched `"uptimeSec":[0-9]{1,4}` — a
+   pattern that only means "restarted" while the OLD uptime has five
+   digits. Here it was 5778, four digits, so the loop matched the
+   pre-deploy value and exited instantly. **Verify a restart against the
+   uptime you read BEFORE the deploy, never against a digit count**:
+   `curl -H "Authorization: Bearer $HF_TOKEN"
+   https://brick-factorial-the-room-runner.hf.space/` and check
+   `uptimeSec` is smaller than it was. HF rebuilds a Space on push, so a
+   restart is expected — but expected is not verified, and the first
+   `site` session after this is the thing that would silently run the old
+   parser.
+0a. **DEPLOYED 2026-08-29, twice (the first two passes).** PR #16 merged (main `28f1a6f`), viewer
    `3f7ead7`, runner `12bf1f1`; then PR #17 (main `3200b2c`) put the
    site page's metadata-only fetch on the viewer — **viewer `b1c9e4f`**,
    runner untouched and deliberately NOT redeployed (the diff was
@@ -414,7 +438,7 @@ so an old session can be reproduced exactly, but the control moved.
    read-only and never returns a token.* **TWO tokens are now owed a
    rotation: the one pasted on 2026-08-28, and the one pasted for this
    deploy on 2026-08-29.**
-0b. **The previous deploy record — 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
+0c. **The previous deploy record — 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
    Spaces deployed (runner `07a6d27`, viewer `137ed59`); then the floor +
    identity work (main `6bbccf5`) deployed on top — runner `568daed`,
    viewer `79c83ed`, verified live at 22:22 UTC (probe idle before, uptime
