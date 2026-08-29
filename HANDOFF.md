@@ -385,7 +385,14 @@ so an old session can be reproduced exactly, but the control moved.
    `src/session.ts` carries `castSpokenVote`/`agreementReached`/
    `maxFileChars`, and `conditions/` holds site, site-native and
    site-unwitnessed). No Supabase migration was needed: §9.8 added no
-   event kind, only `system` lines and payload fields.
+   event kind, only `system` lines and payload fields. **Checked against the
+   live DB the same day** (not just from these notes): the `kind` CHECK
+   constraint already lists all 12 kinds incl. `file` and `system`,
+   `room_events` is in the `supabase_realtime` publication with a
+   public-SELECT policy, and the biggest payload in the mirror is already
+   339 KB (a base64 PNG) — so a 60k-character page is well inside what the
+   sink and Realtime already carry. **The site pages ARE mirrored, every
+   version**, which is what site.html browses and what `fileWork` reads.
    *So a live room today HAS the task room, `[DONE]`, and a public
    `/site.html` with version history. What it still lacks is a session
    that has used any of it.*

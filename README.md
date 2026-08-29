@@ -699,6 +699,14 @@ too, and pins it — the poll that jumps to a newly started session stands
 down when the URL named one, since a `?session=` link is usually someone
 comparing a page with the conversation that produced it.
 
+It fetches **metadata up front and pages on demand**: `versions` holds
+id/round/author/timestamp only, and each version's HTML is fetched by id
+when you land on it, then cached (a realtime write arrives with its payload
+and seeds that cache directly). A site room's page is up to 60k characters
+and every version is its own row, so the obvious `select('*')` would turn a
+session dropdown into a multi-megabyte download — and the session poll
+re-runs every 15 seconds.
+
 The room is told none of this exists — it is a read-only view of the
 mirror, and nothing here reaches a prompt.
 
@@ -710,6 +718,19 @@ origin and cannot reach this page, its storage, or the viewer's Supabase
 session. The room gets a real browser; it does not get our credentials. The
 strip along the top is the only part of that page that is ours, and it
 stays visually separate for that reason.
+
+**§9.8 needed no migration, and the site pages ARE mirrored** (verified
+against the live DB 2026-08-29): every `[WRITE]` is a `file` event whose
+`payload.content` carries the whole page, so the mirror holds every
+version, which is what `viewer/site.html` browses and what `fileWork`
+attributes after the fact. `file` and `system` were both already in the
+`kind` CHECK constraint, and the completion axis deliberately added no
+kind — the votes are `system` rows. `room_events` is in the
+`supabase_realtime` publication with a public-SELECT policy, so the site
+page reads and live-updates through the same anon path as the viewer. Size
+is not a new problem either: a payload has already reached 339 KB in
+production (a base64 matplotlib PNG), well under Realtime's 1 MB record
+ceiling, and a 60k-character page is a fifth of that.
 
 **Schema gotcha (bitten 2026-08-27)**: `room_events.kind` has a CHECK
 constraint enumerating the allowed kinds — it lives only in Supabase, not
