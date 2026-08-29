@@ -64,6 +64,12 @@ export const config: RoomConfig = {
   // a turn, and who doesn't) is the cheapest form of turn-taking agency.
   pass: { enabled: false, notice: true },
 
+  // §9.8 the room ending its own session. Off in the control: a
+  // conversation with nothing to finish has nothing to agree about, and
+  // every session before 2026-08-29 ended on the clock. The task
+  // conditions ('site') turn it on and name the artifact.
+  completion: { enabled: false, rule: 'unanimous', quorum: 0, target: '', resetOnEdit: true, notice: true },
+
   search: {
     enabled: false, // control = the closed room; search conditions enable
     mode: 'replace',
@@ -75,6 +81,9 @@ export const config: RoomConfig = {
   tools: {
     files: false, // control = no tools; 'tools-full'/'tools-scarce' enable
     python: false,
+    // Per-file ceiling. Fine for notes; a task room whose deliverable is
+    // one file raises it (site: 60k) — see ToolsConfig.
+    maxFileChars: 16_000,
     budget: 'per-seat',
     // F4¾: 1 = the original economics (one action per turn, its result
     // delivered next turn). The 'agentic' condition raises it — see

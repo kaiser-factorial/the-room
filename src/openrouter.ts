@@ -100,7 +100,14 @@ export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' 
   | 'run-quiet' | 'write-quiet' | 'source-quiet' | 'badwrite-quiet'
   // Native-transport-only shapes: a tool the room doesn't offer, and a call
   // whose required argument is missing.
-  | 'badtool' | 'badargs';
+  | 'badtool' | 'badargs'
+  // §9.8: agreeing that the work is finished, and taking it back. Sentinels
+  // under both transports (agreeing is furniture, not a tool), so there is
+  // no native branch for these.
+  | 'done' | 'undone' | 'done-quiet' | 'site-done'
+  // A write to the completion target — the edit that clears the room's
+  // standing agreement.
+  | 'site';
 
 let stubTurn = 0;
 const modelTurns = new Map<string, number>();
@@ -234,6 +241,13 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     case 'error': throw new Error('stub scripted failure');
     case 'empty': return { text: '', meta, thinking };
     case 'pass': return { text: '[PASS]', meta, thinking };
+    case 'done': return { text: `[DONE] ${voice()}`, meta, thinking };
+    case 'done-quiet': return { text: '[DONE]', meta, thinking };
+    case 'undone': return { text: `[NOT DONE] ${voice()}`, meta, thinking };
+    case 'site': return { text: `[WRITE: index.html]\n<h1>the room</h1>\n<p>page by ${model}#${mTurn}</p>\n[/WRITE]`, meta, thinking };
+    // A write and a vote in ONE reply: the sentinel that would have been
+    // spoken to the room as prose before castSpokenVote existed.
+    case 'site-done': return { text: `[WRITE: index.html]\n<h1>the room</h1>\n<p>page by ${model}#${mTurn}</p>\n[/WRITE]\n[DONE] that reads right to me`, meta, thinking };
     case 'journal': return { text: `[JOURNAL] ${voice()}`, meta, thinking };
     // Query carries a unique marker so privacy tests can grep for it.
     case 'search': return { text: `[SEARCH: private-query ${model}#${mTurn}]`, meta, thinking };

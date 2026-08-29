@@ -1,0 +1,39 @@
+{
+  "description": "§9.8 the first TASK room: the six of them build this room's own website — one shared file, index.html, which the viewer Space serves publicly at /site.html. Self-contained (no search: the subject is themselves), verifiable by reading, and self-representational. Deliberately assigns NO roles and says nothing about roles — division of labour is the measurement, so naming it would contaminate it. The agentic bench (4 actions per turn, results in-turn) because building needs a read-write-check loop; runPublic so code and output are shared work; a 60k file ceiling and a 4000-token visible budget because the deliverable is a file and the 1200-token cap truncates a page mid-tag. Ends by agreement: [DONE] from every seat, standing at the end of a round, closes the session — and any write to index.html clears the count. NOT length-comparable with chat conditions (see §2.7); exploratory, out of registered stats.",
+  "welcomeMessage": "Welcome to the room. You are each a different AI model. You will be here together for a while, and there is one thing to make: this room's website — a single file, index.html, which the room will serve publicly. It should say what this place is and who is here; the rest is yours to decide. There is no facilitator after this message. You can change anything here, including what the others have written. It is finished when you agree it is.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "alongside",
+    "recall": true,
+    "maxTokens": 0
+  },
+  "pass": {
+    "enabled": true,
+    "notice": true
+  },
+  "completion": {
+    "enabled": true,
+    "rule": "unanimous",
+    "quorum": 0,
+    "target": "index.html",
+    "resetOnEdit": true,
+    "notice": true
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "maxFileChars": 60000,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": ["numpy", "pandas", "sympy", "networkx", "matplotlib"],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true
+  },
+  "durationMinutes": 90,
+  "maxRounds": 30,
+  "maxOutputTokens": 4000
+}

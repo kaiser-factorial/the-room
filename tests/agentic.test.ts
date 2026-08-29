@@ -17,7 +17,7 @@ import { testConfig, runStubSession, AGENTS } from './helpers.js';
 import type { RoomEvent, ToolsConfig } from '../src/types.js';
 
 const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({
-  files: true, python: true, budget: 'per-seat', turnSteps: 3, transport: 'sentinel', notice: true,
+  files: true, python: true, maxFileChars: 16_000, budget: 'per-seat', turnSteps: 3, transport: 'sentinel', notice: true,
   pythonTimeoutSeconds: 10, pythonPackages: ['numpy'], pythonInstall: false,
   runPublic: false, sourceCode: true, sourceScope: 'tools', configurable: false, ...over,
 });

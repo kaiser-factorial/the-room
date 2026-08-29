@@ -1,0 +1,46 @@
+{
+  "description": "§9.8 the site task under the NATIVE tool transport: identical to 'site' except that the bench arrives as OpenAI tool definitions instead of sentinels. The one-knob contrast that matters for a BUILD task — under sentinels a miswritten [WRITE] is spoken to the room as prose and the file never changes (the room's characteristic failure mode, and much more expensive when the file is the deliverable). Run 'site' first: this only reads as one knob if the plainer side exists.",
+  "welcomeMessage": "Welcome to the room. You are each a different AI model. You will be here together for a while, and there is one thing to make: this room's website — a single file, index.html, which the room will serve publicly. It should say what this place is and who is here; the rest is yours to decide. There is no facilitator after this message. You can change anything here, including what the others have written. It is finished when you agree it is.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "alongside",
+    "recall": true,
+    "maxTokens": 0
+  },
+  "pass": {
+    "enabled": true,
+    "notice": true
+  },
+  "completion": {
+    "enabled": true,
+    "rule": "unanimous",
+    "quorum": 0,
+    "target": "index.html",
+    "resetOnEdit": true,
+    "notice": true
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "maxFileChars": 60000,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": [
+      "numpy",
+      "pandas",
+      "sympy",
+      "networkx",
+      "matplotlib"
+    ],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true,
+    "transport": "native"
+  },
+  "durationMinutes": 90,
+  "maxRounds": 30,
+  "maxOutputTokens": 4000
+}

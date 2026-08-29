@@ -259,6 +259,43 @@ function passSection(config: RoomConfig): string {
   ].join('\n');
 }
 
+/** §9.8 — how the room says its work is finished, and where the count
+ *  stands right now. Rendered live (the votes mutate through the session),
+ *  so a seat always reads the current tally rather than remembering one.
+ *
+ *  Deliberately NOT moved to the native tool channel: like [JOURNAL] and
+ *  [PASS], agreeing is room furniture rather than a tool — it changes no
+ *  file and fetches nothing. Making it a tool would also make it look like
+ *  a task-completion API, which is precisely the register this room exists
+ *  to avoid.
+ */
+function completionSection(config: RoomConfig, standing: string[]): string {
+  const c = config.completion;
+  if (!c.enabled) return '';
+  const need = c.rule === 'unanimous' ? 'all of you' : `${c.quorum} of you`;
+  const lines = [
+    ``,
+    `When you think the work here is finished, say so: begin your reply with`,
+    `[DONE], and anything after it is spoken to the room as usual. You can`,
+    `take it back the same way, with [NOT DONE]. When ${need} are standing on`,
+    `[DONE] at the end of a round, the session ends.`,
+  ];
+  if (c.resetOnEdit && c.target) {
+    lines.push(
+      `Changing ${c.target} after that clears everyone's [DONE] — the thing you`,
+      `agreed about is no longer the thing in front of you.`,
+    );
+  }
+  if (c.notice) {
+    lines.push(
+      standing.length
+        ? `Standing on [DONE] right now: ${standing.join(', ')}.`
+        : `No one is standing on [DONE] right now.`,
+    );
+  }
+  return lines.join('\n');
+}
+
 /** F4¾: is the bench expressed through the native tool channel? The room
  *  still describes its furniture in prose either way — only the SYNTAX
  *  lines drop out (Corina 2026-08-27: keep furniture phrasing). */
@@ -345,6 +382,10 @@ function toolsSection(config: RoomConfig): string {
            `[WRITE: filename] the contents [/WRITE]; use [APPEND: filename] … [/APPEND]`,
            `to add to the end of a file instead of replacing it. Anything after the`,
            `closing tag is spoken to the room as usual. Writes are visible to everyone.`]),
+      // The ceiling, stated. A room whose deliverable IS a file plans
+      // around a number it knows and discovers a number it doesn't — the
+      // second costs a turn and arrives as a refusal mid-draft.
+      `A file holds up to ${t.maxFileChars.toLocaleString('en-US')} characters.`,
     );
   }
   if (t.python) {
@@ -416,8 +457,13 @@ function toolsSection(config: RoomConfig): string {
         ? [
             `You can take up to ${effectiveTurnSteps(config)} actions in a single turn. After each one its`,
             `result comes straight back to you and you can act again on what you`,
-            `learned — look something up and run code on it, or run code, read the`,
-            `error, and fix it. Speaking ends your turn: anything you say to the`,
+            // The example has to be reachable in THIS room: a loop room with
+            // search off ('site') was telling its seats to look something up.
+            ...(config.search.enabled
+              ? [`learned — look something up and run code on it, or run code, read the`,
+                 `error, and fix it. Speaking ends your turn: anything you say to the`]
+              : [`learned — write a file, run code that reads it, fix what the error`,
+                 `showed you. Speaking ends your turn: anything you say to the`]),
             `room is the last thing you do in it, so act first and speak when you`,
             `are ready. A turn spent entirely on actions says nothing to the room,`,
             `which is a fine way to spend one.`,
@@ -473,6 +519,9 @@ export function buildTurnMessages(opts: {
    *  Binary files carry empty content + binary/size flags (listed by name;
    *  contents render only in the viewer). */
   sharedFiles?: { name: string; content: string; binary?: boolean; size?: number }[];
+  /** §9.8: names of the seats currently standing on [DONE], in speaking
+   *  order. Rendered only when the room is told about votes at all. */
+  standingDone?: string[];
   /** F4¾ agentic loop: the turn's own steps so far, already in message
    *  form — under the sentinel transport an assistant reply followed by the
    *  observation as a user message; under the native transport an assistant
@@ -482,7 +531,7 @@ export function buildTurnMessages(opts: {
    *  lets a file an agent just wrote appear in its own shared-files block. */
   inTurn?: ChatMessage[];
 }): ChatMessage[] {
-  const { agent, config, events, summary, minutesRemaining, ownJournal, privateBlock, sharedFiles, inTurn } = opts;
+  const { agent, config, events, summary, minutesRemaining, ownJournal, privateBlock, sharedFiles, standingDone, inTurn } = opts;
 
   // Roster disclosure (§3.2c): 'named' keeps the original control wording
   // verbatim (quirk included) so pre-knob sessions stay comparable.
@@ -555,6 +604,7 @@ export function buildTurnMessages(opts: {
     broadcastDisclosure,
     journalSection(config),
     passSection(config),
+    completionSection(config, standingDone ?? []),
     searchSection(config),
     toolsSection(config),
     governanceSection(config),

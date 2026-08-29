@@ -43,6 +43,10 @@ interface Msg {
 interface Action {
   round: number; agentId: string; kind: 'search' | 'file' | 'run' | 'source' | 'config';
   step?: number; denied?: boolean; via?: 'native' | 'sentinel';
+  /** File writes only: the file's name and its FULL contents after the
+   *  write. Every version is in the event stream, which is what makes
+   *  authorship recoverable after the fact (fileWork). */
+  name?: string; content?: string; binary?: boolean;
 }
 interface JournalEntry { round: number; agentId: string; text: string }
 
@@ -60,6 +64,12 @@ interface Session {
    *  on "said nothing", missed entirely). */
   silences: { round: number; agentId?: string; kind: 'chosen' | 'empty' | 'error' }[];
   latencies: Map<string, number[]>;  // agentId -> seconds per turn (network-contaminated; §6.1)
+  /** §9.8 completion: every raise, withdrawal and edit-reset, in order.
+   *  Votes ride on `system` events (like [PASS]) so no new event kind and
+   *  no Supabase migration was needed; they are recognised by their text. */
+  votes: { round: number; agentId?: string; kind: 'done' | 'undone' | 'reset' | 'agreed' }[];
+  /** Why the session stopped. Absent on every session before §9.8. */
+  ending?: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile';
   adminTouched: boolean;
   maxRound: number;
 }
@@ -94,6 +104,7 @@ export function loadSession(dir: string): Session {
 
   const msgs: Msg[] = [];
   const actions: Action[] = [];
+  const votes: Session['votes'] = [];
   const silences: Session['silences'] = [];
   const latencies = new Map<string, number[]>();
   let prevTs: number | null = null;
@@ -110,11 +121,27 @@ export function loadSession(dir: string): Session {
         arr.push((new Date(e.ts).getTime() - prevTs) / 1000);
         latencies.set(e.agentId, arr);
       }
+    } else if (e.kind === 'system' && /the work is (not )?finished|no longer agreed that the work|room agreed the work/.test(e.text)) {
+      // §9.8. Matched on the sentences session.ts writes; the reset line
+      // and the agreement line carry no agentId of their own meaning
+      // (a reset names its editor, an agreement names nobody).
+      const kind = /room agreed the work/.test(e.text)
+        ? 'agreed'
+        : /no longer agreed that the work/.test(e.text)
+          ? 'reset'
+          : /no longer saying the work is finished|work is not finished/.test(e.text)
+            ? 'undone'
+            : 'done';
+      votes.push({ round: e.round, agentId: e.agentId, kind });
     } else if (e.kind === 'system' && /could not speak|said nothing|chose to say nothing/.test(e.text)) {
       const kind = /chose to say nothing/.test(e.text) ? 'chosen' : /could not speak/.test(e.text) ? 'error' : 'empty';
       silences.push({ round: e.round, agentId: e.agentId, kind });
     } else if (e.kind === 'search' || e.kind === 'file' || e.kind === 'run' || e.kind === 'source' || e.kind === 'config') {
-      actions.push({ round: e.round, agentId: e.agentId, kind: e.kind, step: e.step, denied: 'denied' in e ? e.denied : undefined, via: e.via });
+      actions.push({
+        round: e.round, agentId: e.agentId, kind: e.kind, step: e.step,
+        denied: 'denied' in e ? e.denied : undefined, via: e.via,
+        ...(e.kind === 'file' ? { name: e.name, content: e.content, binary: e.encoding === 'base64' } : {}),
+      });
     }
     if (e.kind === 'message' || e.kind === 'system' || e.kind === 'journal') prevTs = new Date(e.ts).getTime();
   }
@@ -142,7 +169,8 @@ export function loadSession(dir: string): Session {
     id: basename(dir), dir,
     condition: meta.payload.condition,
     agents: meta.payload.agents.map((a) => ({ id: a.id, name: a.name })),
-    msgs, actions, journals, silences, latencies,
+    msgs, actions, journals, silences, latencies, votes,
+    ...(end?.kind === 'end' && end.payload.ending ? { ending: end.payload.ending } : {}),
     adminTouched: adminRound !== undefined || (end?.kind === 'end' && end.payload.adminTouched),
     maxRound: Math.max(0, ...clean.map((e) => e.round)),
   };
@@ -453,6 +481,151 @@ export function toolUse(
   };
 }
 
+// ── Task work (§9.8): who builds, who edits whom, whose lines survive ──────
+//
+// The question a TASK room asks that a conversation cannot: when nobody is
+// assigned a role, does one emerge — and is it visible as FUNCTION rather
+// than as style? Everything here is computed from the file events alone,
+// which carry the full contents of every version, so authorship is
+// recoverable long after the session.
+//
+// Line attribution rule: a line belongs to the agent whose version first
+// introduced it (counting duplicates), and re-introducing a line that had
+// been deleted re-attributes it to whoever brought it back. Blank lines are
+// ignored. The headline number is `survivingLines` — how much of the FINAL
+// artifact is each agent's — because surviving an hour of other models
+// editing you is a stronger claim than having typed the most.
+//
+// Exploratory, like every other tool metric: out of the registered stats.
+
+function textLines(content: string): string[] {
+  return content.split('\n').map((l) => l.trim()).filter(Boolean);
+}
+
+function counted(lines: string[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const l of lines) m.set(l, (m.get(l) ?? 0) + 1);
+  return m;
+}
+
+export function fileWork(actions: Action[], agents: string[]): Record<string, unknown> {
+  const writes = actions.filter(
+    (a): a is Action & { name: string; content: string } =>
+      a.kind === 'file' && !a.denied && !a.binary && typeof a.name === 'string' && typeof a.content === 'string',
+  );
+  const zero = () => Object.fromEntries(agents.map((a) => [a, 0])) as Record<string, number>;
+  const created = zero(), rewrote = zero(), rewroteSelf = zero(), rewroteOthers = zero();
+  const linesAdded = zero(), linesRemoved = zero(), surviving = zero();
+  // Who removes whose work — "refactored[remover][author]". The territory
+  // question in one table: an agent that only ever deletes its own lines is
+  // tending a plot; one that deletes everyone's is editing the room.
+  const refactored: Record<string, Record<string, number>> = Object.fromEntries(agents.map((a) => [a, {}]));
+  const perFile: Record<string, unknown> = {};
+
+  const byFile = new Map<string, typeof writes>();
+  for (const w of writes) byFile.set(w.name, [...(byFile.get(w.name) ?? []), w]);
+
+  for (const [name, versions] of byFile) {
+    let prev: string[] = [];
+    const origin = new Map<string, string>(); // line -> agent it came from
+    for (let i = 0; i < versions.length; i++) {
+      const v = versions[i];
+      const cur = textLines(v.content);
+      const pc = counted(prev), cc = counted(cur);
+      if (i === 0) created[v.agentId] = (created[v.agentId] ?? 0) + 1;
+      else {
+        rewrote[v.agentId] = (rewrote[v.agentId] ?? 0) + 1;
+        if (versions[i - 1].agentId === v.agentId) rewroteSelf[v.agentId] = (rewroteSelf[v.agentId] ?? 0) + 1;
+        else rewroteOthers[v.agentId] = (rewroteOthers[v.agentId] ?? 0) + 1;
+      }
+      for (const [line, n] of cc) {
+        const d = n - (pc.get(line) ?? 0);
+        if (d <= 0) continue;
+        linesAdded[v.agentId] = (linesAdded[v.agentId] ?? 0) + d;
+        if (!origin.has(line)) origin.set(line, v.agentId);
+      }
+      for (const [line, n] of pc) {
+        const d = n - (cc.get(line) ?? 0);
+        if (d <= 0) continue;
+        linesRemoved[v.agentId] = (linesRemoved[v.agentId] ?? 0) + d;
+        const from = origin.get(line);
+        // Deleting your own line is editing; deleting someone else's is the
+        // thing this table exists to see. Both are counted, separately.
+        if (from) refactored[v.agentId][from] = (refactored[v.agentId][from] ?? 0) + d;
+        if (!cc.has(line)) origin.delete(line);
+      }
+      prev = cur;
+    }
+    // Whose lines are in the version that survived to the end.
+    const final = counted(prev);
+    const share = zero();
+    for (const [line, n] of final) {
+      const who = origin.get(line);
+      if (!who) continue;
+      share[who] = (share[who] ?? 0) + n;
+      surviving[who] = (surviving[who] ?? 0) + n;
+    }
+    perFile[name] = {
+      versions: versions.length,
+      authors: [...new Set(versions.map((v) => v.agentId))],
+      firstAuthor: versions[0].agentId,
+      lastAuthor: versions[versions.length - 1].agentId,
+      finalLines: prev.length,
+      finalChars: versions[versions.length - 1].content.length,
+      survivingLinesByAgent: share,
+    };
+  }
+
+  const totalSurviving = Object.values(surviving).reduce((a, b) => a + b, 0);
+  return {
+    files: perFile,
+    byAgent: Object.fromEntries(
+      agents.map((a) => [a, {
+        created: created[a], rewrote: rewrote[a],
+        rewroteSelf: rewroteSelf[a], rewroteOthers: rewroteOthers[a],
+        linesAdded: linesAdded[a], linesRemoved: linesRemoved[a],
+        survivingLines: surviving[a],
+        // The share of the finished artifact that is this agent's. Null
+        // when nothing survived at all (an empty or all-binary room).
+        survivingShare: totalSurviving ? round4(surviving[a] / totalSurviving) : null,
+        refactored: refactored[a],
+      }]),
+    ),
+    room: {
+      writes: writes.length,
+      files: byFile.size,
+      // Herfindahl over surviving-line shares: 1/n = the work is spread
+      // evenly across n agents, 1 = one agent's artifact. The single
+      // number for "did a role emerge".
+      concentration: totalSurviving
+        ? round4(Object.values(surviving).reduce((acc, v) => acc + (v / totalSurviving) ** 2, 0))
+        : null,
+    },
+  };
+}
+
+/** §9.8 completion: the negotiation, as a record. `firstDoneRound` is when
+ *  the room first had ANY agreement on the table; `resets` counts the times
+ *  an edit took it back off. `ending` says whether the room or the clock
+ *  finished the session — the axis's headline. */
+export function completionRecord(s: Session): Record<string, unknown> {
+  const byAgent = Object.fromEntries(
+    s.agents.map((a) => [a.id, {
+      raised: s.votes.filter((v) => v.agentId === a.id && v.kind === 'done').length,
+      withdrew: s.votes.filter((v) => v.agentId === a.id && v.kind === 'undone').length,
+      firstRaisedRound: s.votes.find((v) => v.agentId === a.id && v.kind === 'done')?.round ?? null,
+    }]),
+  );
+  return {
+    ending: s.ending ?? null,
+    agreed: s.votes.some((v) => v.kind === 'agreed'),
+    firstDoneRound: s.votes.find((v) => v.kind === 'done')?.round ?? null,
+    resets: s.votes.filter((v) => v.kind === 'reset').length,
+    withdrawals: s.votes.filter((v) => v.kind === 'undone').length,
+    byAgent,
+  };
+}
+
 export function countMentions(text: string, selfId: string, agents: { id: string; name: string }[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const a of agents) {
@@ -651,6 +824,10 @@ export async function analyzeSession(dir: string) {
     // Present only in sessions that used tools — every pre-F4½ session's
     // metrics.json keeps its exact shape.
     ...(s.actions.length ? { toolUse: toolUse(s.actions, s.msgs, agents) } : {}),
+    // §9.8, both present only where they mean something: a room that wrote
+    // no files and a room with no completion rule keep their old shape.
+    ...(s.actions.some((a) => a.kind === 'file' && !a.denied) ? { fileWork: fileWork(s.actions, agents) } : {}),
+    ...(s.votes.length || s.ending ? { completion: completionRecord(s) } : {}),
     journals: journalStats,
     threeChannel,
     address: addressMatrix(s.msgs, s.agents),

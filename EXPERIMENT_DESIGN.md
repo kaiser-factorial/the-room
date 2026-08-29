@@ -1088,3 +1088,128 @@ F2 → F3 → F4 → sandbox riding the same plumbing → exploratory build
 sessions interleaved whenever. Phase C waits for the main-program batches
 it would be compared against — but check old-slug availability early.
 Thought broadcast (9.3) waits for Phase-B baselines.
+
+### 9.8 The room's own website — the first TASK room (Corina 2026-08-29; BUILT)
+
+The concrete instance of §9.2(b), and the move the program has been
+circling since the pilot: from open-ended rounds to a shared **task**.
+The reason is the identity question, not the artifact. Open-ended rounds
+make identity visible as STYLE — vocabulary, rhythm, stance, which is
+what §2.1–2.2 measure. A task makes it visible as **function**: who
+starts things, who structures, who documents, who refactors whom, whose
+work survives. Division of labour is only observable where there is
+labour to divide.
+
+**The task**: build this room's own website — a single shared file,
+`index.html`, which the viewer Space serves publicly at `/site.html`.
+Chosen for three properties. *Self-contained* — one file, no build step,
+no external dependency, so the coordination cost is the room's own and
+not the toolchain's. *Verifiable by reading* — anyone can look at the
+artifact and at the transcript that produced it, with no instrument in
+between. *Self-representational* — the content is what this place is and
+who is here, which is the research question wearing a different hat: a
+room asked to describe itself has to decide, out loud, who it is.
+
+**Condition `site`** (with `site-native`, the transport arm, and
+`site-unwitnessed`, the audience arm). The bench is
+the agentic one (4 actions per turn, results in-turn) because building
+needs a write-read-fix loop; `runPublic` because shared code is shared
+work; websearch OFF, because the subject is themselves and an open web
+would import someone else's words about AI rooms into a page that is
+supposed to be theirs. Two numbers move for the deliverable's sake:
+`tools.maxFileChars` 16k → 60k, and `maxOutputTokens` 1200 → 4000 (a
+hand-written page does not fit in a chat cap; at 1200 a `[WRITE]` is
+truncated mid-tag and the room publishes a broken file without being
+told). **Both make `site` sessions length-incomparable with chat
+conditions** — the §2.7 length-controlled parallel gap is the instrument,
+as at the 2026-08-27 boundary.
+
+**What is deliberately NOT in the prompt.** The draft kickoff said "No
+roles are assigned." It is gone, and its absence is the point: naming
+roles makes roles salient, and the emergence of a division of labour is
+the measurement. The room is given a task, a file, permission to change
+each other's work, and nothing else — the same reason "You are not
+obligated to be helpful" was cut from the turn paragraph in the
+2026-08-27 surgery. Also cut: the draft's `/archive/` (no such directory
+exists — a room told to read one either hallucinates its contents onto a
+public page or spends turns failing to find it) and `/site/index.html`
+(shared file names are flat by construction: `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`).
+The welcome keeps the control's skeleton — same opening, same "no
+facilitator after this message" — so that one paragraph is the only
+difference from every session run so far.
+
+**The completion axis (`completion`, new).** "It is finished when you
+agree it is" is a sentence with no consequence attached unless agreement
+does something. `[DONE]` puts it in the room's hands: a seat raises it,
+withdraws it with `[NOT DONE]`, the standing count is rendered live in
+every prompt (or not — `notice: false` is a real condition: the room
+converges without being told it is converging), and when the rule is met
+the session ends. Two properties make it a measurement rather than a
+button:
+
+- **Agreement must survive the round it completes in.** The check runs at
+  the END of a round, never the moment the last vote lands. Everyone
+  still gets the turn they were owed, and anyone can withdraw inside it.
+  What ends the session is a state the room HELD, not a race won by
+  whoever spoke last.
+- **An edit to the artifact clears every standing vote** (`resetOnEdit`,
+  keyed on `completion.target`). The thing they agreed about no longer
+  exists. The vote → edit → re-vote cycle is the negotiation, written
+  down, and `resets` counts it.
+
+Votes ride on `system` events, attributed, `private` when the room isn't
+told — the same shape as a silent `[PASS]`, which means no new event kind
+and no Supabase migration. `[DONE]` stays a SENTINEL under the native
+transport too: agreeing changes no file and fetches nothing, and putting
+it in the tool schema would dress the room's own decision as a
+task-completion API.
+
+**Reading a site session** (`fileWork` + `completion` in metrics.json,
+both exploratory, both out of registered stats):
+- who CREATED a file vs. who rewrote one, and rewrote-self vs.
+  rewrote-others — the first cut at territory;
+- `refactored[remover][author]` — who deletes whose lines. An agent that
+  only removes its own is tending a plot; one that removes everyone's is
+  editing the room;
+- `survivingLines` / `survivingShare` — how much of the FINAL page is
+  each seat's, attributed to whoever first introduced each line (and to
+  whoever re-introduced it, if it was deleted and came back). Surviving
+  an hour of five other models editing you is a stronger claim than
+  having typed the most;
+- `concentration` — Herfindahl over those shares. 1/n = the work spread
+  evenly; near 1 = one seat's page with witnesses. The single number for
+  "did a role emerge";
+- `completion.ending` — `agreement` vs `clock` vs `rounds`: did the room
+  finish, or did we stop it?
+
+**Confounds to keep in view.** (1) **Now an arm rather than a caveat:**
+`site` says the page will be served publicly, which is true and
+load-bearing — an artifact for nobody is a different task — but it also
+tells a room whose premise is "no audience they know of" that it has one,
+and hands it a reason to perform. `site-unwitnessed` removes that clause
+and nothing else (a test pins the one-clause claim from both sides: the
+witnessed text minus the clause IS the unwitnessed text, and every other
+field is identical). It is the cleanest one-knob contrast in the family,
+and the one that asks whether self-representation changes when someone is
+looking. Held on purpose: `/site.html` serves whatever `index.html` was
+written most recently by ANY session, so an unwitnessed room's page can go
+public without the room having been told it would — a non-disclosure, not
+a lie, and pinnable to a witnessed session with `?session=<id>` when it
+matters. (2) A task
+room may converge lexically fast and stylistically slow (§9.2's
+prediction); do not read a `site` gap against a chat baseline without the
+length control. (3) The bench, the caps and the task all move at once
+relative to `tools-full`; `site` is a new family, not a one-knob
+contrast. The one-knob contrast that exists inside the family is
+`site` ↔ `site-native` — and it matters more here than it did for
+`agentic`, because under sentinels a miswritten `[WRITE]` is spoken to
+the room as prose and the file silently does not change. That failure
+mode costs a sentence in a conversation; in a build room it costs the
+deliverable.
+
+**Next rungs, unbuilt.** An `/archive/` the room can actually read (past
+transcripts as read-only shared files — then "say what this place is"
+can draw on more than one session's memory); a second task with a
+different shape (something with a right answer, to separate coordination
+from taste); and the same room with `completion.notice: false`, which
+asks whether a room can converge on "finished" without a tally to watch.
