@@ -21,9 +21,11 @@ channel whose divergence from an agent's public voice indicates performed
 versus retained identity. Manipulable axes — room size, persona injection,
 opening message, speaking-order regime, countdown visibility, journal
 economics, context policy, roster disclosure, websearch, a tool bench
-(shared filesystem + python), self-governance, and thought broadcast —
-let the apparatus ask not only *whether* models mould together, but what
-social and structural pressures govern it.
+(shared filesystem + python), self-governance, thought broadcast, and a
+shared TASK whose completion the room itself declares — let the
+apparatus ask not only *whether* models mould together, but what social
+and structural pressures govern it, and whether identity that is faint as
+style is legible as function.
 
 > **Program structure (2026-08-24):** Phase A = pilot sessions that fix
 > the controls below (session length is already under revision — the first
@@ -47,6 +49,8 @@ social and structural pressures govern it.
 | Reasoning | effort low (anti-starvation). Anthropic seats get the native budget form at every cap now that the allowance is additive; effort is the cost lever (§2.5, §9.5b) |
 | Roster disclosure | **named** (frozen original wording) · axis: count / none (`roster-hidden`) |
 | Self-disclosure | **named** (control) — "You are Opus 5.", and the roster lists the OTHER five (the old wording listed the reader among "the others", which is very likely why a seat reported being told it was Opus; fixed 2026-08-28) · axis: `anonymous`, which tells them nothing and makes them guess |
+| Completion | **off** (control) — a session ends on the clock or `maxRounds` · axis: `completion.enabled` (`site`), where `[DONE]` from the room ends it and `end.payload.ending` says which happened |
+| File ceiling | 16,000 characters per shared file (stated in the prompt) · `site` raises it to 60,000 — the deliverable is a file |
 | Declining the floor | **off** (control) · `floor` condition turns `[PASS]` on: the turn is still offered to everyone, spending it is optional. Its own axis since 2026-08-28 (was welded to the journal) |
 | Transcript | **turns** since 2026-08-27 — a seat's own messages are its own assistant turns, everyone else's are user-role and labelled · axis: `environment`, every session before that date |
 | Logprobs | captured where providers return them (Qwen, Grok, DeepSeek-pinned — §2.6) |
@@ -207,6 +211,31 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    says so; both run trace-rich with the journal on (the only private
    channel left). Journals stay absolute; the rolling summary never
    carries traces.
+15. **The task room** (§9.8, BUILT 2026-08-29; exploratory, out of
+   registered stats) — `site` (+ `site-native`, the transport arm): the
+   room builds its OWN website, one shared `index.html`, which the viewer
+   Space serves publicly at `/site.html`. The move from open-ended rounds
+   to a shared task, made for the identity question: rounds make identity
+   visible as STYLE, a task makes it visible as FUNCTION — who starts,
+   who structures, who documents, who refactors whom, whose lines
+   survive. NO roles are assigned and none are mentioned: naming roles
+   would make them salient, and their emergence is the measurement.
+   `fileWork` in metrics.json reads it afterwards (creates vs. rewrites,
+   a who-deletes-whose-lines matrix, surviving-line share per seat, and a
+   Herfindahl concentration over those shares). Caps move for the
+   deliverable — 60k per file, 4000 visible tokens — so **`site` sessions
+   are not length-comparable with chat conditions** (§2.7's
+   length-controlled gap is the instrument).
+16. **Completion** (§9.8, BUILT 2026-08-29) — off (control: every session
+   ends on the clock or the round cap) · `[DONE]` on, as in `site`: a
+   seat raises it and withdraws it with `[NOT DONE]`, the standing count
+   renders live in every prompt (`notice: false` hides the tally — a room
+   converging without being told it is converging), and when the rule
+   (unanimous / quorum) is met AT THE END OF A ROUND the session ends. A
+   write to the target file clears every standing vote: the thing they
+   agreed about no longer exists, and the vote → edit → re-vote cycle is
+   the negotiation written down. `end.payload.ending` records whether the
+   room finished or we stopped it.
 
 ## Measurement summary
 
@@ -234,8 +263,10 @@ per condition, conditions interleaved in time.
 generations (same control condition on each family's earliest still-served
 model — persona persistence across generations; snapshot old slugs early,
 they deprecate) · rooms-that-build (sandboxed Python/HTML playground as the
-next rung of the task/tool ladders; registered axis version + exploratory
-build-anything sessions outside Phase-B stats).
+next rung of the task/tool ladders) — the exploratory half is now BUILT as
+§9.8's `site` (the room builds its own website); the REGISTERED axis
+version (task as a rung of the §3.2b opening-message ladder, measurement
+unchanged, artifact uninstrumented) is still parked.
 
 *Details: EXPERIMENT_DESIGN.md (metrics, confounds §6.1, extensions §9) ·
 BUILD_PLAN.md (phases, resolved decisions D1–D8).*

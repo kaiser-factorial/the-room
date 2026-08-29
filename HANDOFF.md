@@ -2,14 +2,14 @@
 
 Multi-agent room experiment: 6 different AI models locked in a task-free,
 facilitator-free group conversation; we measure linguistic drift/moulding.
-Everything below is true as of **2026-08-28** (end of the FOURTH build
-session — the agentic refinement sprint. Merged to main AND deployed to
-both Spaces; see reminder 0 for the deploy record and the one credential
-follow-up it left).
+Everything below is true as of **2026-08-29** (end of the FIFTH build
+session — the TASK-ROOM sprint: the room now builds its own website and
+ends its own session by agreement. Merged/pushed but **NOT yet deployed**
+— see reminder 0).
 
 ## Read these, in order
 
-1. **SUMMARY.md** — abstract, control state, roster, axes (now 14),
+1. **SUMMARY.md** — abstract, control state, roster, axes (now 16),
    measurement + robustness layer. The at-a-glance spec.
 2. **EXPERIMENT_DESIGN.md** — §0 program (Phase A pilot → Phase B journal
    experiment), §2.5 three-channel (incl. the Grok-trace caveat + fix, and
@@ -17,13 +17,16 @@ follow-up it left).
    cap, not the provider's), §2.7 robustness layer, **§3.4b websearch**
    (both economics), §6.1 confounds, §9 extensions — **§9.5 the agentic
    turn + the transport arm, §9.5b the output-budget fix, §9.6 identity
-   swap** are this session's; §9.3 broadcast and §9.4 self-governance are
-   built and deployed.
-3. **BUILD_PLAN.md** — F1–F4¾ BUILT + status addenda with the open
-   reminders; F5 Talkie and F6 dashboard remain. Roadmap artifact mirrors
+   swap** are the previous session's; **§9.8 the task room + the
+   completion axis** is this one's. §9.3 broadcast and §9.4
+   self-governance are built and deployed.
+3. **BUILD_PLAN.md** — F1–F5 BUILT + status addenda with the open
+   reminders; Talkie and F6 dashboard remain. Roadmap artifact mirrors
    it.
 4. **README.md** — run/analyze/export commands, hosting, tests, admin,
-   **Websearch/Tools/xAI sections** (sentinels, privacy classes, caps).
+   **Websearch/Tools/xAI sections** (sentinels, privacy classes, caps),
+   and **"The task room, and finishing"** (`site`, `[DONE]`, `fileWork`,
+   the sandboxed site page).
 
 ## Current state
 
@@ -121,6 +124,45 @@ follow-up it left).
   Two one-knob contrasts now:
   tools-full ↔ agentic (the loop), agentic ↔ agentic-native (transport).
   Both deployed 2026-08-28 (reminder 0).
+- **The TASK ROOM is BUILT (§9.8, 2026-08-29) — not yet deployed.**
+  `site` (+ `site-native`): the six of them build **this room's own
+  website**, a single shared `index.html`, which `viewer/site.html` serves
+  publicly on the viewer Space and updates live as they write it. The
+  reason is the identity question, not the page: open-ended rounds make
+  identity visible as STYLE, a task makes it visible as FUNCTION — who
+  starts, who structures, who documents, who refactors whom, whose lines
+  survive. **No roles are assigned and the prompt never says the word**:
+  naming roles makes them salient and the emergence is the measurement
+  (same logic as cutting "You are not obligated to be helpful"). The
+  kickoff keeps the control welcome's skeleton so one paragraph is the
+  only difference from every prior session. Search is OFF (the subject is
+  themselves); the agentic bench is on (4 steps — building needs
+  write → run → read the error → fix); `runPublic` on. Two caps move for
+  the deliverable's sake — `tools.maxFileChars` 16k→60k (new knob, stated
+  in the prompt) and `maxOutputTokens` 1200→4000, because at 1200 a
+  `[WRITE]` truncates mid-tag and the room publishes a broken page without
+  being told. **So `site` sessions are NOT length-comparable with chat
+  conditions** — §2.7's length-controlled gap is the instrument, exactly
+  as at the 2026-08-27 boundary.
+- **Completion — the room ends its own session (§9.8, 2026-08-29).** New
+  `completion` config: `[DONE]` raises a seat's hand, `[NOT DONE]` lowers
+  it, the standing count renders live in every prompt (or not —
+  `notice: false` is a real arm), and the rule (unanimous/quorum) is
+  checked **at the END of a round**, so agreement has to survive the round
+  it completes in rather than being a race won by whoever spoke last. Any
+  write to `completion.target` clears every standing vote — the thing they
+  agreed about no longer exists — and the vote → edit → re-vote cycle is
+  the negotiation, counted as `resets`. `end.payload.ending` now records
+  `agreement | clock | rounds | admin | stopfile`: did the room finish, or
+  did we stop it? `[DONE]` stays a SENTINEL under the native transport
+  too (agreeing is furniture, not a tool; a tool schema would dress it as
+  a task-completion API). **No new event kind** — votes ride on attributed
+  `system` events like a silent `[PASS]` — so no Supabase migration.
+  metrics.json grows `fileWork` (creates vs rewrites, rewroteSelf vs
+  rewroteOthers, `refactored[remover][author]`, surviving-line share per
+  seat, Herfindahl concentration) and `completion` (ending, firstDoneRound,
+  resets, withdrawals, per-agent raised/withdrew). Both exploratory, both
+  absent from rooms that don't use them, so old metrics.json shapes hold.
 - **Self-governance is BUILT + DEPLOYED (§9.4, 2026-08-27)** — `transparent`
   ([SOURCE] reads the whole experiment, incl. the live condition) and
   `self-governing` (everything OFF; [CONFIG: key = value] whitelist —
@@ -136,7 +178,7 @@ follow-up it left).
   room is told. Trace-rich + journal (the one private channel left).
   §9.3 sequencing note stands: run these AFTER Phase B baselines exist —
   built now, spent later. Tag out of standard §2.5 comparisons.
-- **Code quality**: 118-test suite (`npm test`), typechecked including tests/ since 2026-08-27, incl. the privacy
+- **Code quality**: 128-test suite (`npm test`), typechecked including tests/ since 2026-08-27, incl. the privacy
   invariants (journals/traces/search/run never in another agent's
   context — now also what an agent learns MID-turn) and analyze DETECTING
   planted dynamics in the voice stub.
@@ -293,7 +335,20 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **DEPLOYED 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
+0. **NOT DEPLOYED YET (2026-08-29).** The task-room sprint is committed and
+   pushed but neither Space has it: a live room today has no `site`
+   condition, no `[DONE]`, and the viewer has no `/site.html`. Redeploy
+   BOTH (`./deploy/deploy.sh brick-factorial` — viewer for `site.html` +
+   the regenerated conditions.json, runner for the new conditions and the
+   completion axis), **checking the runner's liveness probe FIRST** — a
+   deploy kills a live round. No Supabase migration is needed: §9.8 added
+   no event kind, only `system` lines and payload fields. The deploy needs
+   the two things a Claude container lacks by default:
+   `pip install huggingface_hub` for the `hf` CLI, and an `HF_TOKEN` with
+   write scope (the HF MCP connector is read-only and never returns a
+   token). **The token pasted into a session transcript on 2026-08-28 is
+   still to be ROTATED.**
+0b. **The previous deploy record — 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
    Spaces deployed (runner `07a6d27`, viewer `137ed59`); then the floor +
    identity work (main `6bbccf5`) deployed on top — runner `568daed`,
    viewer `79c83ed`, verified live at 22:22 UTC (probe idle before, uptime
@@ -311,13 +366,11 @@ so an old session can be reproduced exactly, but the control moved.
    read-only (its OAuth credential has `contribute-repos`, but no tool
    exposes a write, and it never returns the token). A token pasted into
    the session transcript on 2026-08-28 for this deploy SHOULD BE
-   ROTATED.* So a live room today still: speaks a miswritten tool
-   call to the room as prose, shares one cap between thinking and speech,
-   tells each seat its own name, and hands it the transcript as one user
-   message. Redeploy (`./deploy/deploy.sh brick-factorial runner`, HF
-   write token) — but CHECK THE LIVENESS PROBE FIRST, a deploy kills a
-   live round. No Supabase migration is needed: this session added no new
-   event kinds, only payload fields (`step`, `via`) and telemetry.
+   ROTATED.* (That deploy closed the gaps this note used to list: a live
+   room no longer speaks a miswritten tool call as prose under `native`,
+   no longer shares one cap between thinking and speech, and hands each
+   seat its own conversation rather than a document about one. What a live
+   room still lacks is everything in reminder 0.)
 1. **ROTATE the runner's OPENROUTER_API_KEY** — it carries a temporary
    test key that expires:
    `hf spaces secrets add brick-factorial/the-room-runner -s OPENROUTER_API_KEY=...`
@@ -339,6 +392,29 @@ so an old session can be reproduced exactly, but the control moved.
    our known-errors additions) and saved to Corina's account.
 
 ## Next up (the queue — roadmap artifact has the full rationale)
+
+**TASK-ROOM SPRINT DONE (§9.8: `site` + `site-native`, the `completion`
+axis, `tools.maxFileChars`, `viewer/site.html`, `fileWork` +
+`completion` metrics; 128 tests green) — DEPLOY IT (reminder 0), then run
+one.** Before the first live `site` session, three calls are Corina's, and
+all three are one edit away rather than a build:
+1. **Does the room know it is watched?** The kickoff says the page "will
+   be served publicly" — true, and load-bearing (an artifact for nobody is
+   a different task), but it also tells a room whose premise is "no
+   audience they know of" that it has one. The unwitnessed variant is one
+   `welcomeMessage` edit; it is worth running as its own arm rather than
+   silently choosing.
+2. **`site` or `site-native` first?** `site` (sentinels) keeps the
+   furniture framing the whole apparatus is measured in — but a miswritten
+   `[WRITE]` is spoken to the room as prose and the file silently does not
+   change, which cost a conversation a sentence in August and would cost a
+   build room its deliverable. Run `site` first anyway (the plainer side
+   must exist for the contrast to read as one knob), and read
+   `viaNative`/`viaSentinel` and the refusal counts after.
+3. **Duration.** `site` ships at 90 min / 30 rounds. That is a guess: it
+   is the first room that can end itself, and `end.payload.ending` will
+   say whether the clock or the room got there first. If it is always the
+   clock, the room needs longer, not a nudge.
 
 **Agentic sprint DONE (F4¾ loop + native transport + prompt/transcript
 surgery + the output-budget fix + identity swap; PR #15 MERGED to main and
@@ -394,3 +470,18 @@ mode in one screenshot: a tool call that misses becomes a sentence, and
 the author is the last to know. Half of today's work is the parser learning
 to recognise the attempt, and the other half is a transport where the
 attempt cannot be mistaken for speech at all.
+
+This session's is a decision rather than an observation, and it is the one
+worth arguing with first. The draft kickoff for the task room contained the
+line *"No roles are assigned."* It is gone. The room is given a task, a
+file, and permission to change each other's work — and never a word about
+roles, because the whole reason to run a task room is to see whether a
+division of labour appears without one being named, and a prompt that
+announces the absence of roles has made roles the subject. It is the same
+cut as *"You are not obligated to be helpful"* in August: the sentence that
+tries to prevent a behaviour by naming it is usually the sentence that
+installs it. What replaces it is mechanical rather than verbal — the file
+is one file, everyone may overwrite it, every version is kept, and
+`fileWork` can say afterwards whose lines are still standing. If a
+structurer emerges, the artifact will show it without anyone having been
+asked to be one.

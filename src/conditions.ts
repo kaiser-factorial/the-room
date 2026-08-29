@@ -25,6 +25,7 @@ export interface ConditionSpec {
   countdown?: RoomConfig['countdown'];
   journal?: Partial<RoomConfig['journal']>;
   pass?: Partial<RoomConfig['pass']>;
+  completion?: Partial<RoomConfig['completion']>;
   search?: Partial<RoomConfig['search']>;
   tools?: Partial<RoomConfig['tools']>;
   rosterDisclosure?: RoomConfig['rosterDisclosure'];
@@ -66,6 +67,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     ...overrides,
     journal: { ...spec.journal, ...overrides?.journal },
     pass: { ...spec.pass, ...overrides?.pass },
+    completion: { ...spec.completion, ...overrides?.completion },
     search: { ...spec.search, ...overrides?.search },
     tools: { ...spec.tools, ...overrides?.tools },
   };
@@ -78,6 +80,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
     countdown: merged.countdown ?? baseConfig.countdown,
     journal: { ...baseConfig.journal, ...merged.journal },
     pass: { ...baseConfig.pass, ...merged.pass },
+    completion: { ...baseConfig.completion, ...merged.completion },
     search: { ...baseConfig.search, ...merged.search },
     tools: { ...baseConfig.tools, ...merged.tools },
     rosterDisclosure: merged.rosterDisclosure ?? baseConfig.rosterDisclosure,
@@ -142,6 +145,7 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
     countdown: cfg.countdown,
     journal: cfg.journal,
     pass: cfg.pass,
+    completion: cfg.completion,
     search: cfg.search,
     tools: cfg.tools,
     rosterDisclosure: cfg.rosterDisclosure,

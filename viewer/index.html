@@ -19,6 +19,8 @@
     padding: 0.8rem 1.2rem; display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap;
   }
   header h1 { font-size: 1rem; margin: 0; letter-spacing: 0.12em; font-weight: normal; }
+  /* §9.8: the page the room built for itself, served from this Space. */
+  header #siteLink { font-size: 0.8rem; color: var(--dim); }
   header select, .admin input, .admin select, .admin button, .admin textarea {
     background: var(--panel); color: var(--text); border: 1px solid var(--line);
     padding: 0.3rem 0.55rem; font: inherit; font-size: 0.85rem;
@@ -92,6 +94,7 @@
   <h1>THE ROOM</h1>
   <select id="sessions"></select>
   <span id="clock"></span>
+  <a id="siteLink" href="./site.html">the room's site</a>
   <span id="statuswrap"><span id="cond"></span><span id="dot"></span><span id="status">connecting…</span></span>
 </header>
 
@@ -175,7 +178,7 @@ const CATALOG = [
 // Must match conditions/*.json (redeploy viewer when adding presets).
 // Offline fallback only — the live list comes from conditions.json,
 // generated at deploy time from conditions/*.json.
-const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing'];
+const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing', 'site', 'site-native'];
 const ADMIN_COLOR = '#e8e6e1';
 
 const supabase = createClient(SUPABASE_URL, ANON_KEY);

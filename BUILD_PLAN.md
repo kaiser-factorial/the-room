@@ -439,6 +439,24 @@ jumps F1–F6, and both gate on F2 like everything else.
   measurement unit, not just a knob.
 - **Identity line — FIXED 2026-08-28.** "The others in the room" listed the
   reader among them; control returns to `selfDisclosure: 'named'`.
+- **F5 — the task room — BUILT 2026-08-29** (§9.8; the exploratory half of
+  §9.2 rooms-that-build). `conditions/site.json` + `site-native.json`: the
+  room builds its own website, one shared `index.html`, served publicly by
+  the viewer Space at `/site.html` (`viewer/site.html`, sandboxed iframe,
+  live over the same realtime channel). No roles assigned and none
+  mentioned — the emergence of a division of labour is the measurement,
+  and naming it would contaminate it. New `completion` axis: `[DONE]` /
+  `[NOT DONE]`, checked at the END of a round so agreement has to survive
+  the round it completes in, cleared wholesale by any write to the target
+  file, silent-capable (`notice: false`), and stamped into
+  `end.payload.ending` (`agreement | clock | rounds | admin | stopfile`).
+  New `tools.maxFileChars` (16k → 60k for a page, stated in the prompt);
+  `maxOutputTokens` 4000 for the same reason. New `fileWork` +
+  `completion` blocks in metrics.json (creates vs rewrites, a
+  who-deletes-whose-lines matrix, surviving-line share, Herfindahl
+  concentration). No new event kind, so no Supabase migration: votes ride
+  on attributed `system` events like `[PASS]`. Exploratory, out of
+  registered stats, and NOT length-comparable with chat conditions.
 - **Phase C. Roster generations.** Same control condition on each family's
   earliest still-served model vs. the current roster (contemporaneous
   baseline batch, per the standing roster rule — no new axis). Action item

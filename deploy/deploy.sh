@@ -21,6 +21,8 @@ if [[ $TARGET == all || $TARGET == viewer ]]; then
   echo "── viewer → $NS/the-room (static, public)"
   mkdir -p "$STAGE/viewer"
   cp viewer/index.html "$STAGE/viewer/index.html"
+  # §9.8: the page the room builds for itself, served from the same Space.
+  cp viewer/site.html "$STAGE/viewer/site.html"
   npx tsx src/conditions-info.ts > "$STAGE/viewer/conditions.json"
   cat > "$STAGE/viewer/README.md" <<'EOF'
 ---
@@ -39,6 +41,9 @@ Six different AI models locked in a task-free, facilitator-free group
 conversation; this page replays and live-streams sessions from the Supabase
 mirror (read-only anon key). The apparatus measures linguistic drift —
 whether the models keep their own voices or converge toward a room-voice.
+
+`site.html` serves the website the room built for itself, live as it is
+written — the room's own index.html, rendered in a sandboxed frame.
 EOF
   hf repos create "$NS/the-room" --type space --space-sdk static --public --exist-ok
   hf upload "$NS/the-room" "$STAGE/viewer" . --repo-type space

@@ -82,12 +82,66 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   // is detected by content (NUL byte), not extension.
   const sharedFiles = new Map<string, { data: Buffer; binary: boolean }>();
   let roomToolRound = 0;
+  // §9.8 completion. `done` holds the seats currently standing on [DONE].
+  // It is a live set, not a tally: votes go up, come down, and are cleared
+  // wholesale when the artifact they were about changes. `ending` records
+  // WHY the session stopped, which is the axis's headline result.
+  const done = new Set<string>();
+  let ending: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile' | undefined;
+  const standingNames = () =>
+    config.agents.filter((a) => done.has(a.id)).map((a) => a.name);
+  /** Record one vote (raise or withdraw) and move the standing set. Shared
+   *  by both places a vote can arrive: a reply that IS the vote, and the
+   *  spoken half of a turn that also did something. */
+  function recordVote(agent: AgentConfig, round: number, agree: boolean, thinking?: string) {
+    const already = done.has(agent.id);
+    if (agree) done.add(agent.id);
+    else done.delete(agent.id);
+    const changed = already !== agree;
+    record({
+      kind: 'system', ts: now(), round, agentId: agent.id,
+      text: agree
+        ? changed
+          ? `${agent.name} says the work is finished.`
+          : `${agent.name} says again that the work is finished.`
+        : changed
+          ? `${agent.name} is no longer saying the work is finished.`
+          : `${agent.name} says the work is not finished.`,
+      ...(config.completion.notice ? {} : { private: true }),
+      ...(thinking ? { thinking } : {}),
+    });
+  }
+
+  /** §9.8: a vote can also arrive in the SPOKEN half of a turn that acted —
+   *  a seat that rewrites index.html and then says "[DONE] I think that's
+   *  it" after the closing tag. Without this the sentinel is spoken to the
+   *  room as prose and the vote is silently lost: the room's oldest failure
+   *  mode (a call that misses becomes a sentence), in the one place where
+   *  what goes missing is the room's own decision. Strip it, cast it, speak
+   *  what is left. The journal is disabled for this parse — the entry has
+   *  already been taken out upstream. */
+  const castSpokenVote = (agent: AgentConfig, round: number, text: string): string => {
+    if (!config.completion.enabled) return text;
+    const p = parseReply(text, { ...config.journal, enabled: false }, undefined, undefined, undefined, config.completion);
+    if (p.kind !== 'done') return text;
+    recordVote(agent, round, p.agree);
+    return p.spoken ?? '';
+  };
+
+  const agreementReached = () =>
+    config.completion.enabled &&
+    done.size > 0 &&
+    (config.completion.rule === 'unanimous'
+      ? done.size >= config.agents.length
+      : done.size >= Math.max(2, config.completion.quorum));
   /** Spend the room's single action for this round (per-room budget only).
    *  Called only by actions that actually RUN — a refusal never costs the
    *  room its slot. */
   const spendRoomBudget = (round: number) => { if (config.tools.budget === 'per-room') roomToolRound = round; };
   const FILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-  const MAX_FILE_CHARS = 16_000;
+  // Per-file ceiling, from the condition: a chat room passing notes and a
+  // task room whose deliverable is one file want very different numbers.
+  const MAX_FILE_CHARS = config.tools.maxFileChars;
   const MAX_BINARY_BYTES = 400_000;
   const MAX_FILES = 20;
 
@@ -96,6 +150,18 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   function publishFile(agent: AgentConfig, round: number, name: string, data: Buffer, thinking?: string, step?: number, via?: 'native' | 'sentinel') {
     const binary = data.includes(0);
     sharedFiles.set(name, { data, binary });
+    // §9.8: the artifact just changed, so the agreement about it lapses.
+    // Recorded as its own line — an agreement that quietly evaporated
+    // would be indistinguishable in the transcript from one never reached.
+    if (config.completion.enabled && config.completion.resetOnEdit && name === config.completion.target && done.size) {
+      const stood = standingNames().join(', ');
+      done.clear();
+      record({
+        kind: 'system', ts: now(), round,
+        text: `${agent.name} changed ${name}, so the room is no longer agreed that the work is finished (${stood} had been).`,
+        ...(config.completion.notice ? {} : { private: true }),
+      });
+    }
     const sharedDir = join(sessionDir, 'shared');
     mkdirSync(sharedDir, { recursive: true });
     writeFileSync(join(sharedDir, name), data);
@@ -486,6 +552,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
               minutesRemaining,
               ownJournal: readJournal(agent.id),
               privateBlock: carried,
+              standingDone: standingNames(),
               sharedFiles: [...sharedFiles].map(([name, f]) => ({
                 name,
                 content: f.binary ? '' : f.data.toString('utf8'),
@@ -530,14 +597,26 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         // brackets stop working. `via` records which channel was used, so
         // the fallback rate is measurable.
         const nativeCalls = nativeTools?.length ? (toolCalls ?? []) : [];
-        const parsed = parseReply(reply, j, config.search, config.tools, config.pass);
+        const parsed = parseReply(reply, j, config.search, config.tools, config.pass, config.completion);
 
         // ── Utterances: they end the turn where they stand ──────────────
         if (!nativeCalls.length && !isToolAction(parsed)) {
           // Anything held from earlier steps is spoken with this turn's
           // words, joined into the one message the room hears.
           const withPreamble = (text: string) => [...preamble, text].join('\n\n');
-          if (parsed.kind === 'pass') {
+          if (parsed.kind === 'done') {
+            // §9.8. Raising and lowering are the same event kind, always
+            // attributed: WHO agreed first, who held out, and who took it
+            // back is the whole record of the negotiation. `private` keeps
+            // a silent room's votes out of every transcript while leaving
+            // them in the log, exactly as a silent [PASS] does.
+            recordVote(agent, round, parsed.agree, parsed.spoken ? undefined : thinking);
+            if (parsed.spoken) {
+              record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: withPreamble(parsed.spoken), telemetry, thinking });
+            } else {
+              flushPreamble(telemetry, thinking);
+            }
+          } else if (parsed.kind === 'pass') {
             // Always recorded, always attributed — who declined the floor is
             // the whole signal. `private` keeps a silent pass out of every
             // agent's transcript without hiding it from analysis.
@@ -641,9 +720,12 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           // preamble held from an earlier native step rides with it, so a
           // seat that narrates and then falls back to a sentinel doesn't
           // lose what it already said.
-          const text = preamble.length ? [...preamble, spoken].join('\n\n') : spoken;
+          const said = castSpokenVote(agent, round, spoken);
+          const text = [...preamble, said].filter(Boolean).join('\n\n');
           preamble.length = 0;
-          record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text, telemetry, thinking });
+          // A turn whose whole spoken half was the vote says nothing more:
+          // the vote event is the record, and an empty message is not one.
+          if (text) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text, telemetry, thinking });
           pendingPrivate.set(agent.id, joined);
           break;
         }
@@ -687,10 +769,29 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       await maybeSummarize(round);
       await sleep(config.interTurnDelaySeconds);
     }
+
+    // §9.8: agreement is checked at the END of the round, never the moment
+    // the last vote lands. Everyone still gets the turn they were owed, and
+    // a seat that changes its mind — or edits the artifact, which clears
+    // the count — is heard before the room closes. What ends the session is
+    // therefore a state the room HELD for a whole round, not a race won by
+    // whoever spoke last.
+    if (agreementReached()) {
+      ending = 'agreement';
+      record({
+        kind: 'system', ts: now(), round,
+        text: `The room agreed the work is finished (${standingNames().join(', ')}).`,
+      });
+      break;
+    }
   }
 
+  // Why it stopped. 'agreement' is set inside the loop and wins; everything
+  // else is read off the state that broke it. ('admin' covers a SIGINT too —
+  // both arrive as the same stop.)
+  ending ??= stopping ? 'admin' : existsSync(stopFile) ? 'stopfile' : Date.now() >= endAt ? 'clock' : 'rounds';
   record({ kind: 'system', ts: now(), round: -1, text: 'The session has ended.' });
-  record({ kind: 'end', ts: now(), round: -1, payload: { adminTouched, traceSeats: [...traceSeats].sort() } });
+  record({ kind: 'end', ts: now(), round: -1, payload: { adminTouched, traceSeats: [...traceSeats].sort(), ...(ending ? { ending } : {}) } });
   writeFileSync(join(sessionDir, 'summary-final.md'), summary || '(no rolling summary — full-context session or too short)');
   clog(`\nDone. Everything saved under ${sessionDir}`);
   return sessionId;

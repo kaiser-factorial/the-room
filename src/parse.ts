@@ -1,7 +1,7 @@
 // Reply sentinel parsing, extracted pure from session.ts so the table of
 // model-mangled sentinel variants can be tested directly.
 
-import type { JournalConfig, PassConfig, SearchConfig, ToolsConfig } from './types.js';
+import type { CompletionConfig, JournalConfig, PassConfig, SearchConfig, ToolsConfig } from './types.js';
 
 // Loose sentinel matches: models bold/colon these more often than not —
 // and sometimes TYPO them ([GOURNAL], live 2026-08-25: a private entry was
@@ -11,6 +11,13 @@ import type { JournalConfig, PassConfig, SearchConfig, ToolsConfig } from './typ
 const JOURNAL_OPEN_RE = /^\s*\**\[([A-Za-z]{5,9})\]:?\**\s*([\s\S]*)/;
 const JOURNAL_CLOSE_RE = /\[\/([A-Za-z]{5,9})\]\s*([\s\S]*)/;
 const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
+// §9.8 [DONE] / [NOT DONE] — standing on, or standing down from, the claim
+// that the room's work is finished. Alongside-style by construction: an
+// agreement nobody can argue for is not a negotiation, so whatever follows
+// the sentinel is spoken to the room as usual. Same typo tolerance as the
+// rest of the furniture; the two-word negative forms are spelled out
+// because a room that means "not yet" writes it several ways.
+const DONE_RE = /^\s*\**\[(NOT[ _-]?DONE|UNDONE|DONE|[A-Za-z]{3,6})\]\**:?\s*\n?([\s\S]*)$/i;
 // [SEARCH: query] (F4). Same tolerance philosophy as JOURNAL: bold/typo'd
 // tokens still count (edit distance ≤2 of SEARCH — disjoint from JOURNAL,
 // which is >2 away). The closing bracket is optional (models drop it), and
@@ -85,6 +92,21 @@ function isConfigToken(w: string): boolean {
   return editDistance(w.toUpperCase(), 'CONFIG') <= 1;
 }
 
+/** [DONE] and its withdrawals. Tolerance is 1 (DONE is short: at 2, DOING
+ *  and NONE would both count as agreement, and a vote misread is the one
+ *  mistake this axis cannot afford). The negative forms are matched FIRST
+ *  — "UNDONE" is one edit from nothing else here, but it must never fall
+ *  through to the positive branch. */
+function doneVote(w: string): boolean | null {
+  const u = w.toUpperCase().replace(/[ _-]/g, '');
+  if (u === 'NOTDONE' || editDistance(u, 'UNDONE') <= 1) return false;
+  // The leading D is the same trick isRunToken plays with "RU…N": one edit
+  // from DONE also reaches NONE, GONE and TONE, and a room that writes
+  // "[NONE]" must not be recorded as agreeing that its work is finished.
+  if (u.startsWith('D') && editDistance(u, 'DONE') <= 1) return true;
+  return null;
+}
+
 export type ParsedReply =
   | { kind: 'pass' }
   /** Journal replaces the turn (or: alongside-mode privacy fallback — an
@@ -108,6 +130,11 @@ export type ParsedReply =
   | { kind: 'source'; name?: string; spoken?: string }
   /** §9.4 self-governance: change a room setting; alongside-style. */
   | { kind: 'config'; key: string; value: string; spoken?: string }
+  /** §9.8: standing on (agree=true) or withdrawing from (agree=false) the
+   *  claim that the room's work is finished. Alongside-style — the case
+   *  for it is spoken in the same turn. Not a ToolAction: a vote is an
+   *  utterance, and it ends the turn like one. */
+  | { kind: 'done'; agree: boolean; spoken?: string }
   | { kind: 'empty' };
 
 /** Reply kinds that are an ACTION rather than an utterance — the ones the
@@ -129,11 +156,30 @@ function unfence(reply: string): string {
   return m ? m[1] : reply;
 }
 
-export function parseReply(rawReply: string, j: JournalConfig, s?: SearchConfig, t?: ToolsConfig, p?: PassConfig): ParsedReply {
+export function parseReply(
+  rawReply: string,
+  j: JournalConfig,
+  s?: SearchConfig,
+  t?: ToolsConfig,
+  p?: PassConfig,
+  c?: CompletionConfig,
+): ParsedReply {
   const reply = unfence(rawReply);
   // Declining the floor stands on its own: it used to require the journal
   // to be enabled, which welded two independent axes together.
   if (p?.enabled && PASS_RE.test(reply)) return { kind: 'pass' };
+  // Before the tool sentinels: DONE collides with none of them (RUN needs
+  // RU…N, WRITE/SOURCE/CONFIG are ≥4 edits away, JOURNAL needs 5+ letters),
+  // but a vote that fell through to `message` would be a silent no-op on
+  // the axis, and this order makes that impossible rather than unlikely.
+  if (c?.enabled) {
+    const d = reply.match(DONE_RE);
+    const vote = d ? doneVote(d[1]) : null;
+    if (d && vote !== null) {
+      const spoken = d[2].trim();
+      return { kind: 'done', agree: vote, ...(spoken ? { spoken } : {}) };
+    }
+  }
   const open = j.enabled ? reply.match(JOURNAL_OPEN_RE) : null;
   const opened = open && isJournalToken(open[1]);
   if (opened && j.mode === 'alongside') {

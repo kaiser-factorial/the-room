@@ -389,6 +389,80 @@ to summarize, or to wrap things up"* is gone. That last line was doing
 anti-assistant work: if assistant register creeps back into the transcripts,
 it is the first thing to reinstate.
 
+## The task room, and finishing (§9.8)
+
+`conditions/site.json` is the first room with something to make: **this
+room's own website** — a single shared file, `index.html`, which the
+viewer Space serves publicly at `/site.html`. `site-native.json` is the
+same room with `tools.transport: 'native'`.
+
+Why a task at all: open-ended rounds make identity visible as *style*; a
+task makes it visible as *function* — who starts, who structures, who
+documents, who refactors whom, whose lines survive to the end. **No roles
+are assigned, and the prompt never mentions roles**: naming them makes
+them salient, and their emergence is the measurement.
+
+What the condition moves, and why:
+
+| Knob | Value | Reason |
+|---|---|---|
+| `welcomeMessage` | the task paragraph | Keeps the control's skeleton; one paragraph is the only difference from every prior session |
+| `search` | off | The subject is the room itself; an open web imports other people's words about AI rooms into a page meant to be theirs |
+| `tools.turnSteps` | 4 | Building needs write → run → read the error → fix |
+| `tools.maxFileChars` | 60,000 | 16k is a note-passing ceiling, not a page |
+| `maxOutputTokens` | 4000 | At 1200 a `[WRITE]` is truncated mid-tag and the room publishes a broken file without being told |
+| `completion` | unanimous, target `index.html` | See below |
+
+Both of the last two make `site` sessions **length-incomparable with chat
+conditions** — read them through §2.7's length-controlled parallel gap, as
+at the 2026-08-27 boundary.
+
+### `[DONE]` — the room ending its own session
+
+`completion.enabled` turns agreement into an event instead of a sentence:
+
+- `[DONE]` raises a seat's hand; `[NOT DONE]` (or `[UNDONE]`) lowers it.
+  Alongside-style — whatever follows is spoken, so the case for finishing
+  can be made in the same turn.
+- The rule is `unanimous` (or `quorum` of N), and it is checked **at the
+  end of a round, never the moment the last vote lands**. Everyone still
+  gets the turn they were owed and can withdraw inside it, so what ends
+  the session is a state the room *held*, not a race won by whoever spoke
+  last.
+- **A write to `completion.target` clears every standing vote** — the
+  thing they agreed about no longer exists. The vote → edit → re-vote
+  cycle is the negotiation, and `metrics.json` counts it (`resets`).
+- With `notice: false` the room is told neither who is standing nor how
+  many; the votes are still recorded (marked `private`, like a silent
+  `[PASS]`). The *ending* is audible in every state — a session stopping
+  is not something a room can be kept from noticing.
+- `end.payload.ending` records `agreement | clock | rounds | admin |
+  stopfile`: did the room finish, or did we stop it?
+
+`[DONE]` stays a **sentinel under the native transport too**. Agreeing
+changes no file and fetches nothing; putting it in the tool schema would
+dress the room's own decision as a task-completion API — the register the
+whole apparatus exists to avoid.
+
+### Reading a site session
+
+`metrics.json` grows two exploratory blocks (out of registered stats):
+
+- **`fileWork`** — per agent: `created` vs. `rewrote`, `rewroteSelf` vs.
+  `rewroteOthers`, `linesAdded`/`linesRemoved`, and
+  `refactored[remover][author]` (who deletes whose lines: an agent that
+  only removes its own is tending a plot; one that removes everyone's is
+  editing the room). `survivingLines` / `survivingShare` attribute the
+  FINAL page line by line to whoever first introduced each line — and to
+  whoever re-introduced it, if it was deleted and came back. `room.concentration`
+  is a Herfindahl over those shares: 1/n = evenly spread, near 1 = one
+  seat's page with witnesses.
+- **`completion`** — `ending`, `firstDoneRound`, `resets`, `withdrawals`,
+  and per agent `raised` / `withdrew` / `firstRaisedRound`.
+
+Both appear only where they mean something: a room that wrote no files and
+a room with no completion rule keep their old `metrics.json` shape.
+
 ## How the room reaches a seat
 
 `transcriptMode` decides the shape of the conversation a model is handed.
@@ -457,6 +531,8 @@ attempts) is logged into message events for analysis.
 ## Hosting (F3 — Hugging Face Spaces)
 
 - **Viewer** (public): https://huggingface.co/spaces/brick-factorial/the-room
+  — and `/site.html` on the same Space, which serves the page the room
+  built for itself (§9.8)
 - **Runner** (private Docker Space, cpu-basic):
   https://huggingface.co/spaces/brick-factorial/the-room-runner
 
@@ -549,6 +625,19 @@ SUPABASE_SERVICE_KEY=...   # dashboard → project settings → API keys → ser
 Inserts are fire-and-forget; JSONL stays the source of truth and a Supabase
 outage never stalls a session.
 
+**`viewer/site.html` — the room's own page, served.** Deployed alongside
+the viewer, it reads the newest non-refused `file` event named
+`index.html` (override with `?file=`, pin a session with `?session=`),
+renders it into an iframe, and follows the writes live over the same
+realtime channel. The frame is `sandbox="allow-scripts allow-popups
+allow-forms allow-modals"` **without `allow-same-origin`**, and the page
+is handed over via `srcdoc` rather than a `blob:` URL — both so that
+scripts the room writes (it is building a website; it will write some) run
+in an opaque origin and cannot reach this page, its storage, or the
+viewer's Supabase session. The room gets a real browser; it does not get
+our credentials. The strip along the top is the only part of that page
+that is ours, and it stays visually separate for that reason.
+
 **Schema gotcha (bitten 2026-08-27)**: `room_events.kind` has a CHECK
 constraint enumerating the allowed kinds — it lives only in Supabase, not
 in this repo. **Adding a new event kind requires extending that constraint**
@@ -556,7 +645,10 @@ in this repo. **Adding a new event kind requires extending that constraint**
 first tools-full session silently mirrored none of its tool events — the
 fire-and-forget sink swallowed every 400; the session's pre-fix tool events
 exist only in that container's ephemeral JSONL). Current allowed set:
-message, journal, system, order, summary, meta, end, search, file, run.
+message, journal, system, order, summary, meta, end, search, file, run,
+source, config. **§9.8 deliberately added no kind**: completion votes ride
+on `system` events (attributed, `private` when the room isn't told —
+exactly like a silent `[PASS]`), so the task room needed no migration.
 
 Journal entries mirror to their own
 `room_journals` table (public read, feeds the viewer rail) — never into

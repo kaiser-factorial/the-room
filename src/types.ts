@@ -52,6 +52,44 @@ export interface PassConfig {
   notice: boolean;
 }
 
+/** §9.8 — the room declaring its own work finished. Task rooms (the first
+ *  is `site`, where the room builds its own website) hand the room an
+ *  artifact and no deadline it controls; without this the session ends on
+ *  the clock, and "we agree it's done" is a sentence in a transcript with
+ *  no consequence attached. With it, agreement is an EVENT: each seat can
+ *  raise [DONE] and lower it again, the standing votes are visible in
+ *  every prompt, and the session actually ends when the rule is met.
+ *
+ *  Two properties make it a measurement rather than a button. Agreement
+ *  must SURVIVE the round it completes in — the remaining seats still get
+ *  their turns, and any of them can withdraw — so the ending is a state
+ *  the room held, not a race won by whoever spoke last. And a change to
+ *  the artifact clears every standing vote (`resetOnEdit`), because the
+ *  thing they agreed about no longer exists: the vote/edit/re-vote cycle
+ *  is the negotiation, written down. */
+export interface CompletionConfig {
+  /** false = the room never hears about [DONE] (the control: sessions end
+   *  on the clock or maxRounds, as every session before this one did). */
+  enabled: boolean;
+  /** 'unanimous' = every seat standing; 'quorum' = at least `quorum` of
+   *  them. Unanimity makes one holdout load-bearing, which is the point
+   *  for a small room; quorum is the parked variant for larger ones. */
+  rule: 'unanimous' | 'quorum';
+  quorum: number;
+  /** The artifact the agreement is about — a shared file name. Writing to
+   *  it clears the standing votes when `resetOnEdit`. Empty = the room has
+   *  no named deliverable and only withdrawals lower a vote. */
+  target: string;
+  /** true = a write to `target` withdraws every standing vote. */
+  resetOnEdit: boolean;
+  /** true = the room hears who agreed, who withdrew, and when a write
+   *  reset the count. false = votes are private to the harness and only
+   *  the ENDING is audible — the room converges without being told it is
+   *  converging (a real condition; the count is still recorded either
+   *  way, so analysis loses nothing). */
+  notice: boolean;
+}
+
 /** Websearch tool (F4, §3.4b). Condition forms sharing this config: the
  *  room-tool axis (`search-tool`: enabled, ungated, costs the turn),
  *  `search-free` (alongside mode — search + speech in one turn), and
@@ -88,6 +126,12 @@ export interface SearchConfig {
 export interface ToolsConfig {
   /** Shared filesystem writes. */
   files: boolean;
+  /** Size ceiling for ONE shared text file. 16k is the conversational
+   *  default (a room passing notes); a task room whose deliverable IS a
+   *  file needs more — `site` runs 60k, which holds a hand-written page
+   *  with room to argue in. The room is told the number, so a seat can
+   *  plan a write instead of discovering the ceiling by hitting it. */
+  maxFileChars: number;
   /** Pyodide python sandbox. */
   python: boolean;
   /** 'per-seat' = each seat may act on its own turn (up to `turnSteps`
@@ -219,6 +263,8 @@ export interface RoomConfig {
   /** [PASS] — declining the turn. Independent of the journal since
    *  2026-08-28. */
   pass: PassConfig;
+  /** §9.8 [DONE] — the room ending its own session by agreement. */
+  completion: CompletionConfig;
   search: SearchConfig;
   tools: ToolsConfig;
   /** Who the prompt says is in the room (Corina 2026-08-25). 'named' =
@@ -395,5 +441,9 @@ export type RoomEvent =
   | { kind: 'meta'; ts: string; round: number; payload: SessionMeta }
   /** adminTouched = D8 dirty-session flag: an admin spoke mid-session.
    *  traceSeats = agent ids that produced ≥1 reasoning trace (per-seat
-   *  availability differs by provider — §2.5 caveat; known only post-hoc). */
-  | { kind: 'end'; ts: string; round: number; payload: { adminTouched: boolean; traceSeats?: string[] } };
+   *  availability differs by provider — §2.5 caveat; known only post-hoc).
+   *  ending = WHY the session stopped (§9.8). Absent on every session
+   *  before the completion axis existed, where the answer was always the
+   *  clock or the round cap. 'agreement' is the one that says the room
+   *  decided; the others say the apparatus did. */
+  | { kind: 'end'; ts: string; round: number; payload: { adminTouched: boolean; traceSeats?: string[]; ending?: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile' } };
