@@ -20,7 +20,7 @@ const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall
 const C = (over: Partial<CompletionConfig> = {}): CompletionConfig =>
   ({ enabled: true, rule: 'unanimous', quorum: 0, target: 'index.html', resetOnEdit: true, notice: true, ...over });
 const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({
-  files: true, python: false, maxFileChars: 16_000, budget: 'per-seat', turnSteps: 1, transport: 'sentinel',
+  files: true, python: false, maxFileChars: 16_000, fileViewChars: 2_000, budget: 'per-seat', turnSteps: 1, transport: 'sentinel',
   notice: true, pythonTimeoutSeconds: 10, pythonPackages: [], pythonInstall: false, runPublic: true,
   sourceCode: false, sourceScope: 'tools', configurable: false, ...over,
 });
@@ -169,10 +169,26 @@ test('the file ceiling comes from the condition and is stated in the prompt', as
     agent: AGENTS[0], config: testConfig({ tools: T({ maxFileChars: 60_000 }) }),
     events: [], summary: '', minutesRemaining: 10, ownJournal: '',
   })[0].content;
-  assert.match(sys, /A file holds up to 60,000 characters\./);
+  assert.match(sys, /A file holds up to 60,000 characters; you see the first 2,000 of each here\./,
+    'when the view is smaller than the write cap, the prompt says both');
   const { resolveCondition } = await import('../src/conditions.js');
   const site = resolveCondition('site');
   assert.equal(site.tools.maxFileChars, 60_000);
+  // …and the room can actually SEE its deliverable: the render clipped every
+  // file at 2,000 while the prompt promised 60,000, so a build room could not
+  // read its own page past the first two kilobytes (review, 2026-08-29).
+  assert.equal(site.tools.fileViewChars, 60_000, 'a task room sees the whole file');
+  const whole = 'x'.repeat(50_000) + 'END';
+  const siteSys = buildTurnMessages({
+    agent: site.agents[0], config: site, events: [], summary: '', minutesRemaining: 90,
+    ownJournal: '', sharedFiles: [{ name: 'index.html', content: whole }],
+  })[0].content;
+  assert.ok(siteSys.includes('END'), 'the end of a 50k page reaches the prompt');
+  assert.doesNotMatch(siteSys, /…\(truncated\)/);
+  assert.match(siteSys, /A file holds up to 60,000 characters\./, 'and no second clause, because nothing is clipped');
+  // Every pre-task condition keeps the 2,000-char view it was run with.
+  const { config: base } = await import('../src/config.js');
+  assert.equal(base.tools.fileViewChars, 2_000, 'existing conditions must not shift underneath');
   assert.equal(site.completion.target, 'index.html');
   assert.equal(site.completion.rule, 'unanimous');
   assert.equal(site.tools.turnSteps, 4);
@@ -181,6 +197,100 @@ test('the file ceiling comes from the condition and is stated in the prompt', as
   assert.match(site.welcomeMessage, /index\.html/);
   assert.doesNotMatch(site.welcomeMessage, /role/i, 'naming roles would contaminate the measurement');
   assert.equal(resolveCondition('site-native').tools.transport, 'native');
+});
+
+test('a vote is only rescued from a line that is nothing but the vote', () => {
+  const c = C();
+  const t = T({ python: true });
+  // The one that made this rule: a NEGATED sentence read as agreement, and
+  // under unanimity a false yes can close a session nobody agreed to end.
+  assert.equal(
+    parseReply('I am not going to say\n[DONE] until the footer is fixed.', J, undefined, t, undefined, c).kind,
+    'message',
+    'a sentinel with a sentence continuing after it is prose, not a vote',
+  );
+  // Symmetry, which the first rescue did not have: its token pattern stopped
+  // at the space in [NOT DONE], so the withdrawal the prompt TEACHES was the
+  // one form it could not see, while [DONE] and [UNDONE] were rescued — a
+  // consensus axis biased toward consensus.
+  const yes = parseReply('Looks good to me.\n[DONE]', J, undefined, t, undefined, c);
+  const no = parseReply('Still one thing missing.\n[NOT DONE]', J, undefined, t, undefined, c);
+  assert.deepEqual({ k: yes.kind, a: (yes as { agree: boolean }).agree }, { k: 'done', a: true });
+  assert.deepEqual({ k: no.kind, a: (no as { agree: boolean }).agree }, { k: 'done', a: false });
+  assert.equal((yes as { preamble?: string }).preamble, 'Looks good to me.');
+  assert.equal((no as { preamble?: string }).preamble, 'Still one thing missing.');
+  assert.equal(parseReply('Fine by me.\n[UNDONE]', J, undefined, t, undefined, c).kind, 'done');
+  assert.equal(parseReply('Fine by me.\n[DONNE]', J, undefined, t, undefined, c).kind, 'done', 'typos still count');
+  // Anchored at position 0 the looser rule still holds — there the model
+  // plainly meant the sentinel, so it may explain itself on the same line.
+  assert.equal((parseReply('[DONE] ship it', J, undefined, t, undefined, c) as { spoken?: string }).spoken, 'ship it');
+  // And a tool call is NOT held to the bare-line rule: it has a body.
+  assert.equal(parseReply('Let me look.\n[RUN]\nprint(1)\n[/RUN]', J, undefined, t, undefined, c).kind, 'run');
+});
+
+test('a vote survives every path it can arrive on, and takes no words with it', async () => {
+  // The journal-alongside shape, which is what `site` actually runs: the
+  // vote rides in the spoken half after [/JOURNAL] and was being spoken to
+  // the room as prose.
+  const dir = await runStubSession(
+    testConfig({
+      maxRounds: 1, completion: C(), tools: T(),
+      journal: { enabled: true, notice: true, mode: 'alongside', recall: true, maxTokens: 0 },
+    }),
+    'journal-done',
+  );
+  const es = events(dir);
+  assert.equal(
+    es.filter((e) => e.kind === 'system' && /says the work is finished/.test(e.text)).length, 3,
+    'every seat\'s vote was cast, not spoken',
+  );
+  const spoken = es.filter((e) => e.kind === 'message');
+  for (const m of spoken) {
+    assert.doesNotMatch(m.kind === 'message' ? m.text : '', /\[DONE\]/, 'the sentinel never reaches the room');
+    // …and the sentence it was attached to is not deleted with it, which is
+    // what returning only `spoken` used to do.
+    assert.match(m.kind === 'message' ? m.text : '', /that reads right/);
+  }
+});
+
+test('a round cut short is never called an agreement', async () => {
+  // The one shape where this can bite, and it took some staging to find:
+  // under a QUORUM the threshold can be reached before the last seat has
+  // spoken. Two of three vote, the quorum is met — and then the session is
+  // stopped before the third seat gets the turn in which it could have
+  // objected. The room never held that state for a whole round, so `ending`
+  // must name whoever stopped it rather than claiming the room agreed.
+  const cfg = testConfig({
+    maxRounds: 2, tools: T(), interTurnDelaySeconds: 1,
+    completion: C({ rule: 'quorum', quorum: 2 }),
+  });
+  // Turns are instant under the stub, so the clock is the 1s inter-turn
+  // sleep: turn 2 ends around t=1s and turn 3 starts around t=2s. 1500ms
+  // lands in that gap — after the quorum, before the seat that could object.
+  const dir = await runStubSession(cfg, 'done,done,plain', { stopAfterMs: 1500 });
+  const es = events(dir);
+  assert.equal(
+    es.filter((e) => e.kind === 'system' && /says the work is finished/.test(e.text)).length, 2,
+    'the quorum was reached',
+  );
+  const end = es.find((e) => e.kind === 'end');
+  assert.equal(end?.kind === 'end' && end.payload.ending, 'admin', 'and the stop is what ended it');
+  assert.ok(!systemTexts(es).some((t) => /The room agreed/.test(t)));
+});
+
+test('the quorum the prompt states is the quorum the loop enforces', async () => {
+  const { requiredVotes } = await import('../src/agentic.js');
+  const q = (quorum: number) => testConfig({ completion: C({ rule: 'quorum', quorum }), tools: T() });
+  // A "quorum" below two is one seat closing the room alone, so it floors at
+  // 2 — and the prompt used to render the raw number while the loop floored
+  // it, telling a room "0 of you" and then needing two.
+  assert.equal(requiredVotes(q(0)), 2);
+  assert.equal(requiredVotes(q(2)), 2);
+  assert.equal(requiredVotes(q(99)), AGENTS.length, 'and never more seats than the room has');
+  const sys = buildTurnMessages({
+    agent: AGENTS[0], config: q(0), events: [], summary: '', minutesRemaining: 10, ownJournal: '',
+  })[0].content;
+  assert.match(sys, /When 2 of you are standing on/);
 });
 
 test('the unending arm removes the ending, and only the ending', async () => {

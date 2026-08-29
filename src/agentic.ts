@@ -55,6 +55,17 @@ export function maxTurnCalls(config: RoomConfig): number {
   return effectiveTurnSteps(config) + MAX_TURN_REFUSALS + 1;
 }
 
+/** §9.8: how many standing votes end the session. One place, because the
+ *  PROMPT states this number and the loop enforces it — and they disagreed:
+ *  the prompt rendered `quorum` verbatim while the check silently floored it
+ *  at 2, so a room told "0 of you" needed two. A quorum below 2 is not a
+ *  quorum (one seat would close a room on its own), so the floor stays; it
+ *  is now the number the room is told. */
+export function requiredVotes(config: RoomConfig): number {
+  if (config.completion.rule === 'unanimous') return config.agents.length;
+  return Math.min(config.agents.length, Math.max(2, Math.floor(config.completion.quorum)));
+}
+
 export type RefusalCode =
   /** The room's one action for this round was already taken (per-room). */
   | 'budget_spent'

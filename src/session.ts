@@ -15,7 +15,8 @@ import { runPython } from './sandbox.js';
 import { readSource, sourceIndex } from './source.js';
 import { applyConfigChange } from './governance.js';
 import {
-  effectiveTurnSteps, formatRefusal, isRefusal, loopEnabled, maxTurnCalls, observationBlock, refusal, turnFooter,
+  effectiveTurnSteps, formatRefusal, isRefusal, loopEnabled, maxTurnCalls, observationBlock, refusal,
+  requiredVotes, turnFooter,
   MAX_TURN_REFUSALS, type Refusal,
 } from './agentic.js';
 import type { AgentConfig, RoomConfig, RoomEvent, TurnTelemetry } from './types.js';
@@ -121,19 +122,19 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
    *  what is left. The journal is disabled for this parse — the entry has
    *  already been taken out upstream. */
   const castSpokenVote = (agent: AgentConfig, round: number, text: string): string => {
-    if (!config.completion.enabled) return text;
+    if (!config.completion.enabled || !text) return text;
     const p = parseReply(text, { ...config.journal, enabled: false }, undefined, undefined, undefined, config.completion);
     if (p.kind !== 'done') return text;
     recordVote(agent, round, p.agree);
-    return p.spoken ?? '';
+    // Everything that was NOT the sentinel still reaches the room. A vote
+    // written after a sentence ("Looks good to me. [DONE]") used to take the
+    // sentence down with it — the parse moves it to `preamble`, and this
+    // returned only `spoken`.
+    return [p.preamble, p.spoken].filter(Boolean).join('\n\n');
   };
 
   const agreementReached = () =>
-    config.completion.enabled &&
-    done.size > 0 &&
-    (config.completion.rule === 'unanimous'
-      ? done.size >= config.agents.length
-      : done.size >= Math.max(2, config.completion.quorum));
+    config.completion.enabled && done.size > 0 && done.size >= requiredVotes(config);
   /** Spend the room's single action for this round (per-room budget only).
    *  Called only by actions that actually RUN — a refusal never costs the
    *  room its slot. */
@@ -471,10 +472,16 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     }
     roundsUntilShuffle--;
 
+    // Whether every seat in this round was actually offered its turn. An
+    // agreement is a state the room HELD for a whole round; a round the
+    // clock or an admin stop cut in half never gave the remaining seats
+    // their chance to withdraw, so it cannot be one — `ending` would have
+    // read 'agreement' for a session we stopped.
+    let roundComplete = true;
     for (const agent of order) {
       await pollAdmin(round);
-      if (stopping || existsSync(stopFile)) break;
-      if (Date.now() >= endAt) break;
+      if (stopping || existsSync(stopFile)) { roundComplete = false; break; }
+      if (Date.now() >= endAt) { roundComplete = false; break; }
       const minutesRemaining = Math.ceil((endAt - Date.now()) / 60_000);
 
       // ── The turn (F4¾) ───────────────────────────────────────────────
@@ -638,7 +645,11 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             // One call, one trace: attach it to the spoken message if there
             // is one, else to the journal event, so it's stored exactly once.
             if (parsed.entry) saveJournal(agent, round, parsed.entry, parsed.spoken ? undefined : thinking);
-            if (parsed.spoken) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: withPreamble(parsed.spoken), telemetry, thinking });
+            // The spoken half of a journal turn can carry a vote too, and
+            // `site` runs the journal alongside — so this was the shape most
+            // likely to lose one: [JOURNAL]…[/JOURNAL] then [DONE].
+            const said = parsed.spoken ? castSpokenVote(agent, round, parsed.spoken) : '';
+            if (said) record({ kind: 'message', ts: now(), round, agentId: agent.id, agentName: agent.name, text: withPreamble(said), telemetry, thinking });
             else flushPreamble(telemetry);
           } else if (parsed.kind === 'journal') {
             saveJournal(agent, round, parsed.entry, thinking);
@@ -677,7 +688,14 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         // text that arrived WITH a call is a preamble: held, not spoken
         // yet, and the turn goes on.
         const spoken = nativeCalls.length ? undefined : (parsed as ToolAction).spoken;
-        if (nativeCalls.length && reply.trim()) preamble.push(reply.trim());
+        // Under the native transport the visible text alongside a call is a
+        // preamble — and a seat that writes "[DONE]" there would have had it
+        // flushed as prose and never counted, because agreeing is furniture
+        // rather than a tool and there is no native `done` call to make.
+        if (nativeCalls.length && reply.trim()) {
+          const said = castSpokenVote(agent, round, reply.trim());
+          if (said) preamble.push(said);
+        }
         // Under the SENTINEL transport the same thing happens when a seat
         // narrates before its bracket: the narration is a preamble, held
         // and spoken when the turn ends, so acting after speaking costs
@@ -793,7 +811,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     // the count — is heard before the room closes. What ends the session is
     // therefore a state the room HELD for a whole round, not a race won by
     // whoever spoke last.
-    if (agreementReached()) {
+    if (roundComplete && agreementReached()) {
       ending = 'agreement';
       record({
         kind: 'system', ts: now(), round,

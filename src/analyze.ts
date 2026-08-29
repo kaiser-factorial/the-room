@@ -67,7 +67,7 @@ interface Session {
   /** §9.8 completion: every raise, withdrawal and edit-reset, in order.
    *  Votes ride on `system` events (like [PASS]) so no new event kind and
    *  no Supabase migration was needed; they are recognised by their text. */
-  votes: { round: number; agentId?: string; kind: 'done' | 'undone' | 'reset' | 'agreed' }[];
+  votes: { round: number; agentId?: string; kind: 'done' | 'undone' | 'reset' | 'agreed' | 'restated' }[];
   /** Why the session stopped. Absent on every session before §9.8. */
   ending?: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile';
   adminTouched: boolean;
@@ -125,13 +125,20 @@ export function loadSession(dir: string): Session {
       // §9.8. Matched on the sentences session.ts writes; the reset line
       // and the agreement line carry no agentId of their own meaning
       // (a reset names its editor, an agreement names nobody).
+      // Four sentences, and two of them are no-ops that were being counted
+      // as movement: "says AGAIN that the work is finished" (already
+      // standing) and "says the work is NOT finished" (was not standing).
+      // Counting those as raises and withdrawals inflated the negotiation —
+      // a seat repeating itself looked like a room changing its mind.
       const kind = /room agreed the work/.test(e.text)
         ? 'agreed'
         : /no longer agreed that the work/.test(e.text)
           ? 'reset'
-          : /no longer saying the work is finished|work is not finished/.test(e.text)
-            ? 'undone'
-            : 'done';
+          : /says again that the work is finished|says the work is not finished/.test(e.text)
+            ? 'restated'
+            : /no longer saying the work is finished/.test(e.text)
+              ? 'undone'
+              : 'done';
       votes.push({ round: e.round, agentId: e.agentId, kind });
     } else if (e.kind === 'system' && /could not speak|said nothing|chose to say nothing/.test(e.text)) {
       const kind = /chose to say nothing/.test(e.text) ? 'chosen' : /could not speak/.test(e.text) ? 'error' : 'empty';
@@ -611,8 +618,12 @@ export function fileWork(actions: Action[], agents: string[]): Record<string, un
 export function completionRecord(s: Session): Record<string, unknown> {
   const byAgent = Object.fromEntries(
     s.agents.map((a) => [a.id, {
+      // Movement only: a vote that CHANGED this seat's standing.
       raised: s.votes.filter((v) => v.agentId === a.id && v.kind === 'done').length,
       withdrew: s.votes.filter((v) => v.agentId === a.id && v.kind === 'undone').length,
+      // Saying it again is its own signal — pressing a room that has not
+      // converged is not the same as raising a hand for the first time.
+      restated: s.votes.filter((v) => v.agentId === a.id && v.kind === 'restated').length,
       firstRaisedRound: s.votes.find((v) => v.agentId === a.id && v.kind === 'done')?.round ?? null,
     }]),
   );

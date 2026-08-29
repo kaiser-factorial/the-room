@@ -37,7 +37,8 @@
     ],
     "pythonInstall": true,
     "runPublic": true,
-    "sourceCode": true
+    "sourceCode": true,
+    "fileViewChars": 60000
   },
   "durationMinutes": 90,
   "maxRounds": 30,

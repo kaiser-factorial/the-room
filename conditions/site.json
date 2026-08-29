@@ -28,10 +28,17 @@
     "turnSteps": 4,
     "notice": true,
     "pythonTimeoutSeconds": 30,
-    "pythonPackages": ["numpy", "pandas", "sympy", "networkx", "matplotlib"],
+    "pythonPackages": [
+      "numpy",
+      "pandas",
+      "sympy",
+      "networkx",
+      "matplotlib"
+    ],
     "pythonInstall": true,
     "runPublic": true,
-    "sourceCode": true
+    "sourceCode": true,
+    "fileViewChars": 60000
   },
   "durationMinutes": 90,
   "maxRounds": 30,

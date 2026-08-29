@@ -135,7 +135,22 @@ Three things keep it from swallowing speech:
 
 `[JOURNAL]` and `[PASS]` are deliberately NOT rescued. The journal's
 unterminated-block rule is a privacy guarantee, and a pass is defined as a
-reply that is nothing else. `[DONE]` is rescued, like the tools.
+reply that is nothing else.
+
+**A vote is held to a stricter rule than a tool call: the line must be
+nothing but the sentinel.** Both halves of that were found in review, and
+both were wrong in the same direction — toward agreement:
+
+- *"I am not going to say\n[DONE] until the footer is fixed"* parsed as a
+  yes. Under unanimity a false yes can close a session nobody agreed to
+  end, while a missed vote costs a turn and the tally is in every prompt.
+- The looser token pattern stopped at the space in `[NOT DONE]`, so the
+  withdrawal the prompt actually teaches was the one form the rescue could
+  not see, while `[DONE]` and `[UNDONE]` sailed through. A consensus axis
+  biased toward consensus.
+
+Anchored at position 0 the looser rule still holds — there the model
+plainly meant the sentinel and may explain itself on the same line.
 
 The accepted cost: a model that quotes a sentinel at the start of an
 unfenced line now runs it. That ambiguity already existed at position 0;
@@ -423,6 +438,28 @@ With `notice: false` the room is not told, but the event is still recorded
 and marked `private` — `context.ts` filters private system lines out of
 every agent's transcript, so a silent pass stays measurable without
 becoming audible.
+
+### What a seat sees of a file
+
+`tools.maxFileChars` is how much may be WRITTEN; `tools.fileViewChars` is
+how much of each file appears in a seat's prompt. They are separate knobs
+because they were accidentally the same one in the wrong direction: the
+render clipped every file at a hardcoded 2,000 characters while `site`
+allowed 60,000 and the prompt promised as much, so **a room building a page
+could not read its own page past the first two kilobytes.** The live rooms
+had already found the workaround, spending tool actions on `[RUN]
+open('shared/index.html').read()` to see the thing they were editing.
+
+The default stays 2,000 — that is what every session before 2026-08-29 ran
+with, and a room's prompt is the experiment, so older conditions must not
+silently start seeing eight times more file. The `site` arms set it to the
+write cap, i.e. the whole file. When the view is smaller than the write cap
+the prompt now says both numbers, because promising 16,000 and delivering
+2,000 with a truncation marker is how a room ends up burning actions on a
+file it was told it could see.
+
+The cost of the task-room setting is real and deliberate: the artifact is
+in every seat's prompt every turn, ~15k tokens a call for a 60k page.
 
 ### Three silences, told apart
 

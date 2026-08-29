@@ -38,7 +38,8 @@
     "pythonInstall": true,
     "runPublic": true,
     "sourceCode": true,
-    "transport": "native"
+    "transport": "native",
+    "fileViewChars": 60000
   },
   "durationMinutes": 90,
   "maxRounds": 30,

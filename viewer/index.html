@@ -543,9 +543,13 @@ async function loadSessions() {
 async function showSession(sessionId) {
   currentSession = sessionId;
   $('views').hidden = true;
-  // The URL names the session on screen, so the switch (and a copied link)
-  // stays on the room you are actually watching.
-  history.replaceState(null, '', sessionId ? `?session=${encodeURIComponent(sessionId)}` : location.pathname);
+  // The URL names the session on screen — but ONLY when it is not the
+  // newest one. `pinned` is read back from this parameter on load, so
+  // stamping it unconditionally meant the page pinned itself: reload the
+  // live viewer once and it stopped following new sessions forever, having
+  // mistaken its own bookkeeping for someone's deliberate link.
+  const isNewest = sessionId === newestSession;
+  history.replaceState(null, '', !isNewest && sessionId ? `?session=${encodeURIComponent(sessionId)}` : location.pathname);
   feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear(); $('cond').textContent = '';
   fileList.innerHTML = ''; fileSections.clear(); $('filesWrap').hidden = true;
   toolList.innerHTML = ''; toolSections.clear(); $('toolsWrap').hidden = true;
@@ -582,6 +586,7 @@ async function showSession(sessionId) {
 
 async function refreshSessions(selectNewest) {
   const sessions = await loadSessions();
+  newestSession = sessions[0] ?? null;
   const sel = $('sessions');
   sel.innerHTML = '';
   for (const s of sessions) {
@@ -606,6 +611,9 @@ async function refreshSessions(selectNewest) {
 // §9.8: `?session=` opens a specific room — the other half of the switch on
 // site.html, so the two views hand the session back and forth.
 let pinned = new URLSearchParams(location.search).get('session');
+// The newest session id, from the last listing — what "am I following the
+// live room?" is decided against.
+let newestSession = null;
 
 /** The switch appears only once THIS session has written the page; a room
  *  that built nothing has no second view, and offering one would be a

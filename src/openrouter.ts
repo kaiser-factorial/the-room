@@ -108,6 +108,8 @@ export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' 
   // Narration THEN a call — the shape that was being spoken to the room as
   // prose until parse.ts learned to rescue it (watched live 2026-08-29).
   | 'preamble-run'
+  // A vote in the spoken half of a journal turn — the shape `site` runs.
+  | 'journal-done'
   // A write to the completion target — the edit that clears the room's
   // standing agreement.
   | 'site';
@@ -246,6 +248,7 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     case 'pass': return { text: '[PASS]', meta, thinking };
     case 'done': return { text: `[DONE] ${voice()}`, meta, thinking };
     case 'done-quiet': return { text: '[DONE]', meta, thinking };
+    case 'journal-done': return { text: `[JOURNAL] private-note ${model}#${mTurn}: not for the room. [/JOURNAL]\n[DONE] that reads right to me`, meta, thinking };
     case 'undone': return { text: `[NOT DONE] ${voice()}`, meta, thinking };
     case 'site': return { text: `[WRITE: index.html]\n<h1>the room</h1>\n<p>page by ${model}#${mTurn}</p>\n[/WRITE]`, meta, thinking };
     // A write and a vote in ONE reply: the sentinel that would have been

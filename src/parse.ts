@@ -184,9 +184,27 @@ function lineStartSentinel(reply: string, s?: SearchConfig, t?: ToolsConfig, c?:
           (t?.python && isRunToken(tok)) ||
           (t?.sourceCode && isSourceToken(tok)) ||
           (t?.configurable && isConfigToken(tok)) ||
-          (s?.enabled && isSearchToken(tok)) ||
-          (c?.enabled && doneVote(tok) !== null)
+          (s?.enabled && isSearchToken(tok))
         ) return off;
+      }
+      // A VOTE is held to a stricter rule than a tool call: the line must be
+      // nothing but the sentinel. Two reasons, both found in review.
+      //
+      // False positives are asymmetrically expensive. "I am not going to say
+      // [DONE] until the footer is fixed" reads, to a line-start matcher, as
+      // agreement — and under unanimity one of those can close a session
+      // nobody agreed to end. A missed vote costs a turn; the tally is in
+      // every prompt, so the seat sees it did not land and can say it again.
+      //
+      // And it makes yes and no symmetric. The looser token pattern above
+      // stops at the space in "[NOT DONE]", so the withdrawal the prompt
+      // actually teaches was the ONE form the rescue could not see, while
+      // [DONE] and [UNDONE] sailed through — a consensus axis biased toward
+      // consensus. Matching the whole bracket and passing it through
+      // doneVote (which strips the space) treats both directions alike.
+      if (c?.enabled) {
+        const v = line.match(/^[ \t]*\**\[([A-Za-z][A-Za-z _-]{2,9})\]\**:?[ \t]*$/);
+        if (v && doneVote(v[1]) !== null) return off;
       }
     }
     off += line.length + 1;

@@ -12,7 +12,7 @@ import type { JournalConfig, RoomEvent, SearchConfig, ToolsConfig } from '../src
 
 const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0 };
 const S: SearchConfig = { enabled: true, mode: 'alongside', gated: false, notice: true, maxResults: 5 };
-const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, maxFileChars: 16_000, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: false, sourceCode: true, sourceScope: 'tools', configurable: false, ...over });
+const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, maxFileChars: 16_000, fileViewChars: 2_000, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: false, sourceCode: true, sourceScope: 'tools', configurable: false, ...over });
 
 function readTranscript(dir: string): RoomEvent[] {
   return readFileSync(join(dir, 'transcript.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as RoomEvent);
@@ -230,7 +230,7 @@ test('per-room budget: a denied action does not spend the round slot', async () 
 test('condition presets: tools-full and tools-scarce resolve onto the base config', async () => {
   const { resolveCondition, conditionRecord } = await import('../src/conditions.js');
   const full = resolveCondition('tools-full');
-  assert.deepEqual(full.tools, { files: true, python: true, maxFileChars: 16_000, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true, sourceCode: true, sourceScope: 'tools', configurable: false });
+  assert.deepEqual(full.tools, { files: true, python: true, maxFileChars: 16_000, fileViewChars: 2_000, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true, sourceCode: true, sourceScope: 'tools', configurable: false });
   assert.equal(full.search.mode, 'alongside');
   assert.equal(full.journal.enabled, false);
   const scarce = resolveCondition('tools-scarce');
