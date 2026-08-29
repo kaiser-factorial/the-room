@@ -96,6 +96,51 @@ channel (PyPI/CDN/wheel URLs); fine for our own roster on an isolated
 runner, flip it off for any condition seating untrusted code. Both
 sentinels are alongside-style: text after the closing tag is spoken.
 
+## Where a sentinel may sit (the prose-before-the-bracket rescue)
+
+A model narrates and then acts:
+
+```
+Let me read the current state and fix it.
+
+[RUN]
+s = open('shared/index.html').read()
+[/RUN]
+```
+
+Until 2026-08-29 that call did not run. The sentinel had to start the
+REPLY, so this parsed as a plain message and the whole thing — brackets,
+code and all — was spoken to the room as prose while its author believed
+it had read the file. Measured in the first two live `site` rooms: **11
+calls spoken instead of run, against 37 that ran.** In a conversation that
+costs a sentence; in a build room it costs the deliverable.
+
+The rule now is where a bracket may sit: **a sentinel counts if it begins a
+line.** Text before it is a *preamble* — held and spoken as the turn's one
+message when the turn ends, exactly as under the native transport, so
+narrating no longer costs a seat its action. Text after the closing tag is
+still the spoken half and still ends the turn.
+
+Three things keep it from swallowing speech:
+
+- The anchored parse runs **first**, and its result is returned untouched
+  whenever it recognised anything. The rescue only sees replies that were
+  going to be plain messages, so nothing that parses today changes meaning.
+- A sentinel inside a **``` fence** is skipped — that is how a model quotes
+  the bench rather than using it (*"like this: ```[RUN] x``` see?"*). A
+  fence around the whole reply is different and still unwrapped: there the
+  model wrapped its real call.
+- Mid-**sentence** brackets never match: *"I could [RUN] this later"* stays
+  speech.
+
+`[JOURNAL]` and `[PASS]` are deliberately NOT rescued. The journal's
+unterminated-block rule is a privacy guarantee, and a pass is defined as a
+reply that is nothing else. `[DONE]` is rescued, like the tools.
+
+The accepted cost: a model that quotes a sentinel at the start of an
+unfenced line now runs it. That ambiguity already existed at position 0;
+this widens where it applies, in exchange for calls that land.
+
 ## The agentic turn (F4¾)
 
 `tools.turnSteps` decides how many actions a seat may take INSIDE one turn,
@@ -379,6 +424,24 @@ and marked `private` — `context.ts` filters private system lines out of
 every agent's transcript, so a silent pass stays measurable without
 becoming audible.
 
+### Three silences, told apart
+
+A transcript reads "X said nothing" three ways, and only one is a decision:
+
+| event | what it is | viewer |
+|---|---|---|
+| `chose to say nothing` | a seat spent its turn on nothing, on purpose | **PASSED**, in the agent's colour, with its trace |
+| `said nothing this turn` | the reply came back empty — usually reasoning eating the visible budget | **NO WORDS**, plus `usage.reasoning` / completion / `finishReason` |
+| `could not speak this turn` | the call itself failed | **FAILED** |
+
+All three are attributed now (the error case had no `agentId` at all, so
+analysis could not tell whose turn had failed), and all three carry what
+they have: a chosen silence keeps the reasoning that decided to stay quiet
+— which was being dropped on the floor, and is exactly the thing worth
+reading — and an empty one carries the telemetry that explains it. The
+sink mirrors `telemetry` on any event that has it, so this needed no
+schema change.
+
 The turn paragraph was rewritten the same day (Corina). The old one opened
 *"How this works:"* — documentation about the room rather than anything
 said inside it — and led with *"whatever you write is spoken to the room"*,
@@ -394,8 +457,9 @@ it is the first thing to reinstate.
 `conditions/site.json` is the first room with something to make: **this
 room's own website** — a single shared file, `index.html`, which the
 viewer Space serves publicly at `/site.html`. Two arms come with it:
-`site-native.json` (same room, `tools.transport: 'native'`) and
-`site-unwitnessed.json` — see **Does the room know it is watched?** below.
+`site-native.json` (same room, `tools.transport: 'native'`),
+`site-unwitnessed.json` (**Does the room know it is watched?**) and
+`site-unending.json` (**The arm with no ending**), both below.
 
 Why a task at all: open-ended rounds make identity visible as *style*; a
 task makes it visible as *function* — who starts, who structures, who
@@ -438,6 +502,25 @@ public without the room having been told it would. That is a
 non-disclosure, not a lie — but if it matters for a given run, link people
 to a witnessed session's URL (`/site.html?session=<id>`) rather than the
 bare page.
+
+### The arm with no ending
+
+`site-unending` is `site` with the completion axis off and the kickoff's
+last sentence — *"It is finished when you agree it is"* — removed, because
+leaving it in would promise an agreement the room has no way to act on.
+Nothing else moves; the 90-minute / 30-round budget is deliberately
+identical so the two arms' artifacts are comparable round for round.
+
+What it measures is not *when they stop* — without `[DONE]` they can't, and
+`ending` is always `clock` or `rounds` here by construction. It is what a
+room does with the time a `site` room hands back:
+
+- does it **declare itself finished in chat and keep going anyway**?
+- do late versions still change the page, or do the seats churn each
+  other's lines with no net gain (`fileWork`'s `refactored` matrix and
+  `survivingShare` against version number)?
+- or does it **stop working without the session stopping** — `[PASS]` is
+  on, so a room out of work can fall silent, and `passes` counts it.
 
 ### `[DONE]` — the room ending its own session
 

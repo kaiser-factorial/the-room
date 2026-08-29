@@ -13,6 +13,40 @@ function events(dir: string): RoomEvent[] {
   return readFileSync(join(dir, 'transcript.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as RoomEvent);
 }
 
+test('the three silences are distinguishable, attributed, and carry their traces', async () => {
+  // A transcript reads "X said nothing" three different ways, and only one
+  // of them is a decision. Analysis already separated them; what was missing
+  // is the evidence for each — the trace behind a chosen silence was dropped
+  // entirely, an empty turn carried no numbers to explain itself, and a
+  // failed call had no author at all.
+  const cfg = testConfig({ maxRounds: 1, pass: { enabled: true, notice: true } });
+  const dir = await runStubSession(cfg, 'pass,empty,error');
+  const es = events(dir);
+  const silences = es.filter(
+    (e) => e.kind === 'system' && /chose to say nothing|said nothing this turn|could not speak/.test(e.text),
+  );
+  assert.equal(silences.length, 3, 'one of each kind');
+  const byKind = (re: RegExp) => silences.find((e) => e.kind === 'system' && re.test(e.text));
+
+  const chosen = byKind(/chose to say nothing/);
+  const empty = byKind(/said nothing this turn/);
+  const failed = byKind(/could not speak/);
+  for (const [label, e] of [['chosen', chosen], ['empty', empty], ['failed', failed]] as const) {
+    assert.ok(e, `${label} silence recorded`);
+    assert.ok(e.kind === 'system' && e.agentId, `${label} silence is attributable`);
+  }
+  // The stub traces on odd turns, so at least one of the two silences that
+  // came back from a completed call must carry one; a failed call has no
+  // reply to have thought about.
+  assert.ok(
+    (chosen!.kind === 'system' && chosen!.thinking) || (empty!.kind === 'system' && empty!.thinking),
+    'a silence that reached us keeps the reasoning behind it',
+  );
+  // And the numbers that tell an empty turn from a chosen one.
+  assert.ok(empty!.kind === 'system' && empty!.telemetry, 'an empty turn carries its telemetry');
+  assert.ok(chosen!.kind === 'system' && chosen!.telemetry, 'so does a pass');
+});
+
 test('starvation path: empty replies become "said nothing" events, never silence', async () => {
   const dir = await runStubSession(testConfig({ maxRounds: 1 }), 'empty');
   const es = events(dir);

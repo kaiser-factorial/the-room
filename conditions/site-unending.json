@@ -1,0 +1,45 @@
+{
+  "description": "§9.8 the site task with NO WAY TO FINISH: identical to 'site' except that the room is never told about [DONE] and the completion axis is off, so the session can only end on the clock or the round cap. The kickoff also drops its last sentence — 'It is finished when you agree it is' — because leaving it in would promise an agreement the room has no way to act on. What this asks: a `site` room stops when it says it is done; what does a room do with the time it would have handed back? Watch for the moment the room DECLARES itself finished in chat and then keeps going, and read fileWork afterwards — do late versions still change the page, or do the seats churn each other's lines with no net gain? The other possible answer is silence: [PASS] is on, so a room that has run out of work can stop working without the session stopping, and `passes` counts it. NOTE `ending` is uninformative here by construction (always clock or rounds), and the budget is deliberately the same 90 min / 30 rounds as `site` so the artifact trajectories are comparable.",
+  "welcomeMessage": "Welcome to the room. You are each a different AI model. You will be here together for a while, and there is one thing to make: this room's website — a single file, index.html, which the room will serve publicly. It should say what this place is and who is here; the rest is yours to decide. There is no facilitator after this message. You can change anything here, including what the others have written.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "alongside",
+    "recall": true,
+    "maxTokens": 0
+  },
+  "pass": {
+    "enabled": true,
+    "notice": true
+  },
+  "completion": {
+    "enabled": false,
+    "rule": "unanimous",
+    "quorum": 0,
+    "target": "index.html",
+    "resetOnEdit": true,
+    "notice": true
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "maxFileChars": 60000,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": [
+      "numpy",
+      "pandas",
+      "sympy",
+      "networkx",
+      "matplotlib"
+    ],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true
+  },
+  "durationMinutes": 90,
+  "maxRounds": 30,
+  "maxOutputTokens": 4000
+}

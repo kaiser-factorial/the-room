@@ -407,8 +407,16 @@ export type RoomEvent =
   | { kind: 'journal'; ts: string; round: number; agentId: string; agentName: string; thinking?: string }
   /** `private: true` = recorded for analysis but NOT audible to the room
    *  (context.ts filters it). A silent [PASS] is the case that needs it:
-   *  the choice must be measurable without the room being told. */
-  | { kind: 'system'; ts: string; round: number; text: string; agentId?: string; thinking?: string; private?: boolean }
+   *  the choice must be measurable without the room being told.
+   *
+   *  `telemetry` on a SILENCE (2026-08-29): a turn that produced no words
+   *  is the one place the numbers matter most and were being thrown away.
+   *  "Alpha said nothing this turn" and "Alpha chose to say nothing" look
+   *  identical in a transcript, and only one of them is a decision — the
+   *  other is usually reasoning eating the visible budget, which
+   *  `usage.reasoning` and `finishReason` say outright. The sink mirrors
+   *  it automatically (it forwards `telemetry` on any event that has it). */
+  | { kind: 'system'; ts: string; round: number; text: string; agentId?: string; thinking?: string; private?: boolean; telemetry?: TurnTelemetry }
   /** F4 websearch. `query`/`results` are requester-private (journal-class):
    *  context.ts renders only the notice line, and only when `notice` is
    *  true and the search ran. Humans see everything (viewer chevron).

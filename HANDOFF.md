@@ -128,7 +128,12 @@ leaves).
 - **The TASK ROOM is BUILT (§9.8, 2026-08-29) — not yet deployed.**
   `site` (+ `site-native`, the transport arm, and `site-unwitnessed`, the
   audience arm — the same paragraph minus "which the room will serve
-  publicly", nothing else moved; a test pins that from both sides): the
+  publicly", nothing else moved; a test pins that from both sides; and
+  `site-unending`, the ending arm — completion OFF and the kickoff's "It
+  is finished when you agree it is" removed with it, same budget, so the
+  question becomes what a room does with the time a `site` room hands
+  back: keep improving, declare itself finished and carry on, or stop
+  working without the session stopping, which [PASS] makes visible): the
   six of them build **this room's own website**, a single shared `index.html`, which `viewer/site.html` serves
   publicly on the viewer Space and updates live as they write it. The
   reason is the identity question, not the page: open-ended rounds make
@@ -373,8 +378,15 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **DEPLOYED 2026-08-29.** PR #16 merged (main `28f1a6f`), viewer
-   `3f7ead7`, runner `12bf1f1`. Verified, in this order: the liveness
+0. **DEPLOYED 2026-08-29, twice.** PR #16 merged (main `28f1a6f`), viewer
+   `3f7ead7`, runner `12bf1f1`; then PR #17 (main `3200b2c`) put the
+   site page's metadata-only fetch on the viewer — **viewer `b1c9e4f`**,
+   runner untouched and deliberately NOT redeployed (the diff was
+   `viewer/` and docs only; `src/` and `conditions/` were unchanged, so
+   there was nothing for it to pick up and no reason to risk a restart).
+   The served `site.html` is byte-identical to `viewer/site.html` apart
+   from HF's injected `window.huggingface` tag. Deploy record for the
+   first pass: Verified, in this order: the liveness
    probe FIRST (`state: idle`, uptime 75456s — no live round to kill),
    then the viewer (`/site.html` and `/conditions.json` both 200 on
    `brick-factorial-the-room.static.hf.space`; the served HTML is
@@ -500,6 +512,33 @@ question from watching live rooms (Corina, undecided): a neutral
 length-limit disclosure line in the norms (Seed's cutoffs get
 mythologized) — build it as a knob if wanted, don't silently change
 control.
+
+## The first live site rooms (2026-08-29)
+
+Two ran back to back, and **both ended by agreement** — `ending:
+'agreement'` twice. The room decided it was finished; the clock did not.
+That is the completion axis working on its first outing.
+
+The finding is about the apparatus: **11 tool calls were spoken to the room
+as prose instead of running** (7 in the first room, 4 in the second),
+against 37 that ran. A seat narrates — *"Let me read the current state and
+fix it."* — and then writes its `[RUN]`, so the sentinel is no longer at
+the start of the reply, nothing parses, and the brackets and code are
+spoken aloud while their author believes it acted. Qwen and DeepSeek both
+lost a read that way within five minutes. **Fixed** (parse.ts: a sentinel
+counts if it begins a LINE, prose in front becomes a preamble — the same
+shape the native transport already had), but note for analysis: **any
+session before that fix under-counts tool use by roughly a quarter, and
+the miss is biased toward the seats that narrate.**
+
+Also fixed alongside it: the three silences were indistinguishable and
+under-evidenced. A chosen `[PASS]` recorded no trace at all (the reasoning
+that decided to stay quiet — the most interesting thing about it), an
+empty turn carried no telemetry to show whether thinking had eaten the
+budget, and a failed call had no `agentId`, so analysis could not say whose
+turn had failed. All three now carry what they have, and the viewer shows
+them as PASSED / NO WORDS / FAILED rather than three italic lines that read
+the same.
 
 ## Color of the thing
 

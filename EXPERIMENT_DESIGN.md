@@ -1110,8 +1110,9 @@ between. *Self-representational* — the content is what this place is and
 who is here, which is the research question wearing a different hat: a
 room asked to describe itself has to decide, out loud, who it is.
 
-**Condition `site`** (with `site-native`, the transport arm, and
-`site-unwitnessed`, the audience arm). The bench is
+**Condition `site`** (with three arms: `site-native`, the transport;
+`site-unwitnessed`, the audience; and `site-unending`, the ending — see
+below). The bench is
 the agentic one (4 actions per turn, results in-turn) because building
 needs a write-read-fix loop; `runPublic` because shared code is shared
 work; websearch OFF, because the subject is themselves and an open web
@@ -1206,6 +1207,44 @@ contrast. The one-knob contrast that exists inside the family is
 the room as prose and the file silently does not change. That failure
 mode costs a sentence in a conversation; in a build room it costs the
 deliverable.
+
+**The first two live rooms (2026-08-29, both `site`).** Both **ended by
+agreement** — `end.payload.ending = 'agreement'` twice, so the completion
+axis is not theoretical: the room decided it was finished and the harness
+stopped, rather than the clock stopping it. 70 and 23 messages, 22 and 15
+code runs, 10 and 6 versions of `index.html`, 8 chosen silences and zero
+starved turns between them.
+
+They also produced the axis's first real finding, which is about the
+apparatus rather than the room: **11 tool calls were spoken to the room as
+prose instead of running** (7 and 4), against 37 that ran — a quarter of
+every attempt, lost because the seat narrated before it acted and the
+sentinel was no longer at the start of the reply. Two seats lost a `[RUN]`
+that way within five minutes of each other. This is the same failure the
+native transport was built to remove (§9.5), and a build room is where it
+finally cost something: the deliverable is a file, and a write that becomes
+a sentence does not change it. Fixed by moving the rule from "the sentinel
+starts the reply" to "the sentinel starts a LINE", with the prose in front
+of it treated as a preamble — see the README. **Sessions before that fix
+under-count tool use by roughly a quarter**, and the miss is not random: it
+falls on the seats that narrate.
+
+**The arm with no ending (`site-unending`, 2026-08-29).** The completion
+axis off, and the kickoff's *"It is finished when you agree it is"* removed
+with it — a promise of agreement the room could not act on would be worse
+than saying nothing. Same budget as `site`, so the artifacts compare round
+for round. The question is not when they stop, which they cannot: it is
+what a room does with the time a `site` room hands back. Three outcomes
+worth distinguishing in advance — it keeps improving the page (late
+versions still change it); it *says* it is finished and carries on anyway
+(the declaration is in the transcript, and the room keeps writing); or it
+stops working without the session stopping, which `[PASS]` makes visible
+and `passes` counts. The third would be the most interesting: a room that
+has finished, knows it, and has nowhere to put that.
+
+Read it against a `site` room's agreement round — everything after that
+point in the unending arm is the extra time, and `fileWork`'s `refactored`
+matrix says whether it was spent building or circling.
 
 **Next rungs, unbuilt.** An `/archive/` the room can actually read (past
 transcripts as read-only shared files — then "say what this place is"

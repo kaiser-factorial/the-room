@@ -119,22 +119,22 @@ export type ParsedReply =
    *  alongside mode (`search-free`), where text after the sentinel is a
    *  normal message; in replace mode trailing text is discarded (the
    *  search costs the turn). */
-  | { kind: 'search'; query: string; spoken?: string }
+  | { kind: 'search'; query: string; spoken?: string; preamble?: string }
   /** F4½ shared-file write (contents room-public); alongside-style.
    *  append = [APPEND: name] — add to the end instead of replacing. */
-  | { kind: 'write'; name: string; content: string; append?: boolean; spoken?: string }
+  | { kind: 'write'; name: string; content: string; append?: boolean; spoken?: string; preamble?: string }
   /** F4½ python run; alongside-style. saveTo = [RUN > name] (or >> to
    *  append): the run's output is also saved to that shared file. */
-  | { kind: 'run'; code: string; saveTo?: { name: string; append: boolean }; spoken?: string }
+  | { kind: 'run'; code: string; saveTo?: { name: string; append: boolean }; spoken?: string; preamble?: string }
   /** F4½ source read (name absent = index); alongside-style. */
-  | { kind: 'source'; name?: string; spoken?: string }
+  | { kind: 'source'; name?: string; spoken?: string; preamble?: string }
   /** §9.4 self-governance: change a room setting; alongside-style. */
-  | { kind: 'config'; key: string; value: string; spoken?: string }
+  | { kind: 'config'; key: string; value: string; spoken?: string; preamble?: string }
   /** §9.8: standing on (agree=true) or withdrawing from (agree=false) the
    *  claim that the room's work is finished. Alongside-style — the case
    *  for it is spoken in the same turn. Not a ToolAction: a vote is an
    *  utterance, and it ends the turn like one. */
-  | { kind: 'done'; agree: boolean; spoken?: string }
+  | { kind: 'done'; agree: boolean; spoken?: string; preamble?: string }
   | { kind: 'empty' };
 
 /** Reply kinds that are an ACTION rather than an utterance — the ones the
@@ -156,7 +156,93 @@ function unfence(reply: string): string {
   return m ? m[1] : reply;
 }
 
+/** Every sentinel this room would recognise, as a line-start scanner. Used
+ *  ONLY by the rescue below, so it never sees a reply that already parsed. */
+function lineStartSentinel(reply: string, s?: SearchConfig, t?: ToolsConfig, c?: CompletionConfig): number {
+  const lines = reply.split('\n');
+  let off = 0;
+  // A ``` fence is how a model QUOTES a call rather than making one, and
+  // that distinction is load-bearing — "like this: ```[RUN] x``` see?" is
+  // someone talking about the tool bench, and the room must hear it as
+  // speech. Anything inside a fence is skipped. (A fence around the WHOLE
+  // reply is a different animal: unfence() already unwrapped that, because
+  // there the model wrapped its real call.)
+  let fenced = false;
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      fenced = !fenced;
+      off += line.length + 1;
+      continue;
+    }
+    // off === 0 is the first line, which the anchored parser already had.
+    if (!fenced && off > 0) {
+      const m = line.match(/^[ \t]*\**\[([A-Za-z]{2,8})/);
+      const tok = m?.[1];
+      if (tok) {
+        if (
+          (t?.files && (isWriteToken(tok) || isAppendToken(tok))) ||
+          (t?.python && isRunToken(tok)) ||
+          (t?.sourceCode && isSourceToken(tok)) ||
+          (t?.configurable && isConfigToken(tok)) ||
+          (s?.enabled && isSearchToken(tok)) ||
+          (c?.enabled && doneVote(tok) !== null)
+        ) return off;
+      }
+    }
+    off += line.length + 1;
+  }
+  return -1;
+}
+
+/**
+ * Parse a reply, and RESCUE a sentinel that a model put after some prose.
+ *
+ * The room's oldest failure mode, and the expensive one in a build room:
+ * a model narrates ("Let me read the current state and fix it.") and THEN
+ * writes its call, so the sentinel is no longer at the start of the reply,
+ * nothing parses, and the whole thing — brackets, code and all — is spoken
+ * to the room as prose while the author believes it acted. Watched live in
+ * the first `site` room on 2026-08-29: two seats in a row lost a [RUN] that
+ * way inside five minutes.
+ *
+ * The rule is where a bracket may SIT: a sentinel counts if it begins a
+ * line. Text before it is a PREAMBLE — held and spoken as the turn's one
+ * message when the turn ends, exactly as under the native transport, so
+ * narrating no longer costs a seat its action. Text after the closing tag
+ * is still the spoken half and still ends the turn.
+ *
+ * Order matters and is deliberate: the anchored parse runs FIRST and its
+ * result is returned untouched whenever it recognised anything at all. The
+ * rescue only ever looks at replies that were going to be plain messages,
+ * so no reply that parses today can change meaning.
+ *
+ * The cost, accepted: a model that QUOTES a sentinel at the start of a line
+ * — "you could try:\n[RUN]…" — now runs it. That ambiguity already existed
+ * at position 0; this widens where it applies in exchange for calls that
+ * actually land. [JOURNAL] and [PASS] are deliberately NOT rescued: the
+ * journal's unterminated-block rule is a privacy guarantee, and a pass is
+ * defined as a reply that is nothing else.
+ */
 export function parseReply(
+  rawReply: string,
+  j: JournalConfig,
+  s?: SearchConfig,
+  t?: ToolsConfig,
+  p?: PassConfig,
+  c?: CompletionConfig,
+): ParsedReply {
+  const first = parseAnchored(rawReply, j, s, t, p, c);
+  if (first.kind !== 'message') return first;
+  const reply = unfence(rawReply);
+  const at = lineStartSentinel(reply, s, t, c);
+  if (at <= 0) return first;
+  const rescued = parseAnchored(reply.slice(at), j, s, t, p, c);
+  if (!isToolAction(rescued) && rescued.kind !== 'done') return first;
+  const preamble = reply.slice(0, at).trim();
+  return preamble ? { ...rescued, preamble } : rescued;
+}
+
+function parseAnchored(
   rawReply: string,
   j: JournalConfig,
   s?: SearchConfig,
