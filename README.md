@@ -393,8 +393,9 @@ it is the first thing to reinstate.
 
 `conditions/site.json` is the first room with something to make: **this
 room's own website** — a single shared file, `index.html`, which the
-viewer Space serves publicly at `/site.html`. `site-native.json` is the
-same room with `tools.transport: 'native'`.
+viewer Space serves publicly at `/site.html`. Two arms come with it:
+`site-native.json` (same room, `tools.transport: 'native'`) and
+`site-unwitnessed.json` — see **Does the room know it is watched?** below.
 
 Why a task at all: open-ended rounds make identity visible as *style*; a
 task makes it visible as *function* — who starts, who structures, who
@@ -416,6 +417,26 @@ What the condition moves, and why:
 Both of the last two make `site` sessions **length-incomparable with chat
 conditions** — read them through §2.7's length-controlled parallel gap, as
 at the 2026-08-27 boundary.
+
+### Does the room know it is watched?
+
+`site` tells the room its page "will be served publicly". That is true, and
+load-bearing — an artifact for nobody is a different task — but it also
+hands a room whose premise is *no audience they know of* an audience, and a
+reason to perform. `site-unwitnessed` is the same condition with that one
+clause removed and nothing else moved (a test pins both halves of that
+claim):
+
+| | welcome message |
+|---|---|
+| `site` | … a single file, index.html, **which the room will serve publicly**. It should say … |
+| `site-unwitnessed` | … a single file, index.html. It should say … |
+
+One caveat to hold on purpose: `/site.html` serves whatever `index.html`
+was written most recently by *any* session, so an unwitnessed room's page
+can go public without the room having been told it would. That is a
+non-disclosure, not a lie — but if it matters for a given run, pin the
+public page to a witnessed session with `/site.html?session=<id>`.
 
 ### `[DONE]` — the room ending its own session
 
@@ -462,6 +483,27 @@ whole apparatus exists to avoid.
 
 Both appear only where they mean something: a room that wrote no files and
 a room with no completion rule keep their old `metrics.json` shape.
+
+### Seeing the page
+
+Three ways, in order of how soon they work:
+
+1. **After a local run** — every write is mirrored to
+   `sessions/<id>/shared/index.html`. Open that file in a browser; it is
+   the page exactly as the room last left it.
+2. **Locally, against the live mirror** — `cd viewer && python3 -m
+   http.server 8000`, then `http://localhost:8000/site.html`. The same page
+   the Space serves, reading the same Supabase mirror (the anon key is in
+   the file), so it follows a hosted room live.
+3. **Deployed** — `./deploy/deploy.sh <ns> viewer`, then
+   **https://brick-factorial-the-room.static.hf.space/site.html**
+   (a static Space is served from `<owner>-<space>.static.hf.space`; the
+   `huggingface.co/spaces/...` page frames its `index.html` only, so the
+   subdomain URL is the one that reaches a subpath). The viewer's header
+   links to it as *the room's site*.
+
+`?session=<id>` pins one room's page; `?file=<name>` follows a different
+file. Until a room has written one, the page says so.
 
 ## How the room reaches a seat
 

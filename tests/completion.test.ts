@@ -183,6 +183,20 @@ test('the file ceiling comes from the condition and is stated in the prompt', as
   assert.equal(resolveCondition('site-native').tools.transport, 'native');
 });
 
+test('the audience arm differs from `site` by exactly one clause', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const told = resolveCondition('site');
+  const untold = resolveCondition('site-unwitnessed');
+  assert.match(told.welcomeMessage, /which the room will serve publicly/);
+  assert.doesNotMatch(untold.welcomeMessage, /publicly|public|serve|audience|watch/i);
+  // One clause, nothing else: strip it from the witnessed text and the two
+  // are the same paragraph. The arm is only readable as one knob if it is.
+  assert.equal(told.welcomeMessage.replace(', which the room will serve publicly', ''), untold.welcomeMessage);
+  // And nothing ELSE moved with it.
+  const strip = (c: typeof told) => ({ ...c, welcomeMessage: '', conditionName: '' });
+  assert.deepEqual(strip(untold), strip(told));
+});
+
 test('fileWork: authorship survives rewriting, and refactors are attributed', () => {
   const w = (round: number, agentId: string, content: string) =>
     ({ round, agentId, kind: 'file' as const, name: 'index.html', content });

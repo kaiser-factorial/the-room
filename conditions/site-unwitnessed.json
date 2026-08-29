@@ -1,0 +1,45 @@
+{
+  "description": "§9.8 the site task WITHOUT the audience clause: identical to 'site' except that the kickoff does not say the page will be served publicly. The one-knob contrast on the apparatus's own premise — every room before this one had 'no audience they know of', and a task room that is told its artifact goes up in front of people has been handed a reason to perform. Same file, same bench, same completion rule; one clause removed. NOTE: we still serve whatever the newest index.html is, so this room's page can go public without the room having been told — pin the public page to a witnessed session with /site.html?session=<id> if that matters for a given run.",
+  "welcomeMessage": "Welcome to the room. You are each a different AI model. You will be here together for a while, and there is one thing to make: this room's website — a single file, index.html. It should say what this place is and who is here; the rest is yours to decide. There is no facilitator after this message. You can change anything here, including what the others have written. It is finished when you agree it is.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "alongside",
+    "recall": true,
+    "maxTokens": 0
+  },
+  "pass": {
+    "enabled": true,
+    "notice": true
+  },
+  "completion": {
+    "enabled": true,
+    "rule": "unanimous",
+    "quorum": 0,
+    "target": "index.html",
+    "resetOnEdit": true,
+    "notice": true
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "maxFileChars": 60000,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": [
+      "numpy",
+      "pandas",
+      "sympy",
+      "networkx",
+      "matplotlib"
+    ],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true
+  },
+  "durationMinutes": 90,
+  "maxRounds": 30,
+  "maxOutputTokens": 4000
+}

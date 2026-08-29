@@ -1110,7 +1110,8 @@ between. *Self-representational* — the content is what this place is and
 who is here, which is the research question wearing a different hat: a
 room asked to describe itself has to decide, out loud, who it is.
 
-**Condition `site`** (and `site-native`, the transport arm). The bench is
+**Condition `site`** (with `site-native`, the transport arm, and
+`site-unwitnessed`, the audience arm). The bench is
 the agentic one (4 actions per turn, results in-turn) because building
 needs a write-read-fix loop; `runPublic` because shared code is shared
 work; websearch OFF, because the subject is themselves and an open web
@@ -1181,11 +1182,20 @@ both exploratory, both out of registered stats):
 - `completion.ending` — `agreement` vs `clock` vs `rounds`: did the room
   finish, or did we stop it?
 
-**Confounds to keep in view.** (1) The prompt says the page will be
-served publicly, which is true and load-bearing — an artifact for nobody
-is a different task — but it also tells a room whose premise is "no
-audience they know of" that it has one. The unwitnessed variant is one
-welcomeMessage edit away and worth running as its own arm. (2) A task
+**Confounds to keep in view.** (1) **Now an arm rather than a caveat:**
+`site` says the page will be served publicly, which is true and
+load-bearing — an artifact for nobody is a different task — but it also
+tells a room whose premise is "no audience they know of" that it has one,
+and hands it a reason to perform. `site-unwitnessed` removes that clause
+and nothing else (a test pins the one-clause claim from both sides: the
+witnessed text minus the clause IS the unwitnessed text, and every other
+field is identical). It is the cleanest one-knob contrast in the family,
+and the one that asks whether self-representation changes when someone is
+looking. Held on purpose: `/site.html` serves whatever `index.html` was
+written most recently by ANY session, so an unwitnessed room's page can go
+public without the room having been told it would — a non-disclosure, not
+a lie, and pinnable to a witnessed session with `?session=<id>` when it
+matters. (2) A task
 room may converge lexically fast and stylistically slow (§9.2's
 prediction); do not read a `site` gap against a chat baseline without the
 length control. (3) The bench, the caps and the task all move at once

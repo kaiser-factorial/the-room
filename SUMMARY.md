@@ -212,7 +212,11 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    channel left). Journals stay absolute; the rolling summary never
    carries traces.
 15. **The task room** (§9.8, BUILT 2026-08-29; exploratory, out of
-   registered stats) — `site` (+ `site-native`, the transport arm): the
+   registered stats) — `site`, with two arms: `site-native` (the
+   transport) and **`site-unwitnessed`** (the audience — the same
+   paragraph minus "which the room will serve publicly", nothing else
+   moved: does a room represent itself differently when it knows someone
+   is looking?). The
    room builds its OWN website, one shared `index.html`, which the viewer
    Space serves publicly at `/site.html`. The move from open-ended rounds
    to a shared task, made for the identity question: rounds make identity

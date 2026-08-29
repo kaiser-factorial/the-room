@@ -125,8 +125,10 @@ ends its own session by agreement. Merged/pushed but **NOT yet deployed**
   tools-full ↔ agentic (the loop), agentic ↔ agentic-native (transport).
   Both deployed 2026-08-28 (reminder 0).
 - **The TASK ROOM is BUILT (§9.8, 2026-08-29) — not yet deployed.**
-  `site` (+ `site-native`): the six of them build **this room's own
-  website**, a single shared `index.html`, which `viewer/site.html` serves
+  `site` (+ `site-native`, the transport arm, and `site-unwitnessed`, the
+  audience arm — the same paragraph minus "which the room will serve
+  publicly", nothing else moved; a test pins that from both sides): the
+  six of them build **this room's own website**, a single shared `index.html`, which `viewer/site.html` serves
   publicly on the viewer Space and updates live as they write it. The
   reason is the identity question, not the page: open-ended rounds make
   identity visible as STYLE, a task makes it visible as FUNCTION — who
@@ -144,6 +146,17 @@ ends its own session by agreement. Merged/pushed but **NOT yet deployed**
   being told. **So `site` sessions are NOT length-comparable with chat
   conditions** — §2.7's length-controlled gap is the instrument, exactly
   as at the 2026-08-27 boundary.
+- **Seeing the page.** Deployed: `https://brick-factorial-the-room.static.hf.space/site.html`
+  (a static Space serves from `<owner>-<space>.static.hf.space`; the
+  huggingface.co/spaces page frames its index.html only, so the subdomain
+  URL is the one that reaches a subpath — probed 2026-08-29, the bare
+  `.hf.space` host 404s for this Space). Before a deploy: `cd viewer &&
+  python3 -m http.server 8000` → `localhost:8000/site.html`, same mirror,
+  same page. After a local run: `sessions/<id>/shared/index.html` on disk.
+  Verified in headless Chromium against a stubbed data layer — the strip
+  attributes the version, the room's page renders, ITS scripts run, and an
+  attempt from inside it to touch the parent is a caught SecurityError
+  with our title unchanged.
 - **Completion — the room ends its own session (§9.8, 2026-08-29).** New
   `completion` config: `[DONE]` raises a seat's hand, `[NOT DONE]` lowers
   it, the standing count renders live in every prompt (or not —
@@ -398,12 +411,14 @@ axis, `tools.maxFileChars`, `viewer/site.html`, `fileWork` +
 `completion` metrics; 128 tests green) — DEPLOY IT (reminder 0), then run
 one.** Before the first live `site` session, three calls are Corina's, and
 all three are one edit away rather than a build:
-1. **Does the room know it is watched?** The kickoff says the page "will
-   be served publicly" — true, and load-bearing (an artifact for nobody is
-   a different task), but it also tells a room whose premise is "no
-   audience they know of" that it has one. The unwitnessed variant is one
-   `welcomeMessage` edit; it is worth running as its own arm rather than
-   silently choosing.
+1. **Does the room know it is watched? — BOTH now exist.** `site` says the
+   page "will be served publicly" (true, and load-bearing: an artifact for
+   nobody is a different task); `site-unwitnessed` removes that clause and
+   nothing else. Which one runs first is a call, not a build. Held on
+   purpose: `/site.html` serves whatever `index.html` was written most
+   recently by ANY session, so an unwitnessed room's page can go public
+   without the room having been told — pin the public page with
+   `?session=<id>` if that matters for a run.
 2. **`site` or `site-native` first?** `site` (sentinels) keeps the
    furniture framing the whole apparatus is measured in — but a miswritten
    `[WRITE]` is spoken to the room as prose and the file silently does not
