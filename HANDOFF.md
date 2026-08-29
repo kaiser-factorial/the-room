@@ -592,6 +592,45 @@ under-counted by these parse failures, and tool-use counts are inflated by
 the 2,000-char file view (44 of that room's 45 runs were re-reads of a file
 it could only see 2 KB of).
 
+## The Grok seat announces and does not act (2026-08-29, all three site rooms)
+
+Noticed by Corina from the transcripts: Grok keeps saying it is about to do
+something and then doesn't. **It is not a tool-call problem.** Its replies
+contain no sentinel, no foreign envelope and nothing to rescue — the three
+parse fixes above change nothing for it — and no reply is truncated
+(`finish=stop` every turn, against a 4,000-token visible budget).
+
+What the numbers say. Visible output = completion − reasoning:
+
+| room | round 1 | rounds 2+ |
+|---|---|---|
+| `site` (spoke 1st) | 1024 | 26, 23, 22, 19, 22, 20, 10, 19, 22, 41, 23, 13 |
+| `site-unwitnessed` (4th) | 1364 | 55, 45, 22 |
+| `site-unending` (4th) | **26** | 21, 19, 19, 22, 22, 18 |
+
+So Grok writes ONE opening move and then ~20 tokens a turn, forever — one
+sentence, and that sentence is always an announcement of what it is about
+to do. Since speaking ends the turn, the announcement IS the turn. It spent
+7 turns in `site-unending` promising to read the file and never read it,
+while spending 58–96 tokens per turn on reasoning to produce ~20 of speech.
+Its own (summarised) trace says *"I should act first then speak"* — it has
+the rule and doesn't follow it.
+
+Speaking position does not explain the missing opening move: Grok spoke 4th
+in `site-unwitnessed` too and wrote 1,364 tokens. The one thing distinctive
+about its `site-unending` context is that Gemini's mis-parsed reply had just
+put **16.7 KB of raw HTML into the transcript as speech** immediately before
+its turn — the bug fixed today. Hypothesis worth one rerun now that the blob
+cannot happen, not a conclusion (n=1).
+
+**This is the first time reminder 1b has cost us an answer.** `provider` on
+every Grok message reads `xAI`, not `xai-direct` — the seat is still routed
+through OpenRouter, so its "traces" are the ~200-char summaries the §2.5
+caveat describes (many are exactly 203 characters, cut mid-word, several
+ending at "I need to:"). We cannot read why it stops because we are not
+reading its reasoning. **Set XAI_API_KEY on the runner** (reminder 1b) before
+the next site room and this becomes answerable.
+
 ## Color of the thing
 
 The journal-free session: Seed treated the journal as mandatory and
