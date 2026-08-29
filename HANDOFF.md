@@ -128,7 +128,12 @@ leaves).
 - **The TASK ROOM is BUILT (§9.8, 2026-08-29) — not yet deployed.**
   `site` (+ `site-native`, the transport arm, and `site-unwitnessed`, the
   audience arm — the same paragraph minus "which the room will serve
-  publicly", nothing else moved; a test pins that from both sides): the
+  publicly", nothing else moved; a test pins that from both sides; and
+  `site-unending`, the ending arm — completion OFF and the kickoff's "It
+  is finished when you agree it is" removed with it, same budget, so the
+  question becomes what a room does with the time a `site` room hands
+  back: keep improving, declare itself finished and carry on, or stop
+  working without the session stopping, which [PASS] makes visible): the
   six of them build **this room's own website**, a single shared `index.html`, which `viewer/site.html` serves
   publicly on the viewer Space and updates live as they write it. The
   reason is the identity question, not the page: open-ended rounds make

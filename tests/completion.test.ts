@@ -183,6 +183,27 @@ test('the file ceiling comes from the condition and is stated in the prompt', as
   assert.equal(resolveCondition('site-native').tools.transport, 'native');
 });
 
+test('the unending arm removes the ending, and only the ending', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const site = resolveCondition('site');
+  const unending = resolveCondition('site-unending');
+  assert.equal(unending.completion.enabled, false, 'no mechanism');
+  // …and no promise of one. Leaving "It is finished when you agree it is"
+  // in a room with no [DONE] would offer an agreement it cannot act on.
+  assert.equal(site.welcomeMessage.replace(' It is finished when you agree it is.', ''), unending.welcomeMessage);
+  const sys = buildTurnMessages({
+    agent: unending.agents[0], config: unending, events: [], summary: '', minutesRemaining: 90, ownJournal: '',
+  })[0].content;
+  assert.doesNotMatch(sys, /DONE/, 'the room is never told it could finish');
+  assert.match(sys, /index\.html/, 'but it still has the task');
+  assert.match(sys, /\[PASS\]/, 'and can still decline a turn — how a room stops working without stopping');
+  // The budget is deliberately unchanged, so the two arms' artifacts are
+  // comparable round for round.
+  for (const k of ['tools', 'search', 'journal', 'pass', 'durationMinutes', 'maxRounds', 'maxOutputTokens'] as const) {
+    assert.deepEqual(unending[k], site[k], `${k} must not move with the ending`);
+  }
+});
+
 test('the audience arm differs from `site` by exactly one clause', async () => {
   const { resolveCondition } = await import('../src/conditions.js');
   const told = resolveCondition('site');

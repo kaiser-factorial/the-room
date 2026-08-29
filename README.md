@@ -457,8 +457,9 @@ it is the first thing to reinstate.
 `conditions/site.json` is the first room with something to make: **this
 room's own website** — a single shared file, `index.html`, which the
 viewer Space serves publicly at `/site.html`. Two arms come with it:
-`site-native.json` (same room, `tools.transport: 'native'`) and
-`site-unwitnessed.json` — see **Does the room know it is watched?** below.
+`site-native.json` (same room, `tools.transport: 'native'`),
+`site-unwitnessed.json` (**Does the room know it is watched?**) and
+`site-unending.json` (**The arm with no ending**), both below.
 
 Why a task at all: open-ended rounds make identity visible as *style*; a
 task makes it visible as *function* — who starts, who structures, who
@@ -501,6 +502,25 @@ public without the room having been told it would. That is a
 non-disclosure, not a lie — but if it matters for a given run, link people
 to a witnessed session's URL (`/site.html?session=<id>`) rather than the
 bare page.
+
+### The arm with no ending
+
+`site-unending` is `site` with the completion axis off and the kickoff's
+last sentence — *"It is finished when you agree it is"* — removed, because
+leaving it in would promise an agreement the room has no way to act on.
+Nothing else moves; the 90-minute / 30-round budget is deliberately
+identical so the two arms' artifacts are comparable round for round.
+
+What it measures is not *when they stop* — without `[DONE]` they can't, and
+`ending` is always `clock` or `rounds` here by construction. It is what a
+room does with the time a `site` room hands back:
+
+- does it **declare itself finished in chat and keep going anyway**?
+- do late versions still change the page, or do the seats churn each
+  other's lines with no net gain (`fileWork`'s `refactored` matrix and
+  `survivingShare` against version number)?
+- or does it **stop working without the session stopping** — `[PASS]` is
+  on, so a room out of work can fall silent, and `passes` counts it.
 
 ### `[DONE]` — the room ending its own session
 
