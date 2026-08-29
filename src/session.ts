@@ -579,7 +579,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
           // it now (an errored call above keeps it for the next attempt).
           pendingPrivate.delete(agent.id);
         } catch (err) {
-          record({ kind: 'system', ts: now(), round, text: `${agent.name} could not speak this turn (${(err as Error).message.slice(0, 120)})` });
+          // agentId: a failed turn is a silence like any other, and analysis
+          // could not attribute it — the one silence kind with no author.
+          record({ kind: 'system', ts: now(), round, agentId: agent.id, text: `${agent.name} could not speak this turn (${(err as Error).message.slice(0, 120)})` });
           if (unread) pendingPrivate.set(agent.id, unread);
           failed = true;
           break;
@@ -602,7 +604,10 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         // ── Utterances: they end the turn where they stand ──────────────
         if (!nativeCalls.length && !isToolAction(parsed)) {
           // Anything held from earlier steps is spoken with this turn's
-          // words, joined into the one message the room hears.
+          // words, joined into the one message the room hears. A rescued
+          // sentinel (prose, then the bracket) arrives with that prose as
+          // its own preamble — it belongs at the front of the same message.
+          if ('preamble' in parsed && parsed.preamble) preamble.push(parsed.preamble);
           const withPreamble = (text: string) => [...preamble, text].join('\n\n');
           if (parsed.kind === 'done') {
             // §9.8. Raising and lowering are the same event kind, always
@@ -623,6 +628,10 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             record({
               kind: 'system', ts: now(), round, agentId: agent.id,
               text: `${agent.name} chose to say nothing.`,
+              // A chosen silence has a trace behind it — the reasoning that
+              // decided to spend the turn on nothing is exactly the thing
+              // worth reading, and it was being dropped on the floor.
+              thinking, telemetry,
               ...(config.pass.notice ? {} : { private: true }),
             });
           } else if (parsed.kind === 'alongside') {
@@ -647,7 +656,10 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
             // only record of what the silent turn was doing. A turn that has
             // already acted ends here quietly, which is the loop's normal way
             // of finishing a turn spent working rather than talking.
-            record({ kind: 'system', ts: now(), round, text: `${agent.name} said nothing this turn.`, agentId: agent.id, thinking });
+            // The telemetry is the diagnosis: `usage.reasoning` against the
+            // visible budget, and finishReason, say whether the seat thought
+            // its whole turn away or simply had nothing to add.
+            record({ kind: 'system', ts: now(), round, text: `${agent.name} said nothing this turn.`, agentId: agent.id, thinking, telemetry });
           }
           break;
         }
@@ -666,6 +678,11 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         // yet, and the turn goes on.
         const spoken = nativeCalls.length ? undefined : (parsed as ToolAction).spoken;
         if (nativeCalls.length && reply.trim()) preamble.push(reply.trim());
+        // Under the SENTINEL transport the same thing happens when a seat
+        // narrates before its bracket: the narration is a preamble, held
+        // and spoken when the turn ends, so acting after speaking costs
+        // nothing. (parse.ts rescues the call; this is where the words go.)
+        else if (!nativeCalls.length && (parsed as ToolAction).preamble) preamble.push((parsed as ToolAction).preamble!);
         // One completion, one trace: it belongs to the spoken message when
         // there is one, otherwise to the action event.
         const toolThinking = spoken ? undefined : thinking;

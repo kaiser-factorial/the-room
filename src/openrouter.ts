@@ -105,6 +105,9 @@ export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' 
   // under both transports (agreeing is furniture, not a tool), so there is
   // no native branch for these.
   | 'done' | 'undone' | 'done-quiet' | 'site-done'
+  // Narration THEN a call — the shape that was being spoken to the room as
+  // prose until parse.ts learned to rescue it (watched live 2026-08-29).
+  | 'preamble-run'
   // A write to the completion target — the edit that clears the room's
   // standing agreement.
   | 'site';
@@ -265,6 +268,7 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     case 'badconfig': return { text: `[CONFIG: durationMinutes = forever]\n${voice()}`, meta, thinking };
     case 'run': return { text: `[RUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN]\n${voice()}`, meta, thinking };
     case 'run-quiet': return { text: `[RUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN]`, meta, thinking };
+    case 'preamble-run': return { text: `Let me read the current state and fix it.\n\n[RUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN]`, meta, thinking };
     case 'write-quiet': return { text: `[WRITE: notes.md]\nshared-note ${model}#${mTurn}\n[/WRITE]`, meta, thinking };
     case 'source-quiet': return { text: `[SOURCE: sandbox]`, meta, thinking };
     case 'badwrite-quiet': return { text: `[WRITE: ../evil.md]\nnope\n[/WRITE]`, meta, thinking };

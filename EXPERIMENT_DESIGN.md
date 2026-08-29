@@ -1207,6 +1207,27 @@ the room as prose and the file silently does not change. That failure
 mode costs a sentence in a conversation; in a build room it costs the
 deliverable.
 
+**The first two live rooms (2026-08-29, both `site`).** Both **ended by
+agreement** — `end.payload.ending = 'agreement'` twice, so the completion
+axis is not theoretical: the room decided it was finished and the harness
+stopped, rather than the clock stopping it. 70 and 23 messages, 22 and 15
+code runs, 10 and 6 versions of `index.html`, 8 chosen silences and zero
+starved turns between them.
+
+They also produced the axis's first real finding, which is about the
+apparatus rather than the room: **11 tool calls were spoken to the room as
+prose instead of running** (7 and 4), against 37 that ran — a quarter of
+every attempt, lost because the seat narrated before it acted and the
+sentinel was no longer at the start of the reply. Two seats lost a `[RUN]`
+that way within five minutes of each other. This is the same failure the
+native transport was built to remove (§9.5), and a build room is where it
+finally cost something: the deliverable is a file, and a write that becomes
+a sentence does not change it. Fixed by moving the rule from "the sentinel
+starts the reply" to "the sentinel starts a LINE", with the prose in front
+of it treated as a preamble — see the README. **Sessions before that fix
+under-count tool use by roughly a quarter**, and the miss is not random: it
+falls on the seats that narrate.
+
 **Next rungs, unbuilt.** An `/archive/` the room can actually read (past
 transcripts as read-only shared files — then "say what this place is"
 can draw on more than one session's memory); a second task with a

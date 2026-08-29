@@ -50,6 +50,18 @@
   .msg .who { font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; }
   .msg .body { white-space: pre-wrap; }
   .aside { color: var(--dim); font-style: italic; font-size: 0.9rem; margin: 1.2rem 0; text-align: center; }
+  /* Silences, told apart. A chosen silence is a turn someone SPENT; an
+     empty one is a turn that got away from them. Same line in the
+     transcript, different events. */
+  .aside.silence { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+  .aside.silence .tag {
+    font-style: normal; font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .aside.silence.chosen { border-left: 0; }
+  .aside.silence.empty .tag, .aside.silence.error .tag { color: #6b6773; }
+  .aside.silence .why {
+    font-style: normal; font-size: 0.72rem; color: #6b6773; font-variant-numeric: tabular-nums;
+  }
   /* Reasoning-trace chevron (F1). Humans see traces; the room never does. */
   details.thinking { margin-top: 0.35rem; }
   details.thinking summary { cursor: pointer; font-size: 0.72rem; color: var(--dim);
@@ -333,8 +345,40 @@ function render(e) {
     el.textContent = `${e.agent_name} read the room's source code${e.payload?.name ? ` (${e.payload.name})` : ''}.`;
     appendThinking(el, e);
   } else if (e.kind === 'system') {
-    el.className = 'aside';
-    el.textContent = e.text;
+    // Three silences that read identically in a transcript and are not the
+    // same event at all: a seat that DECLINED its turn, a seat whose reply
+    // came back empty (usually reasoning eating the visible budget), and a
+    // call that failed. Only the first is a decision, and it is the one the
+    // floor axis exists to measure — so it gets the agent's colour and a
+    // label, and the other two say what actually happened.
+    const silence = /chose to say nothing/.test(e.text) ? 'chosen'
+      : /could not speak/.test(e.text) ? 'error'
+      : /said nothing this turn/.test(e.text) ? 'empty' : null;
+    el.className = silence ? `aside silence ${silence}` : 'aside';
+    if (silence) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = silence === 'chosen' ? 'passed' : silence === 'error' ? 'failed' : 'no words';
+      if (silence === 'chosen') tag.style.color = colorOf(e.agent_id);
+      const line = document.createElement('span');
+      line.textContent = e.text;
+      el.append(tag, line);
+      // For an empty reply, the numbers ARE the explanation: how much of the
+      // turn went on thinking, and whether the completion hit the cap.
+      const u = e.payload?.telemetry?.usage;
+      if (silence === 'empty' && (u?.reasoning || e.payload?.telemetry?.finishReason)) {
+        const why = document.createElement('span');
+        why.className = 'why';
+        why.textContent = [
+          u?.reasoning ? `${u.reasoning} tokens of thinking` : null,
+          u?.completion !== undefined ? `${u.completion} completion` : null,
+          e.payload.telemetry.finishReason ? `finish: ${e.payload.telemetry.finishReason}` : null,
+        ].filter(Boolean).join(' · ');
+        el.appendChild(why);
+      }
+    } else {
+      el.textContent = e.text;
+    }
     appendThinking(el, e);
   } else if (e.kind === 'order') {
     el.className = 'order';

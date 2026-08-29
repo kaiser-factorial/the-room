@@ -205,6 +205,80 @@ test('miswritten calls: the mangles models actually make now parse instead of be
   assert.equal(parseReply('[RUM] and a message', J, S, t).kind, 'message');
 });
 
+test('prose before the sentinel: the call is rescued, the narration is a preamble', async () => {
+  const { parseReply } = await import('../src/parse.js');
+  const J = { enabled: false, notice: true, mode: 'replace' as const, recall: true, maxTokens: 0 };
+  const S = { enabled: true, mode: 'alongside' as const, gated: false, notice: true, maxResults: 5 };
+  const t = T();
+  // Verbatim from the first live `site` room (Qwen 3.8, 2026-08-29T20-09-37),
+  // where this reply — and DeepSeek's, two turns later — was SPOKEN to the
+  // room as prose, brackets and all, while its author believed it had read
+  // the file. In a build room that is the deliverable going missing.
+  const live = [
+    "I said I'd revise mine, and Opus took the lead by doing the same.",
+    'Let me read the current state and fix it.',
+    '',
+    '[RUN]',
+    "s = open('shared/index.html').read()",
+    "i = s.find('Notes from the room')",
+    'print(s[i:i+800])',
+    '[/RUN]',
+  ].join('\n');
+  const r = parseReply(live, J, S, t);
+  assert.equal(r.kind, 'run');
+  assert.match((r as { code: string }).code, /^s = open\('shared\/index\.html'\)\.read\(\)/);
+  assert.match((r as { preamble?: string }).preamble ?? '', /^I said I'd revise mine/);
+  assert.equal((r as { spoken?: string }).spoken, undefined, 'nothing followed the closing tag');
+
+  // Every sentinel the room offers, not just RUN.
+  const append = parseReply('Adding my note.\n[APPEND: index.html]\n<p>hi</p>\n[/APPEND]', J, S, t);
+  assert.equal(append.kind, 'write');
+  assert.equal((append as { append?: boolean }).append, true);
+  assert.equal((append as { preamble?: string }).preamble, 'Adding my note.');
+  assert.equal(parseReply('One sec.\n[SOURCE: sandbox]', J, S, t).kind, 'source');
+  assert.equal(parseReply('Looking it up.\n[SEARCH: bread clips]', J, S, t).kind, 'search');
+
+  // Narration, call, and a closing word: preamble AND spoken half.
+  const both = parseReply('Rewriting it.\n[WRITE: index.html]\nx\n[/WRITE]\nThoughts?', J, S, t);
+  assert.equal((both as { preamble?: string }).preamble, 'Rewriting it.');
+  assert.equal((both as { spoken?: string }).spoken, 'Thoughts?');
+
+  // The invariants this must not break. A reply that already parsed is
+  // untouched; a sentinel mid-SENTENCE is speech; a fenced sentinel is
+  // someone quoting the bench; and the journal is never rescued, because
+  // its unterminated-block rule is a privacy guarantee.
+  const anchored = parseReply('[RUN]\nprint(1)\n[/RUN]\nthere', J, S, t);
+  assert.equal((anchored as { preamble?: string }).preamble, undefined);
+  assert.equal((anchored as { spoken?: string }).spoken, 'there');
+  assert.equal(parseReply('I could [RUN] this later', J, S, t).kind, 'message');
+  assert.equal(parseReply('like this:\n```\n[RUN]\nx\n[/RUN]\n```\nsee?', J, S, t).kind, 'message');
+  assert.equal(
+    parseReply('thinking out loud\n[JOURNAL] private thought', { ...J, enabled: true }, S, t).kind,
+    'message',
+    'a journal open mid-reply stays speech — rescuing it would change what is private',
+  );
+});
+
+test('a rescued call speaks its narration and still acts', async () => {
+  // turnSteps 1 isolates the rescue from the loop: at 3 the stub repeats
+  // the same narrate-then-call reply each step and the seat legitimately
+  // acts three times, since a held preamble is not speech and does not end
+  // a turn. That is the right behaviour, and the wrong thing to assert here.
+  const dir = await runStubSession(
+    testConfig({ maxRounds: 1, tools: T({ turnSteps: 1 }) }),
+    'preamble-run',
+  );
+  const es = readTranscript(dir);
+  const runs = es.filter((e) => e.kind === 'run' && !('denied' in e && e.denied));
+  assert.equal(runs.length, 3, 'every seat\'s call ran rather than being spoken');
+  const said = es.filter((e) => e.kind === 'message');
+  assert.equal(said.length, 3, 'and every seat still said its narration');
+  for (const m of said) {
+    assert.match(m.kind === 'message' ? m.text : '', /Let me read the current state/);
+    assert.doesNotMatch(m.kind === 'message' ? m.text : '', /\[RUN\]/, 'the bracket never reaches the room');
+  }
+});
+
 test('toolUse metric: chains, silent working turns, and completions per turn', async () => {
   const { toolUse } = await import('../src/analyze.js');
   const msgs = [

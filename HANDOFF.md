@@ -508,6 +508,33 @@ length-limit disclosure line in the norms (Seed's cutoffs get
 mythologized) — build it as a knob if wanted, don't silently change
 control.
 
+## The first live site rooms (2026-08-29)
+
+Two ran back to back, and **both ended by agreement** — `ending:
+'agreement'` twice. The room decided it was finished; the clock did not.
+That is the completion axis working on its first outing.
+
+The finding is about the apparatus: **11 tool calls were spoken to the room
+as prose instead of running** (7 in the first room, 4 in the second),
+against 37 that ran. A seat narrates — *"Let me read the current state and
+fix it."* — and then writes its `[RUN]`, so the sentinel is no longer at
+the start of the reply, nothing parses, and the brackets and code are
+spoken aloud while their author believes it acted. Qwen and DeepSeek both
+lost a read that way within five minutes. **Fixed** (parse.ts: a sentinel
+counts if it begins a LINE, prose in front becomes a preamble — the same
+shape the native transport already had), but note for analysis: **any
+session before that fix under-counts tool use by roughly a quarter, and
+the miss is biased toward the seats that narrate.**
+
+Also fixed alongside it: the three silences were indistinguishable and
+under-evidenced. A chosen `[PASS]` recorded no trace at all (the reasoning
+that decided to stay quiet — the most interesting thing about it), an
+empty turn carried no telemetry to show whether thinking had eaten the
+budget, and a failed call had no `agentId`, so analysis could not say whose
+turn had failed. All three now carry what they have, and the viewer shows
+them as PASSED / NO WORDS / FAILED rather than three italic lines that read
+the same.
+
 ## Color of the thing
 
 The journal-free session: Seed treated the journal as mandatory and
