@@ -121,6 +121,29 @@ message when the turn ends, exactly as under the native transport, so
 narrating no longer costs a seat its action. Text after the closing tag is
 still the spoken half and still ends the turn.
 
+**Every call in a reply runs, not just the first.** A completion can carry
+several: Gemini sent `[RUN]…[/RUN][RUN]…[/RUN][WRITE: index.html]<!DOCTYPE
+html>…` as one reply, and the parser took the first action and handed the
+rest back as the spoken half — so a second read and a complete 16 KB page
+were spoken to the room while their author believed the page was written.
+The trick is that "spoken" and "the next call" are the same bytes: parse
+the spoken half again, and if it is an action it was never speech
+(`parseActions`). Prose *between* two calls becomes preamble. The native
+transport always allowed this; only the sentinel path dropped them.
+
+**A bracket with its token on the next line is a typo.** Qwen wrote
+
+```
+[
+
+RUN]
+s = open('shared/index.html').read()
+```
+
+on three separate turns of one session and lost the call every time — the
+bracket was there, the token was there, and nothing in between them was.
+Every sentinel now tolerates whitespace inside the bracket.
+
 Three things keep it from swallowing speech:
 
 - The anchored parse runs **first**, and its result is returned untouched
@@ -132,6 +155,17 @@ Three things keep it from swallowing speech:
   model wrapped its real call.
 - Mid-**sentence** brackets never match: *"I could [RUN] this later"* stays
   speech.
+
+**A foreign tool-call envelope is deliberately NOT accepted.** Seed spent
+six of eight turns emitting its own format —
+`<seed:tool_call><function name="run">…` — which this room reads as speech.
+Recognising it would recover those turns and destroy the question: *which
+models can work in a syntax that is not theirs?* A mangled bracket is a
+typo and gets fixed; a different envelope is a different language and stays
+a finding (Corina 2026-08-29).
+
+What did change is that the room stops answering it with silence — see
+`tools.callFeedback` below.
 
 `[JOURNAL]` and `[PASS]` are deliberately NOT rescued. The journal's
 unterminated-block rule is a privacy guarantee, and a pass is defined as a
@@ -155,6 +189,37 @@ plainly meant the sentinel and may explain itself on the same line.
 The accepted cost: a model that quotes a sentinel at the start of an
 unfenced line now runs it. That ambiguity already existed at position 0;
 this widens where it applies, in exchange for calls that land.
+
+### `tools.callFeedback` — telling a seat its call was unreadable
+
+`agentic.ts`'s refusals only reach an agent once its reply PARSES as an
+action. A seat whose calls are unreadable therefore gets *silence*, and
+draws its own conclusions. In the first `site-unending` room Seed executed
+one run in round 1 and nothing after it, and reported:
+
+> My writes have failed twice now via Python — the sandbox says success but
+> disk doesn't move.
+
+There was no sandbox and no success. It was reading its own prediction of a
+run that never happened. Four seats then built an epistemology around "the
+transcript lies" — until Opus worked out the actual mechanism from the
+transcript and said so, in the room, in plain language.
+
+With `callFeedback` on, a reply that *looks* like an attempted call gets its
+author a private note next turn naming what it wrote, that the room heard it
+as speech, and the forms this room understands (only the ones it actually
+offers — never one the condition has turned off). The attempt is also
+recorded as a `private` system event, so it is measurable without being
+audible.
+
+**Off by default, and the default is a real choice.** A room where nothing
+you do lands, and you have to notice that yourself, produced the richest
+transcript this apparatus has recorded. Turning this on trades that
+phenomenon for a room that gets its work done. It does *not* remove the
+adaptation question — Seed was told by Opus, in plain English, and its next
+turn used the same broken envelope anyway. It removes having to DETECT the
+problem before you can act on it. The four `site` arms have it on, where six
+lost turns cost a deliverable; every conversational condition has it off.
 
 ## The agentic turn (F4¾)
 

@@ -20,7 +20,7 @@ const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall
 const C = (over: Partial<CompletionConfig> = {}): CompletionConfig =>
   ({ enabled: true, rule: 'unanimous', quorum: 0, target: 'index.html', resetOnEdit: true, notice: true, ...over });
 const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({
-  files: true, python: false, maxFileChars: 16_000, fileViewChars: 2_000, budget: 'per-seat', turnSteps: 1, transport: 'sentinel',
+  files: true, python: false, maxFileChars: 16_000, fileViewChars: 2_000, callFeedback: false, budget: 'per-seat', turnSteps: 1, transport: 'sentinel',
   notice: true, pythonTimeoutSeconds: 10, pythonPackages: [], pythonInstall: false, runPublic: true,
   sourceCode: false, sourceScope: 'tools', configurable: false, ...over,
 });

@@ -39,7 +39,8 @@
     "runPublic": true,
     "sourceCode": true,
     "transport": "native",
-    "fileViewChars": 60000
+    "fileViewChars": 60000,
+    "callFeedback": true
   },
   "durationMinutes": 90,
   "maxRounds": 30,

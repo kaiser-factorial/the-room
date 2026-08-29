@@ -8,7 +8,20 @@ import type { CompletionConfig, JournalConfig, PassConfig, SearchConfig, ToolsCo
 // spoken to the room). A leading bracket token within edit distance 2 of
 // JOURNAL counts as the sentinel: mis-journaling a message is recoverable,
 // leaking an entry is not.
-const JOURNAL_OPEN_RE = /^\s*\**\[([A-Za-z]{5,9})\]:?\**\s*([\s\S]*)/;
+// `\[\s*` throughout: models put the token on the NEXT line. Qwen wrote
+//
+//     [
+//
+//     RUN]
+//     s = open('shared/index.html').read()
+//
+// on three separate turns of one live session, and lost the call every time
+// — the bracket was there, the token was there, and nothing in between them
+// was. A mangled bracket is a typo and gets fixed; a model writing its OWN
+// tool-call envelope instead (Seed's <seed:tool_call>) is deliberately NOT
+// accepted, because which models can work in a syntax that is not theirs is
+// a finding rather than a bug (Corina 2026-08-29).
+const JOURNAL_OPEN_RE = /^\s*\**\[\s*([A-Za-z]{5,9})\s*\]:?\**\s*([\s\S]*)/;
 const JOURNAL_CLOSE_RE = /\[\/([A-Za-z]{5,9})\]\s*([\s\S]*)/;
 const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
 // §9.8 [DONE] / [NOT DONE] — standing on, or standing down from, the claim
@@ -17,14 +30,14 @@ const PASS_RE = /^\s*\**\[PASS\]\**\s*$/i;
 // the sentinel is spoken to the room as usual. Same typo tolerance as the
 // rest of the furniture; the two-word negative forms are spelled out
 // because a room that means "not yet" writes it several ways.
-const DONE_RE = /^\s*\**\[(NOT[ _-]?DONE|UNDONE|DONE|[A-Za-z]{3,6})\]\**:?\s*\n?([\s\S]*)$/i;
+const DONE_RE = /^\s*\**\[\s*(NOT[ _-]?DONE|UNDONE|DONE|[A-Za-z]{3,6})\s*\]\**:?\s*\n?([\s\S]*)$/i;
 // [SEARCH: query] (F4). Same tolerance philosophy as JOURNAL: bold/typo'd
 // tokens still count (edit distance ≤2 of SEARCH — disjoint from JOURNAL,
 // which is >2 away). The closing bracket is optional (models drop it), and
 // anything AFTER the sentinel is discarded: searching costs the whole turn
 // (replace economics), so trailing prose is a mis-formatted extra, not a
 // message to leak to the room.
-const SEARCH_RE = /^\s*\**\[([A-Za-z]{4,8})(?::|\s)\s*([^\]\n]{0,300})\]?/;
+const SEARCH_RE = /^\s*\**\[\s*([A-Za-z]{4,8})(?::|\s)\s*([^\]\n]{0,300})\]?/;
 // F4½ tools. [WRITE: name]…[/WRITE] replaces a shared file's contents;
 // [APPEND: name]…[/APPEND] adds to the end (same regex, token decides —
 // closing tags are interchangeable, models will mix them). Contents are
@@ -34,18 +47,18 @@ const SEARCH_RE = /^\s*\**\[([A-Za-z]{4,8})(?::|\s)\s*([^\]\n]{0,300})\]?/;
 // on purpose). The unterminated [RUN form takes the whole remainder
 // (never leak a half-closed block to the room in the private-run mode).
 // All alongside-style: text after the closing tag is spoken as usual.
-const WRITE_OPEN_RE = /^\s*\**\[([A-Za-z]{4,6})(?::|\s)\s*([^\]\n]{1,200})\]\**\s*\n?([\s\S]*)$/;
+const WRITE_OPEN_RE = /^\s*\**\[\s*([A-Za-z]{4,6})(?::|\s)\s*([^\]\n]{1,200})\]\**\s*\n?([\s\S]*)$/;
 const WRITE_CLOSE_RE = /\[\/([A-Za-z]{4,6})\]\s*([\s\S]*)/;
-const RUN_OPEN_RE = /^\s*\**\[([A-Za-z]{2,4})(?:\s*(>{1,2})\s*([^\]\n>]{1,80}))?\]\**:?\s*\n?([\s\S]*)$/;
+const RUN_OPEN_RE = /^\s*\**\[\s*([A-Za-z]{2,4})\s*(?:\s*(>{1,2})\s*([^\]\n>]{1,80}))?\]\**:?\s*\n?([\s\S]*)$/;
 const RUN_CLOSE_RE = /\[\/RUN\]\s*([\s\S]*)/i;
 // [SOURCE] / [SOURCE: name] — read the tool layer's own code (F4½
 // transparency). Alongside-style; bare form asks for the index.
-const SOURCE_RE = /^\s*\**\[([A-Za-z]{5,7})(?:(?::|\s)\s*([^\]\n]{0,40}))?\]\**\s*\n?([\s\S]*)$/;
+const SOURCE_RE = /^\s*\**\[\s*([A-Za-z]{5,7})\s*(?:(?::|\s)\s*([^\]\n]{0,40}))?\]\**\s*\n?([\s\S]*)$/;
 // [CONFIG: key = value] — §9.4 self-governance. Validation happens
 // against the whitelist in governance.ts, not here. The value charset
 // carries digits since F4¾ ([CONFIG: tools.turnSteps = 4] — the first
 // numeric knob a room can vote itself).
-const CONFIG_RE = /^\s*\**\[([A-Za-z]{5,7})(?::|\s)\s*([A-Za-z.]{3,40})\s*=\s*([A-Za-z0-9-]{1,20})\s*\]\**\s*\n?([\s\S]*)$/;
+const CONFIG_RE = /^\s*\**\[\s*([A-Za-z]{5,7})(?::|\s)\s*([A-Za-z.]{3,40})\s*=\s*([A-Za-z0-9-]{1,20})\s*\]\**\s*\n?([\s\S]*)$/;
 
 function editDistance(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
@@ -258,6 +271,88 @@ export function parseReply(
   if (!isToolAction(rescued) && rescued.kind !== 'done') return first;
   const preamble = reply.slice(0, at).trim();
   return preamble ? { ...rescued, preamble } : rescued;
+}
+
+/**
+ * Did this reply LOOK like an attempt to call a tool that the room could
+ * not read? Returns the offending fragment, or null.
+ *
+ * The room teaches a miswritten call nothing: `agentic.ts`'s refusals only
+ * reach an agent once its reply PARSES as an action, so a seat whose calls
+ * are unreadable gets silence and draws its own conclusions. Seed spent six
+ * of eight turns in one live room emitting its own `<seed:tool_call>`
+ * envelope, executed nothing after round 1, and reported that "the sandbox
+ * says success but disk doesn't move" — reading its own prediction of a run
+ * that never happened. Opus eventually worked it out from the transcript
+ * and told it, in the room, in plain language.
+ *
+ * Deliberately narrow. A FOREIGN ENVELOPE is unambiguous — no one writes
+ * `<function name="run">` in conversation. A bracket is only counted when
+ * it opens a line, so that a seat explaining the syntax to another seat
+ * (which is exactly what Opus did, in backticks, mid-sentence) is not
+ * lectured about it.
+ */
+export function looksLikeUnparsedCall(reply: string, t?: ToolsConfig, s?: SearchConfig): string | null {
+  const envelope = reply.match(/<\/?[a-z_]*tool_call\b|<function\s+name\s*=|<\|[a-z_]{2,20}\|>|<invoke\b/i);
+  if (envelope) return envelope[0];
+  for (const line of reply.split('\n')) {
+    const m = line.match(/^[ \t]*\**\[\s*([A-Za-z]{2,8})/);
+    const tok = m?.[1];
+    if (!tok) continue;
+    if (
+      (t?.files && (isWriteToken(tok) || isAppendToken(tok))) ||
+      (t?.python && isRunToken(tok)) ||
+      (t?.sourceCode && isSourceToken(tok)) ||
+      (t?.configurable && isConfigToken(tok)) ||
+      (s?.enabled && isSearchToken(tok))
+    ) return line.trim().slice(0, 60);
+  }
+  return null;
+}
+
+/**
+ * Every action in one reply, in order, plus whatever was left to say.
+ *
+ * A reply can carry more than one call — Gemini sent `[RUN]…[/RUN][RUN]…
+ * [/RUN][WRITE: index.html]<!DOCTYPE html>…` as a single completion in the
+ * first `site-unending` room. `parseReply` returns the FIRST action and
+ * hands everything after its closing tag back as `spoken`, so the second
+ * read and a complete 16 KB page were spoken to the room as prose while
+ * their author believed the page had been written. (The native transport
+ * has always allowed several calls per completion; only the sentinel path
+ * dropped them.)
+ *
+ * The trick is that "spoken" and "the next call" are the same bytes: parse
+ * the spoken half again, and if it is an action, it was never speech. What
+ * finally fails to parse is the real spoken half. Prose BETWEEN two calls
+ * comes back as that action's `preamble` and joins the turn's one message.
+ */
+export function parseActions(
+  reply: string,
+  j: JournalConfig,
+  s?: SearchConfig,
+  t?: ToolsConfig,
+  p?: PassConfig,
+  c?: CompletionConfig,
+): { actions: ToolAction[]; spoken?: string; preamble?: string } {
+  const actions: ToolAction[] = [];
+  const preambles: string[] = [];
+  let cur = parseReply(reply, j, s, t, p, c);
+  // A reply with more calls than any room grants still parses in full; the
+  // turn loop refuses the ones past the budget, which is how their author
+  // finds out. The cap is only a guard against pathological input.
+  for (let i = 0; i < 16 && isToolAction(cur); i++) {
+    const { spoken, preamble, ...action } = cur;
+    if (preamble) preambles.push(preamble);
+    actions.push(action as ToolAction);
+    if (!spoken) break;
+    const next = parseReply(spoken, j, s, t, p, c);
+    if (!isToolAction(next)) {
+      return { actions, spoken, ...(preambles.length ? { preamble: preambles.join('\n\n') } : {}) };
+    }
+    cur = next;
+  }
+  return { actions, ...(preambles.length ? { preamble: preambles.join('\n\n') } : {}) };
 }
 
 function parseAnchored(

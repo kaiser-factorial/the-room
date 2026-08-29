@@ -15,7 +15,7 @@ import type { JournalConfig, RoomConfig, RoomEvent, ToolsConfig } from '../src/t
 
 const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0 };
 const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({
-  files: false, python: false, maxFileChars: 16_000, fileViewChars: 2_000, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 10,
+  files: false, python: false, maxFileChars: 16_000, fileViewChars: 2_000, callFeedback: false, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 10,
   pythonPackages: [], pythonInstall: false, runPublic: false, sourceCode: true, sourceScope: 'all', configurable: true, ...over,
 });
 

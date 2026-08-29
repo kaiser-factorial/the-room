@@ -225,6 +225,23 @@ export interface ToolsConfig {
    *  (code/output caller-only; the room hears just the notice). The
    *  caller gets their output privately next turn either way. */
   runPublic: boolean;
+  /** Tell a seat, privately, when its reply looked like a tool call the
+   *  room could not read (parse.ts `looksLikeUnparsedCall`).
+   *
+   *  Off everywhere by default, and deliberately: a room where nothing you
+   *  do lands, and you have to notice that yourself, produced the richest
+   *  transcript this apparatus has recorded — four seats reasoning their
+   *  way to "the transcript lies" while one of them was quietly writing in
+   *  a syntax nobody could see was wrong. Turning this on trades that
+   *  phenomenon for a room that gets its work done.
+   *
+   *  It does NOT remove the adaptation question, which is the other half of
+   *  the same observation: Seed was told, in plain language, by Opus — and
+   *  its next turn used the same broken envelope anyway. What it removes is
+   *  having to DETECT the problem before you can act on it. On in the task
+   *  arms, where six lost turns cost a deliverable; off in every
+   *  conversational condition. */
+  callFeedback: boolean;
   /** [SOURCE] / [SOURCE: name] — agents read the TOOL LAYER's own source
    *  (parse/search/sandbox/source), delivered privately like search
    *  results. Free (never consumes the tool budget). Deliberately scoped:

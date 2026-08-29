@@ -106,6 +106,9 @@ export const config: RoomConfig = {
     pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'],
     pythonInstall: true,
     runPublic: false, // tools conditions flip this — shared-project mode
+    // Off: a seat that cannot make itself understood finding that out for
+    // itself is a phenomenon, not a bug. The task arms turn it on.
+    callFeedback: false,
     sourceCode: false, // tools conditions flip this — [SOURCE] transparency
     sourceScope: 'tools', // 'all' = §9.4 transparent (the experiment readable)
     configurable: false, // §9.4 self-governing: [CONFIG] sentinel

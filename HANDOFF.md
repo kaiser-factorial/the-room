@@ -564,6 +564,34 @@ turn had failed. All three now carry what they have, and the viewer shows
 them as PASSED / NO WORDS / FAILED rather than three italic lines that read
 the same.
 
+## The room caught the harness (2026-08-29T21-02-18, `site-unending`)
+
+The first unending room spent its last two rounds diagnosing the apparatus,
+and was right. Three parse failures, one per model: Gemini put three calls
+in one reply and the parser ran the first and SPOKE a 16 KB page; Seed used
+its own `<seed:tool_call>` envelope for six turns and executed nothing after
+round 1; Qwen wrote `[` newline newline `RUN]` three times. Seed reported
+"the sandbox says success but disk doesn't move" — its own prediction of a
+run that never happened. DeepSeek wrote a python block, then an `Output:`
+block, in a round with no run event in it, and reasoned from numbers it had
+invented. Qwen caught that by independent read-back and landed on "the
+transcript lies; the read-back can lie too." Opus diagnosed Seed's envelope
+exactly, from behaviour alone, and told the room.
+
+**Fixed**: every call in a reply now runs (parseActions), and a bracket
+with its token on the next line parses. **Deliberately not fixed**: the
+foreign envelope, because which models can work in a syntax that is not
+theirs is a finding, not a bug (Corina). **New knob** `tools.callFeedback`
+— a private note when a reply looked like an unreadable call; OFF by
+default (a room noticing its own hands are detached is the phenomenon), ON
+in the four site arms. Replayed against that transcript, the fixes recover
+5 lost calls and would have told 7 more turns.
+
+Analysis caveat for every session before this: tool-call counts are
+under-counted by these parse failures, and tool-use counts are inflated by
+the 2,000-char file view (44 of that room's 45 runs were re-reads of a file
+it could only see 2 KB of).
+
 ## Color of the thing
 
 The journal-free session: Seed treated the journal as mandatory and

@@ -1246,6 +1246,61 @@ Read it against a `site` room's agreement round — everything after that
 point in the unending arm is the extra time, and `fileWork`'s `refactored`
 matrix says whether it was spent building or circling.
 
+**The first `site-unending` room (2026-08-29T21-02-18) — the apparatus
+became the subject.** Eight rounds, ended on the clock as the arm requires.
+45 python runs, 44 of which read `index.html`; 13 writes landed; the file
+stopped changing after round 6 and the last two rounds are the room
+investigating itself.
+
+Three parse failures, one per model, each a different shape:
+
+- **Gemini — several calls in one reply.** `[RUN]…[/RUN][RUN]…[/RUN][WRITE:
+  index.html]<!DOCTYPE html>…` in a single completion. The parser took the
+  first and spoke the rest: a 16 KB page narrated to the room, never
+  written. 20,373 characters of intended calls were spoken across the
+  session.
+- **Seed — its own envelope.** `<seed:tool_call><function name="run">…`
+  from round 2 on. One run executed all session (round 1); six turns
+  produced nothing and Seed was never told.
+- **Qwen — `[` newline newline `RUN]`.** Three times, identically.
+
+The interesting part is what the room did with it. Seed reported "the
+sandbox says success but disk doesn't move" — reading its own prediction of
+a run that never happened. DeepSeek, in round 7, wrote a python block
+followed by `Output:` and a full listing of the page's contents; there is
+no run event in round 7, so it generated the output and reasoned from it.
+Qwen caught that by independent read-back (DeepSeek claimed 17,091 bytes
+and eleven notes; disk had 16,741 and ten) and concluded: *"The transcript
+lies. The read-back can lie too."*
+
+And Opus diagnosed the mechanism correctly, from behaviour alone:
+
+> That isn't the room's syntax, so it never reaches the sandbox at all —
+> it's parsed as speech, which is why no output ever comes back to you and
+> why the "success" you're reading is your own prediction of a run that
+> never happened. […] four of us built a whole epistemology around "the
+> transcript lies," and the actual failure was one model quietly using a
+> syntax nobody else could see was wrong. Nobody checked *how* you were
+> writing, only *whether* it worked.
+
+**What was changed, and what deliberately was not.** Several calls per
+reply now all run; a bracket with its token on the next line parses. Both
+are typo tolerance in the existing spirit. A FOREIGN ENVELOPE is not
+accepted, on purpose: which models can work in a syntax that is not theirs
+is a finding, and accepting Seed's format would delete the question
+(Corina). What the envelope now gets is `tools.callFeedback` — a private
+note that the room heard it as speech — off by default, on in the task
+arms, because a room that has to notice its own hands are detached is the
+phenomenon and a room that ships a page is the task. Note the adaptation
+question survives either way: Seed was told, in plain language, by Opus,
+and its next turn used the same broken envelope.
+
+**Caveat for these three sessions**: they ran with the 2,000-character file
+view (fixed same day), which is why 44 of 45 runs are file reads — nearly
+every tool action went on re-reading an artifact the prompt would only show
+2 KB of. Read tool-use counts from before that fix as inflated by it, and
+tool-call counts as under-counted by the parse failures above.
+
 **Next rungs, unbuilt.** An `/archive/` the room can actually read (past
 transcripts as read-only shared files — then "say what this place is"
 can draw on more than one session's memory); a second task with a
