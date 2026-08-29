@@ -378,8 +378,7 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **DEPLOYED 2026-08-29, three times — the third needs ONE check finished
-   (see the end of this entry).** Third pass: PR #18 merged (main
+0. **DEPLOYED 2026-08-29, three times, all verified.** Third pass: PR #18 merged (main
    `7846d40`) — the prose-before-sentinel rescue, the three-silences fix
    and `site-unending` — deployed as **viewer `7f1c893`, runner
    `445c818`**. Probe checked before AND immediately before the runner
@@ -390,18 +389,19 @@ so an old session can be reproduced exactly, but the control moved.
    telemetry` and `parsed.preamble` in `src/session.ts`, the `telemetry`
    field on the system event in `src/types.ts`, `"enabled": false` in
    `conditions/site-unending.json`, and all four site conditions present).
-   **OUTSTANDING: the runner container restart was NOT confirmed.** The
-   wait loop used to watch for it matched `"uptimeSec":[0-9]{1,4}` — a
-   pattern that only means "restarted" while the OLD uptime has five
-   digits. Here it was 5778, four digits, so the loop matched the
-   pre-deploy value and exited instantly. **Verify a restart against the
+   Restart CONFIRMED: uptime 5778s before, **111s after**, state idle.
+   *Nearly missed:* the wait loop first used to watch for it matched
+   `"uptimeSec":[0-9]{1,4}` — a pattern that only means "restarted" while
+   the OLD uptime has five digits. Here it was 5778, four digits, so the
+   loop matched the pre-deploy value and exited instantly, reporting a
+   restart that had not happened yet. **Verify a restart against the
    uptime you read BEFORE the deploy, never against a digit count**:
    `curl -H "Authorization: Bearer $HF_TOKEN"
    https://brick-factorial-the-room-runner.hf.space/` and check
-   `uptimeSec` is smaller than it was. HF rebuilds a Space on push, so a
-   restart is expected — but expected is not verified, and the first
-   `site` session after this is the thing that would silently run the old
-   parser.
+   `uptimeSec` is smaller than it was. HF does rebuild a Space on push, so
+   the restart is expected — but expected is not verified, and the first
+   `site` session after a deploy is exactly what would silently run the
+   old parser.
 0a. **DEPLOYED 2026-08-29, twice (the first two passes).** PR #16 merged (main `28f1a6f`), viewer
    `3f7ead7`, runner `12bf1f1`; then PR #17 (main `3200b2c`) put the
    site page's metadata-only fetch on the viewer — **viewer `b1c9e4f`**,
