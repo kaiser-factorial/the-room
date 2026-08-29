@@ -510,9 +510,12 @@ you can copy the one you are looking at), and `?file=` follows a different
 file. Until any room has written one, the page says so.
 
 Verified in headless Chromium by intercepting the `esm.sh` import with a
-stub supabase client (a handful of fake `file` rows across two sessions) —
-the fastest way to exercise the real page offline, and how the
-`latest`-button bug was caught.
+stub supabase client (fake rows across three sessions, one of which built
+nothing) — the fastest way to exercise both real pages offline, and how two
+bugs of the same family were caught: an author `display` beats the UA's
+`[hidden]` rule, so `el.hidden = true` silently stops hiding anything a
+class has given a `display` to. Both are pinned now with explicit
+`[hidden]` rules; reading the code found neither.
 
 ## How the room reaches a seat
 
@@ -686,6 +689,15 @@ land live over the same realtime channel; scrub back and the counter grows
 under you without yanking you forward, with a `latest` button to rejoin the
 end. The URL always names what is on screen (`?session=…&v=3`), so a
 version is a link. `?file=` follows a different file.
+
+A **chat / site switch** sits in both headers and carries the session
+across: from a room's transcript to the page that room built, and back to
+the same room. It appears in the transcript view only once that session has
+actually written `index.html`, so a chat-only room is never offered a view
+that does not exist. `?session=` now opens a room in the transcript view
+too, and pins it — the poll that jumps to a newly started session stands
+down when the URL named one, since a `?session=` link is usually someone
+comparing a page with the conversation that produced it.
 
 The room is told none of this exists — it is a read-only view of the
 mirror, and nothing here reaches a prompt.

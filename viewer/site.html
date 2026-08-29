@@ -29,9 +29,19 @@
   }
   button[disabled] { color: var(--line); cursor: default; }
   #versions { display: flex; align-items: center; gap: 0.35rem; }
+  /* Same trap as .switch: without this, `hidden` does nothing here because
+     the rule above already set a display. */
+  #versions[hidden] { display: none; }
   #vcount { font-variant-numeric: tabular-nums; min-width: 4.5em; text-align: center; }
   #scrub { width: 9rem; accent-color: var(--accent); cursor: pointer; }
   #who { color: var(--dim); }
+  /* The same control as the transcript viewer's — two views of one session. */
+  .switch { display: inline-flex; border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
+  .switch a {
+    padding: 0.2rem 0.6rem; font-size: 0.75rem; color: var(--dim);
+    text-decoration: none; background: var(--panel);
+  }
+  .switch a.on { color: var(--text); background: var(--line); }
   #live { color: var(--accent); }
   #wrap { flex: 1; min-height: 0; display: flex; }
   iframe { flex: 1; border: 0; background: #fff; }
@@ -53,7 +63,9 @@
   <span id="who"></span>
   <span id="live"></span>
   <span style="margin-left:auto; display:flex; gap:0.6rem; align-items:center">
-    <a id="transcript" href="./index.html">watch the room</a>
+    <span class="switch">
+      <a id="toChat" href="./index.html">chat</a><a class="on" id="toSite" href="#">site</a>
+    </span>
     <button id="hide">hide this bar</button>
   </span>
 </header>
@@ -121,6 +133,9 @@ function render() {
   // browser check, not by reading).
   $('latest').hidden = follow;
   $('who').textContent = `${FILE} · ${row.agent_name} · round ${row.round} · ${fmt(row.ts)}`;
+  // The switch hands this session back to the transcript view, so the two
+  // are always looking at the same room.
+  $('toChat').href = `./index.html?session=${encodeURIComponent(row.session_id)}`;
   // A version is a link: the URL always says exactly what is on screen.
   const q = new URLSearchParams({ session: row.session_id, v: String(at + 1) });
   if (FILE !== 'index.html') q.set('file', FILE);
@@ -182,6 +197,7 @@ async function show(sessionId, wantVersion) {
   session = sessionId;
   $('sessions').value = sessionId;
   versions = await loadVersions(sessionId);
+  $('toChat').href = `./index.html?session=${encodeURIComponent(sessionId)}`;
   if (!versions.length) {
     $('wrap').innerHTML = '<div id="empty">This room has not written the page yet.</div>';
     $('versions').hidden = true;

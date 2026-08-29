@@ -154,8 +154,13 @@ ends its own session by agreement. Merged/pushed but **NOT yet deployed**
   arrow keys, `v3 / 7` with each version's author and round. Live writes
   append; scrubbing back stops the auto-advance without yanking you
   forward (`latest` rejoins the end). The URL names what is on screen
-  (`?session=…&v=3`), so a version is a link. **The room is told none of
-  this** — read-only over the mirror, nothing reaches a prompt.
+  (`?session=…&v=3`), so a version is a link. A **chat / site switch** in
+  both headers carries the session across — transcript → the page that
+  room built → back to the same room — and appears in the transcript view
+  only once that session has written `index.html`. `?session=` opens and
+  PINS a room in the transcript view too (the jump-to-newest poll stands
+  down when the URL named one). **The room is told none of this** —
+  read-only over the mirror, nothing reaches a prompt.
   Deployed: `https://brick-factorial-the-room.static.hf.space/site.html`
   (a static Space serves from `<owner>-<space>.static.hf.space`; the
   huggingface.co/spaces page frames its index.html only, so the subdomain
@@ -166,10 +171,14 @@ ends its own session by agreement. Merged/pushed but **NOT yet deployed**
   Verified in headless Chromium by intercepting the `esm.sh` import with a
   stub supabase client (fake `file` rows across two sessions) — the picker,
   the scrubber, deep links and the isolation all exercised offline against
-  the real page. Worth reusing: it is the only way to test this page
-  without a live room, and it caught a `latest`-button bug that reading the
-  code did not (an inline `display:''` handing control back to a stylesheet
-  rule). The room's page renders, ITS scripts run, and an attempt from
+  the real pages. Worth reusing: it is the only way to test them without a
+  live room, and it caught three bugs reading the code did not — two of
+  them the same trap, worth knowing before touching this CSS: **an author
+  `display` beats the UA's `[hidden]` rule**, so `el.hidden = true` stops
+  hiding anything a class rule has given a display (the version controls,
+  and the switch on a room that built nothing), and `style.display = ''`
+  hands control straight back to that rule (the `latest` button never
+  reappeared after scrubbing back). The room's page renders, ITS scripts run, and an attempt from
   inside it to touch the parent is a caught SecurityError with our title
   unchanged.
 - **Completion — the room ends its own session (§9.8, 2026-08-29).** New
