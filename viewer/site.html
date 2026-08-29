@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>the room — the room's own site</title>
 <style>
-  :root { --bg: #0e0e11; --text: #e8e6e1; --dim: #8a8794; --line: #26262e; --accent: #6fce6f; }
+  :root { --bg: #0e0e11; --panel: #17171c; --text: #e8e6e1; --dim: #8a8794; --line: #26262e; --accent: #6fce6f; }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
@@ -14,29 +14,45 @@
     display: flex; flex-direction: column;
   }
   /* The strip is the only thing on this page that is OURS. Everything below
-     it was written by the room. It stays visually separate from the site
-     for that reason — a viewer must never be unsure which is which. */
+     it was written by the room. It stays visually separate for that reason —
+     a viewer must never be unsure which is which. */
   header {
-    display: flex; gap: 0.9rem; align-items: baseline; flex-wrap: wrap;
-    padding: 0.55rem 1rem; border-bottom: 1px solid var(--line); background: var(--bg);
+    display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap;
+    padding: 0.5rem 1rem; border-bottom: 1px solid var(--line); background: var(--bg);
     font-size: 0.8rem; color: var(--dim);
   }
-  header b { color: var(--text); font-weight: normal; letter-spacing: 0.12em; }
+  header b { color: var(--text); font-weight: normal; letter-spacing: 0.12em; font-size: 0.8rem; }
   header a { color: var(--dim); }
+  select, button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    padding: 0.2rem 0.45rem; font: inherit; font-size: 0.75rem; cursor: pointer;
+  }
+  button[disabled] { color: var(--line); cursor: default; }
+  #versions { display: flex; align-items: center; gap: 0.35rem; }
+  #vcount { font-variant-numeric: tabular-nums; min-width: 4.5em; text-align: center; }
+  #scrub { width: 9rem; accent-color: var(--accent); cursor: pointer; }
+  #who { color: var(--dim); }
   #live { color: var(--accent); }
   #wrap { flex: 1; min-height: 0; display: flex; }
   iframe { flex: 1; border: 0; background: #fff; }
   #empty { margin: auto; max-width: 30rem; padding: 2rem; text-align: center; color: var(--dim); }
-  button { background: none; color: var(--dim); border: 1px solid var(--line); padding: 0.2rem 0.5rem; font: inherit; font-size: 0.75rem; cursor: pointer; }
 </style>
 </head>
 <body>
 
 <header>
   <b>THE ROOM</b>
-  <span id="what">looking for the room's site…</span>
+  <select id="sessions" title="which room's page"></select>
+  <span id="versions" hidden>
+    <button id="prev" title="previous version (←)">‹</button>
+    <input type="range" id="scrub" min="1" max="1" value="1" title="version" />
+    <button id="next" title="next version (→)">›</button>
+    <span id="vcount"></span>
+    <button id="latest" title="follow the newest version">latest</button>
+  </span>
+  <span id="who"></span>
   <span id="live"></span>
-  <span style="margin-left:auto; display:flex; gap:0.6rem; align-items:baseline">
+  <span style="margin-left:auto; display:flex; gap:0.6rem; align-items:center">
     <a id="transcript" href="./index.html">watch the room</a>
     <button id="hide">hide this bar</button>
   </span>
@@ -54,29 +70,32 @@ const supabase = createClient(SUPABASE_URL, ANON_KEY);
 const $ = (id) => document.getElementById(id);
 
 const params = new URLSearchParams(location.search);
-// ?file= for a room that named its page something else; ?session= pins one
-// session (otherwise: whichever session most recently wrote the file, which
-// during a live site room is that room).
+// ?file= for a room that named its page something else.
 const FILE = params.get('file') || 'index.html';
-const PINNED = params.get('session') || null;
 
-let session = null;      // session currently on screen
-let lastSeq = -1;        // newest file-event seq rendered
+// This page is scoped to ONE session, because the page belongs to the room
+// that wrote it — and because every write is its own event, which makes the
+// whole history browsable: v1 → vN, each with its author and round. The room
+// is never told any of this exists; it is a read-only view of the mirror.
+let session = params.get('session') || null;
+let versions = [];   // every non-refused write of FILE in this session, oldest first
+let at = -1;         // which version is on screen
+let follow = true;   // stay on the newest as writes land (false once you scrub back)
 let channel = null;
 
-/** Render one file event into the frame.
+const fmt = (ts) => new Date(ts).toLocaleString();
+
+/** Render one version.
  *
  *  sandbox WITHOUT allow-same-origin: the room's page runs in an opaque
  *  origin, so scripts in it (which the room may well write — it is a
  *  website) cannot touch this page, its storage, or the viewer's Supabase
- *  session. srcdoc rather than a blob URL for the same reason: a blob:
- *  URL inherits this origin. The room gets a real browser; it does not get
- *  our credentials. */
-function show(row) {
-  const p = row.payload || {};
-  if (p.denied) return;
-  if (row.seq <= lastSeq) return;
-  lastSeq = row.seq;
+ *  session. srcdoc rather than a blob URL for the same reason: a blob: URL
+ *  inherits this origin. The room gets a real browser; it does not get our
+ *  credentials. */
+function render() {
+  const row = versions[at];
+  if (!row) return;
   let frame = document.querySelector('#wrap iframe');
   if (!frame) {
     $('wrap').innerHTML = '';
@@ -85,30 +104,100 @@ function show(row) {
     frame.title = "the room's website";
     $('wrap').appendChild(frame);
   }
-  // Base64 is the binary marker (a python-published file); the page itself
-  // is written with [WRITE] and arrives as text.
+  const p = row.payload || {};
+  // Base64 is the binary marker (a python-published file); a page written
+  // with [WRITE] arrives as text.
   frame.srcdoc = p.encoding === 'base64' ? atob(p.content || '') : (p.content || '');
-  $('what').textContent = `${FILE} · ${row.agent_name} · round ${row.round} · ${new Date(row.ts).toLocaleString()}`;
+
+  $('versions').hidden = versions.length < 1;
+  $('scrub').max = String(versions.length);
+  $('scrub').value = String(at + 1);
+  $('vcount').textContent = `v${at + 1} / ${versions.length}`;
+  $('prev').disabled = at === 0;
+  $('next').disabled = at === versions.length - 1;
+  // `hidden`, not a cleared inline display: the button also has a CSS rule
+  // in the stylesheet, and style.display='' hands control straight back to
+  // it — the button never reappeared after scrubbing back (caught in the
+  // browser check, not by reading).
+  $('latest').hidden = follow;
+  $('who').textContent = `${FILE} · ${row.agent_name} · round ${row.round} · ${fmt(row.ts)}`;
+  // A version is a link: the URL always says exactly what is on screen.
+  const q = new URLSearchParams({ session: row.session_id, v: String(at + 1) });
+  if (FILE !== 'index.html') q.set('file', FILE);
+  history.replaceState(null, '', `?${q}`);
 }
 
-/** Newest version of the file, across sessions or within the pinned one. */
-async function latest() {
-  let q = supabase.from('room_events').select('*')
+function goTo(i, byHand) {
+  if (!versions.length) return;
+  at = Math.max(0, Math.min(versions.length - 1, i));
+  if (byHand) follow = at === versions.length - 1;
+  render();
+}
+
+/** Sessions that have written this file, newest first. */
+async function loadSessions() {
+  const { data, error } = await supabase.from('room_events')
+    .select('session_id, ts, payload')
     .eq('kind', 'file').eq('payload->>name', FILE)
-    // ts, not seq: seq is a per-runner-process counter, so it does not
-    // order rows ACROSS sessions — "the newest page anyone wrote" needs a
-    // clock. Within a session seq still de-duplicates (show()).
-    .order('ts', { ascending: false }).limit(20);
-  if (PINNED) q = q.eq('session_id', PINNED);
-  const { data, error } = await q;
-  if (error) { $('what').textContent = error.message; return null; }
-  // Newest first; skip refused writes, which carry the name and no content.
-  return (data || []).find((r) => !r.payload?.denied) || null;
+    // ts, not seq: seq is a per-runner-process counter and does not order
+    // rows ACROSS sessions. Within a session it still de-duplicates.
+    .order('ts', { ascending: false }).limit(1000);
+  if (error) { $('who').textContent = error.message; return []; }
+  const seen = new Set();
+  const out = [];
+  for (const r of data || []) {
+    if (r.payload?.denied || seen.has(r.session_id)) continue;
+    seen.add(r.session_id);
+    out.push({ id: r.session_id, ts: r.ts });
+  }
+  return out;
+}
+
+function fillSessions(sessions) {
+  const sel = $('sessions');
+  const same = sel.options.length === sessions.length &&
+    [...sel.options].every((o, i) => o.value === sessions[i].id);
+  if (same) { sel.value = session ?? sel.value; return; }
+  sel.innerHTML = '';
+  for (const s of sessions) {
+    const o = document.createElement('option');
+    o.value = s.id;
+    o.textContent = s.id;
+    sel.appendChild(o);
+  }
+  if (session) sel.value = session;
+}
+
+/** Every version of the file in one session, oldest first. */
+async function loadVersions(sessionId) {
+  const { data, error } = await supabase.from('room_events')
+    .select('*')
+    .eq('kind', 'file').eq('payload->>name', FILE).eq('session_id', sessionId)
+    .order('ts', { ascending: true }).limit(500);
+  if (error) { $('who').textContent = error.message; return []; }
+  return (data || []).filter((r) => !r.payload?.denied);
+}
+
+async function show(sessionId, wantVersion) {
+  session = sessionId;
+  $('sessions').value = sessionId;
+  versions = await loadVersions(sessionId);
+  if (!versions.length) {
+    $('wrap').innerHTML = '<div id="empty">This room has not written the page yet.</div>';
+    $('versions').hidden = true;
+    $('who').textContent = '';
+    await watch(sessionId);
+    return;
+  }
+  const v = Number(wantVersion);
+  const start = Number.isInteger(v) && v >= 1 && v <= versions.length ? v - 1 : versions.length - 1;
+  follow = start === versions.length - 1;
+  goTo(start);
+  await watch(sessionId);
 }
 
 async function watch(sessionId) {
   if (channel) { supabase.removeChannel(channel); channel = null; }
-  session = sessionId;
   channel = supabase
     .channel(`site-${sessionId}`)
     .on('postgres_changes',
@@ -116,28 +205,48 @@ async function watch(sessionId) {
       (p) => {
         try {
           const r = p.new;
-          if (r.kind === 'file' && r.payload?.name === FILE) show(r);
-          if (r.kind === 'end') $('live').textContent = '';
+          if (r.kind === 'end') { $('live').textContent = ''; return; }
+          if (r.kind !== 'file' || r.payload?.name !== FILE || r.payload?.denied) return;
+          if (versions.some((x) => x.seq === r.seq)) return;
+          versions.push(r);
+          // Someone reading an older version is not yanked forward; the
+          // counter grows under them and `latest` takes them to the end.
+          goTo(follow ? versions.length - 1 : at);
         } catch (err) { console.error('site render:', err); }
       })
     .subscribe((s) => { $('live').textContent = s === 'SUBSCRIBED' ? 'live' : ''; });
 }
 
-async function tick() {
-  const row = await latest();
-  if (!row) return;
-  // A newer session started writing its own page: follow it. (The room's
-  // site is whatever the room most recently built, not a frozen copy.)
-  if (row.session_id !== session) { lastSeq = -1; await watch(row.session_id); }
-  show(row);
+$('sessions').onchange = (e) => show(e.target.value);
+$('prev').onclick = () => goTo(at - 1, true);
+$('next').onclick = () => goTo(at + 1, true);
+$('scrub').oninput = (e) => goTo(Number(e.target.value) - 1, true);
+$('latest').onclick = () => { follow = true; goTo(versions.length - 1); };
+$('hide').onclick = () => { document.querySelector('header').style.display = 'none'; };
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') goTo(at - 1, true);
+  if (e.key === 'ArrowRight') goTo(at + 1, true);
+});
+
+const sessions = await loadSessions();
+if (sessions.length) {
+  fillSessions(sessions);
+  await show(session && sessions.some((s) => s.id === session) ? session : sessions[0].id, params.get('v'));
 }
 
-$('hide').onclick = () => { document.querySelector('header').style.display = 'none'; };
-
-await tick();
-// Realtime carries a live room; the poll covers a session that started
-// while this page was open, and any event realtime dropped.
-setInterval(tick, 15000);
+// Realtime carries the session on screen; the poll notices a NEW session
+// starting its own page, and catches anything realtime dropped. Neither
+// moves you off the session you are reading — that is the select's job.
+setInterval(async () => {
+  const fresh = await loadSessions();
+  if (!fresh.length) return;
+  fillSessions(fresh);
+  if (!session) { await show(fresh[0].id); return; }
+  if (session === fresh[0].id && follow) {
+    const rows = await loadVersions(session);
+    if (rows.length > versions.length) { versions = rows; goTo(versions.length - 1); }
+  }
+}, 15000);
 </script>
 </body>
 </html>

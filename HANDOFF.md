@@ -146,17 +146,32 @@ ends its own session by agreement. Merged/pushed but **NOT yet deployed**
   being told. **So `site` sessions are NOT length-comparable with chat
   conditions** — §2.7's length-controlled gap is the instrument, exactly
   as at the 2026-08-27 boundary.
-- **Seeing the page.** Deployed: `https://brick-factorial-the-room.static.hf.space/site.html`
+- **Seeing the page — `viewer/site.html` is SESSION-SCOPED with a version
+  history (2026-08-29).** The page belongs to the room that wrote it, so
+  the page is scoped to one session: a picker lists every room that has
+  written `index.html` (newest first, and it opens there), and since every
+  write is its own event, all of them are browsable — `‹ ›`, a scrubber,
+  arrow keys, `v3 / 7` with each version's author and round. Live writes
+  append; scrubbing back stops the auto-advance without yanking you
+  forward (`latest` rejoins the end). The URL names what is on screen
+  (`?session=…&v=3`), so a version is a link. **The room is told none of
+  this** — read-only over the mirror, nothing reaches a prompt.
+  Deployed: `https://brick-factorial-the-room.static.hf.space/site.html`
   (a static Space serves from `<owner>-<space>.static.hf.space`; the
   huggingface.co/spaces page frames its index.html only, so the subdomain
   URL is the one that reaches a subpath — probed 2026-08-29, the bare
   `.hf.space` host 404s for this Space). Before a deploy: `cd viewer &&
   python3 -m http.server 8000` → `localhost:8000/site.html`, same mirror,
   same page. After a local run: `sessions/<id>/shared/index.html` on disk.
-  Verified in headless Chromium against a stubbed data layer — the strip
-  attributes the version, the room's page renders, ITS scripts run, and an
-  attempt from inside it to touch the parent is a caught SecurityError
-  with our title unchanged.
+  Verified in headless Chromium by intercepting the `esm.sh` import with a
+  stub supabase client (fake `file` rows across two sessions) — the picker,
+  the scrubber, deep links and the isolation all exercised offline against
+  the real page. Worth reusing: it is the only way to test this page
+  without a live room, and it caught a `latest`-button bug that reading the
+  code did not (an inline `display:''` handing control back to a stylesheet
+  rule). The room's page renders, ITS scripts run, and an attempt from
+  inside it to touch the parent is a caught SecurityError with our title
+  unchanged.
 - **Completion — the room ends its own session (§9.8, 2026-08-29).** New
   `completion` config: `[DONE]` raises a seat's hand, `[NOT DONE]` lowers
   it, the standing count renders live in every prompt (or not —

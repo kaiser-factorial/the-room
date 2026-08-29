@@ -432,11 +432,12 @@ claim):
 | `site` | … a single file, index.html, **which the room will serve publicly**. It should say … |
 | `site-unwitnessed` | … a single file, index.html. It should say … |
 
-One caveat to hold on purpose: `/site.html` serves whatever `index.html`
-was written most recently by *any* session, so an unwitnessed room's page
-can go public without the room having been told it would. That is a
-non-disclosure, not a lie — but if it matters for a given run, pin the
-public page to a witnessed session with `/site.html?session=<id>`.
+One caveat to hold on purpose: `/site.html` opens on whichever session
+wrote `index.html` most recently, so an unwitnessed room's page can go
+public without the room having been told it would. That is a
+non-disclosure, not a lie — but if it matters for a given run, link people
+to a witnessed session's URL (`/site.html?session=<id>`) rather than the
+bare page.
 
 ### `[DONE]` — the room ending its own session
 
@@ -502,8 +503,16 @@ Three ways, in order of how soon they work:
    subdomain URL is the one that reaches a subpath). The viewer's header
    links to it as *the room's site*.
 
-`?session=<id>` pins one room's page; `?file=<name>` follows a different
-file. Until a room has written one, the page says so.
+The page opens on the newest room that has written one and on that room's
+newest version; the picker and the scrubber go anywhere else. `?session=`
+and `?v=` open a specific version directly (the URL updates as you move, so
+you can copy the one you are looking at), and `?file=` follows a different
+file. Until any room has written one, the page says so.
+
+Verified in headless Chromium by intercepting the `esm.sh` import with a
+stub supabase client (a handful of fake `file` rows across two sessions) —
+the fastest way to exercise the real page offline, and how the
+`latest`-button bug was caught.
 
 ## How the room reaches a seat
 
@@ -668,17 +677,27 @@ Inserts are fire-and-forget; JSONL stays the source of truth and a Supabase
 outage never stalls a session.
 
 **`viewer/site.html` — the room's own page, served.** Deployed alongside
-the viewer, it reads the newest non-refused `file` event named
-`index.html` (override with `?file=`, pin a session with `?session=`),
-renders it into an iframe, and follows the writes live over the same
-realtime channel. The frame is `sandbox="allow-scripts allow-popups
-allow-forms allow-modals"` **without `allow-same-origin`**, and the page
-is handed over via `srcdoc` rather than a `blob:` URL — both so that
-scripts the room writes (it is building a website; it will write some) run
-in an opaque origin and cannot reach this page, its storage, or the
-viewer's Supabase session. The room gets a real browser; it does not get
-our credentials. The strip along the top is the only part of that page
-that is ours, and it stays visually separate for that reason.
+the viewer. It is **scoped to one session**, because the page belongs to
+the room that wrote it: a session picker lists every room that has written
+`index.html` (newest first, and it opens on that one), and because every
+write is its own event, the whole history is browsable — `‹ ›`, a scrubber,
+arrow keys, `v3 / 7` with the author and round of each version. New writes
+land live over the same realtime channel; scrub back and the counter grows
+under you without yanking you forward, with a `latest` button to rejoin the
+end. The URL always names what is on screen (`?session=…&v=3`), so a
+version is a link. `?file=` follows a different file.
+
+The room is told none of this exists — it is a read-only view of the
+mirror, and nothing here reaches a prompt.
+
+The frame is `sandbox="allow-scripts allow-popups allow-forms
+allow-modals"` **without `allow-same-origin`**, and the page is handed over
+via `srcdoc` rather than a `blob:` URL — both so that scripts the room
+writes (it is building a website; it will write some) run in an opaque
+origin and cannot reach this page, its storage, or the viewer's Supabase
+session. The room gets a real browser; it does not get our credentials. The
+strip along the top is the only part of that page that is ours, and it
+stays visually separate for that reason.
 
 **Schema gotcha (bitten 2026-08-27)**: `room_events.kind` has a CHECK
 constraint enumerating the allowed kinds — it lives only in Supabase, not
