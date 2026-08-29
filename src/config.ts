@@ -84,6 +84,10 @@ export const config: RoomConfig = {
     // Per-file ceiling. Fine for notes; a task room whose deliverable is
     // one file raises it (site: 60k) — see ToolsConfig.
     maxFileChars: 16_000,
+    // What a seat SEES of each file. 2,000 is what every session before
+    // 2026-08-29 ran with, so it stays the default; task rooms raise it to
+    // the write cap so the room can read its own artifact.
+    fileViewChars: 2_000,
     budget: 'per-seat',
     // F4¾: 1 = the original economics (one action per turn, its result
     // delivered next turn). The 'agentic' condition raises it — see
@@ -102,6 +106,9 @@ export const config: RoomConfig = {
     pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'],
     pythonInstall: true,
     runPublic: false, // tools conditions flip this — shared-project mode
+    // Off: a seat that cannot make itself understood finding that out for
+    // itself is a phenomenon, not a bug. The task arms turn it on.
+    callFeedback: false,
     sourceCode: false, // tools conditions flip this — [SOURCE] transparency
     sourceScope: 'tools', // 'all' = §9.4 transparent (the experiment readable)
     configurable: false, // §9.4 self-governing: [CONFIG] sentinel

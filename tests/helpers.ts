@@ -33,7 +33,14 @@ export function testConfig(overrides: Partial<RoomConfig> = {}): RoomConfig {
 /** Run a stub session and return its dir. Serializes on the wall clock —
  *  session ids have second resolution, so back-to-back runs must not share
  *  a second. */
-export async function runStubSession(config: RoomConfig, script?: string): Promise<string> {
+export async function runStubSession(
+  config: RoomConfig,
+  script?: string,
+  /** Stop the session from outside after N ms — the same handle an admin
+   *  stop pulls. Pair it with a non-zero interTurnDelaySeconds so there is a
+   *  window between turns for the timer to land in. */
+  opts: { stopAfterMs?: number } = {},
+): Promise<string> {
   process.env.ROOM_STUB = '1';
   process.env.ROOM_QUIET = '1';
   if (script !== undefined) process.env.ROOM_STUB_SCRIPT = script;
@@ -41,7 +48,11 @@ export async function runStubSession(config: RoomConfig, script?: string): Promi
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_KEY;
   resetStub();
-  const id = await runSession(config);
+  let handle: { stop: () => void } | undefined;
+  const running = runSession(config, (h) => { handle = h; });
+  const timer = opts.stopAfterMs !== undefined ? setTimeout(() => handle?.stop(), opts.stopAfterMs) : undefined;
+  const id = await running;
+  if (timer) clearTimeout(timer);
   delete process.env.ROOM_STUB_SCRIPT;
   await new Promise((r) => setTimeout(r, 1100));
   return join(import.meta.dirname, '..', 'sessions', id);

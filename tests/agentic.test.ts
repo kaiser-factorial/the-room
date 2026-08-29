@@ -17,7 +17,7 @@ import { testConfig, runStubSession, AGENTS } from './helpers.js';
 import type { RoomEvent, ToolsConfig } from '../src/types.js';
 
 const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({
-  files: true, python: true, maxFileChars: 16_000, budget: 'per-seat', turnSteps: 3, transport: 'sentinel', notice: true,
+  files: true, python: true, maxFileChars: 16_000, fileViewChars: 2_000, callFeedback: false, budget: 'per-seat', turnSteps: 3, transport: 'sentinel', notice: true,
   pythonTimeoutSeconds: 10, pythonPackages: ['numpy'], pythonInstall: false,
   runPublic: false, sourceCode: true, sourceScope: 'tools', configurable: false, ...over,
 });
@@ -256,6 +256,74 @@ test('prose before the sentinel: the call is rescued, the narration is a preambl
     parseReply('thinking out loud\n[JOURNAL] private thought', { ...J, enabled: true }, S, t).kind,
     'message',
     'a journal open mid-reply stays speech — rescuing it would change what is private',
+  );
+});
+
+test('every call in one reply runs — not just the first', async () => {
+  const { parseActions } = await import('../src/parse.js');
+  const J = { enabled: false, notice: true, mode: 'replace' as const, recall: true, maxTokens: 0 };
+  const S = { enabled: true, mode: 'alongside' as const, gated: false, notice: true, maxResults: 5 };
+  const t = T();
+  // Gemini's shape from the first site-unending room: two reads and a full
+  // page rewrite in ONE completion. The parser took the first and handed
+  // the rest back as `spoken`, so 16 KB of HTML was spoken to the room and
+  // the file never changed — while its author believed it had written it.
+  const three = parseActions('[RUN]\nprint(1)\n[/RUN][RUN]\nprint(2)\n[/RUN][WRITE: index.html]\n<!DOCTYPE html>\n[/WRITE]', J, S, t);
+  assert.deepEqual(three.actions.map((a) => a.kind), ['run', 'run', 'write']);
+  assert.equal(three.spoken, undefined);
+  // Prose between two calls is preamble, not a lost call and not a message
+  // that ends the turn early.
+  const mixed = parseActions('[RUN]\nprint(1)\n[/RUN]\nNow the file.\n[WRITE: a.md]\nhi\n[/WRITE]\nThoughts?', J, S, t);
+  assert.deepEqual(mixed.actions.map((a) => a.kind), ['run', 'write']);
+  assert.equal(mixed.preamble, 'Now the file.');
+  assert.equal(mixed.spoken, 'Thoughts?');
+  // One call behaves exactly as it always did, and speech is still speech.
+  assert.deepEqual(parseActions('[RUN]\nprint(1)\n[/RUN]\njust one', J, S, t).spoken, 'just one');
+  assert.equal(parseActions('nothing to see', J, S, t).actions.length, 0);
+
+  // …and end to end: both calls land in the transcript.
+  // turnSteps 2: exactly the budget one such reply needs, so each seat gets
+  // its run and its write and the loop stops there.
+  const dir = await runStubSession(testConfig({ maxRounds: 1, tools: T({ turnSteps: 2 }) }), 'multi-call');
+  const es = readTranscript(dir);
+  assert.equal(es.filter((e) => e.kind === 'run' && !('denied' in e && e.denied)).length, 3, 'a run per seat');
+  assert.equal(es.filter((e) => e.kind === 'file' && !('denied' in e && e.denied)).length, 3, 'AND a write per seat');
+  for (const m of es.filter((e) => e.kind === 'message')) {
+    assert.doesNotMatch(m.kind === 'message' ? m.text : '', /\[WRITE/, 'the second call never reaches the room as prose');
+  }
+});
+
+test("a bracket with the token on the next line is a typo, not a refusal", async () => {
+  // Qwen wrote "[" then a blank line then "RUN]" on three separate turns of
+  // one session and lost the call every time.
+  // turnSteps 1: the stub repeats itself, so a looping room would run the
+  // same call until its steps ran out and muddy the count.
+  const dir = await runStubSession(testConfig({ maxRounds: 1, tools: T({ turnSteps: 1 }) }), 'mangled-bracket');
+  const es = readTranscript(dir);
+  const ran = es.filter((e) => e.kind === 'run' && !('denied' in e && e.denied));
+  assert.equal(ran.length, 3, 'every seat\'s mangled bracket ran');
+  assert.equal(es.filter((e) => e.kind === 'message').length, 0, 'and none of it was spoken');
+});
+
+test('a foreign tool-call envelope is NOT accepted, but its author is told', async () => {
+  // Deliberate: which models can work in a syntax that is not theirs is a
+  // finding, so Seed's <seed:tool_call> stays unreadable. What changes is
+  // that the room stops answering it with silence.
+  const dir = await runStubSession(
+    testConfig({ maxRounds: 1, tools: T({ callFeedback: true }) }),
+    'foreign-envelope',
+  );
+  const es = readTranscript(dir);
+  assert.equal(es.filter((e) => e.kind === 'run').length, 0, 'the envelope is still not a call');
+  assert.equal(es.filter((e) => e.kind === 'message').length, 3, 'it was heard as speech, as before');
+  const notes = es.filter((e) => e.kind === 'system' && /could not read as a tool call/.test(e.text));
+  assert.equal(notes.length, 3, 'and each author was told');
+  for (const n of notes) assert.ok(n.kind === 'system' && n.private, 'privately — the room draws its own conclusions');
+
+  // Off by default, so every condition before this one is unchanged.
+  const quiet = await runStubSession(testConfig({ maxRounds: 1, tools: T() }), 'foreign-envelope');
+  assert.equal(
+    readTranscript(quiet).filter((e) => e.kind === 'system' && /could not read/.test(e.text)).length, 0,
   );
 });
 

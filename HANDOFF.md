@@ -378,7 +378,31 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **DEPLOYED 2026-08-29, twice.** PR #16 merged (main `28f1a6f`), viewer
+0. **DEPLOYED 2026-08-29, three times, all verified.** Third pass: PR #18 merged (main
+   `7846d40`) — the prose-before-sentinel rescue, the three-silences fix
+   and `site-unending` — deployed as **viewer `7f1c893`, runner
+   `445c818`**. Probe checked before AND immediately before the runner
+   push (`idle`, uptime 5756s then 5778s). Verified after: the viewer
+   serves the silence styling and `conditions.json` lists 25 with all four
+   site arms; the runner REPO carries the work, checked file by file
+   (`lineStartSentinel` + `preamble` in `src/parse.ts`, `thinking,
+   telemetry` and `parsed.preamble` in `src/session.ts`, the `telemetry`
+   field on the system event in `src/types.ts`, `"enabled": false` in
+   `conditions/site-unending.json`, and all four site conditions present).
+   Restart CONFIRMED: uptime 5778s before, **111s after**, state idle.
+   *Nearly missed:* the wait loop first used to watch for it matched
+   `"uptimeSec":[0-9]{1,4}` — a pattern that only means "restarted" while
+   the OLD uptime has five digits. Here it was 5778, four digits, so the
+   loop matched the pre-deploy value and exited instantly, reporting a
+   restart that had not happened yet. **Verify a restart against the
+   uptime you read BEFORE the deploy, never against a digit count**:
+   `curl -H "Authorization: Bearer $HF_TOKEN"
+   https://brick-factorial-the-room-runner.hf.space/` and check
+   `uptimeSec` is smaller than it was. HF does rebuild a Space on push, so
+   the restart is expected — but expected is not verified, and the first
+   `site` session after a deploy is exactly what would silently run the
+   old parser.
+0a. **DEPLOYED 2026-08-29, twice (the first two passes).** PR #16 merged (main `28f1a6f`), viewer
    `3f7ead7`, runner `12bf1f1`; then PR #17 (main `3200b2c`) put the
    site page's metadata-only fetch on the viewer — **viewer `b1c9e4f`**,
    runner untouched and deliberately NOT redeployed (the diff was
@@ -414,7 +438,7 @@ so an old session can be reproduced exactly, but the control moved.
    read-only and never returns a token.* **TWO tokens are now owed a
    rotation: the one pasted on 2026-08-28, and the one pasted for this
    deploy on 2026-08-29.**
-0b. **The previous deploy record — 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
+0c. **The previous deploy record — 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
    Spaces deployed (runner `07a6d27`, viewer `137ed59`); then the floor +
    identity work (main `6bbccf5`) deployed on top — runner `568daed`,
    viewer `79c83ed`, verified live at 22:22 UTC (probe idle before, uptime
@@ -539,6 +563,73 @@ budget, and a failed call had no `agentId`, so analysis could not say whose
 turn had failed. All three now carry what they have, and the viewer shows
 them as PASSED / NO WORDS / FAILED rather than three italic lines that read
 the same.
+
+## The room caught the harness (2026-08-29T21-02-18, `site-unending`)
+
+The first unending room spent its last two rounds diagnosing the apparatus,
+and was right. Three parse failures, one per model: Gemini put three calls
+in one reply and the parser ran the first and SPOKE a 16 KB page; Seed used
+its own `<seed:tool_call>` envelope for six turns and executed nothing after
+round 1; Qwen wrote `[` newline newline `RUN]` three times. Seed reported
+"the sandbox says success but disk doesn't move" — its own prediction of a
+run that never happened. DeepSeek wrote a python block, then an `Output:`
+block, in a round with no run event in it, and reasoned from numbers it had
+invented. Qwen caught that by independent read-back and landed on "the
+transcript lies; the read-back can lie too." Opus diagnosed Seed's envelope
+exactly, from behaviour alone, and told the room.
+
+**Fixed**: every call in a reply now runs (parseActions), and a bracket
+with its token on the next line parses. **Deliberately not fixed**: the
+foreign envelope, because which models can work in a syntax that is not
+theirs is a finding, not a bug (Corina). **New knob** `tools.callFeedback`
+— a private note when a reply looked like an unreadable call; OFF by
+default (a room noticing its own hands are detached is the phenomenon), ON
+in the four site arms. Replayed against that transcript, the fixes recover
+5 lost calls and would have told 7 more turns.
+
+Analysis caveat for every session before this: tool-call counts are
+under-counted by these parse failures, and tool-use counts are inflated by
+the 2,000-char file view (44 of that room's 45 runs were re-reads of a file
+it could only see 2 KB of).
+
+## The Grok seat announces and does not act (2026-08-29, all three site rooms)
+
+Noticed by Corina from the transcripts: Grok keeps saying it is about to do
+something and then doesn't. **It is not a tool-call problem.** Its replies
+contain no sentinel, no foreign envelope and nothing to rescue — the three
+parse fixes above change nothing for it — and no reply is truncated
+(`finish=stop` every turn, against a 4,000-token visible budget).
+
+What the numbers say. Visible output = completion − reasoning:
+
+| room | round 1 | rounds 2+ |
+|---|---|---|
+| `site` (spoke 1st) | 1024 | 26, 23, 22, 19, 22, 20, 10, 19, 22, 41, 23, 13 |
+| `site-unwitnessed` (4th) | 1364 | 55, 45, 22 |
+| `site-unending` (4th) | **26** | 21, 19, 19, 22, 22, 18 |
+
+So Grok writes ONE opening move and then ~20 tokens a turn, forever — one
+sentence, and that sentence is always an announcement of what it is about
+to do. Since speaking ends the turn, the announcement IS the turn. It spent
+7 turns in `site-unending` promising to read the file and never read it,
+while spending 58–96 tokens per turn on reasoning to produce ~20 of speech.
+Its own (summarised) trace says *"I should act first then speak"* — it has
+the rule and doesn't follow it.
+
+Speaking position does not explain the missing opening move: Grok spoke 4th
+in `site-unwitnessed` too and wrote 1,364 tokens. The one thing distinctive
+about its `site-unending` context is that Gemini's mis-parsed reply had just
+put **16.7 KB of raw HTML into the transcript as speech** immediately before
+its turn — the bug fixed today. Hypothesis worth one rerun now that the blob
+cannot happen, not a conclusion (n=1).
+
+**This is the first time reminder 1b has cost us an answer.** `provider` on
+every Grok message reads `xAI`, not `xai-direct` — the seat is still routed
+through OpenRouter, so its "traces" are the ~200-char summaries the §2.5
+caveat describes (many are exactly 203 characters, cut mid-word, several
+ending at "I need to:"). We cannot read why it stops because we are not
+reading its reasoning. **Set XAI_API_KEY on the runner** (reminder 1b) before
+the next site room and this becomes answerable.
 
 ## Color of the thing
 

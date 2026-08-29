@@ -108,6 +108,12 @@ export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' 
   // Narration THEN a call — the shape that was being spoken to the room as
   // prose until parse.ts learned to rescue it (watched live 2026-08-29).
   | 'preamble-run'
+  // A vote in the spoken half of a journal turn — the shape `site` runs.
+  | 'journal-done'
+  // The shapes the first site rooms actually failed on: three calls in one
+  // reply (only the first used to run), Qwen's bracket-then-newline token,
+  // and Seed's own tool-call envelope written as text.
+  | 'multi-call' | 'mangled-bracket' | 'foreign-envelope'
   // A write to the completion target — the edit that clears the room's
   // standing agreement.
   | 'site';
@@ -246,6 +252,10 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     case 'pass': return { text: '[PASS]', meta, thinking };
     case 'done': return { text: `[DONE] ${voice()}`, meta, thinking };
     case 'done-quiet': return { text: '[DONE]', meta, thinking };
+    case 'multi-call': return { text: `[RUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN][WRITE: notes.md]\nshared-note ${model}#${mTurn}\n[/WRITE]`, meta, thinking };
+    case 'mangled-bracket': return { text: `[\n\nRUN]\nprint("private-code ${model}#${mTurn}")\n[/RUN]`, meta, thinking };
+    case 'foreign-envelope': return { text: `<seed:tool_call><function name="run"><parameter name="code" string="true">print("nope")</parameter></function></seed:tool_call>`, meta, thinking };
+    case 'journal-done': return { text: `[JOURNAL] private-note ${model}#${mTurn}: not for the room. [/JOURNAL]\n[DONE] that reads right to me`, meta, thinking };
     case 'undone': return { text: `[NOT DONE] ${voice()}`, meta, thinking };
     case 'site': return { text: `[WRITE: index.html]\n<h1>the room</h1>\n<p>page by ${model}#${mTurn}</p>\n[/WRITE]`, meta, thinking };
     // A write and a vote in ONE reply: the sentinel that would have been

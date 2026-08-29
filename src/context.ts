@@ -2,7 +2,7 @@ import type { AgentConfig, RoomConfig, RoomEvent } from './types.js';
 import type { ChatMessage } from './openrouter.js';
 import { personaText } from './personas.js';
 import { configState } from './governance.js';
-import { effectiveTurnSteps, loopEnabled } from './agentic.js';
+import { effectiveTurnSteps, loopEnabled, requiredVotes } from './agentic.js';
 
 /** Room events an agent can "hear": messages, journal notices, system lines. */
 export function audibleEvents(events: RoomEvent[]): RoomEvent[] {
@@ -272,7 +272,8 @@ function passSection(config: RoomConfig): string {
 function completionSection(config: RoomConfig, standing: string[]): string {
   const c = config.completion;
   if (!c.enabled) return '';
-  const need = c.rule === 'unanimous' ? 'all of you' : `${c.quorum} of you`;
+  // The number the loop will actually enforce — see requiredVotes.
+  const need = c.rule === 'unanimous' ? 'all of you' : `${requiredVotes(config)} of you`;
   const lines = [
     ``,
     `When you think the work here is finished, say so: begin your reply with`,
@@ -384,8 +385,13 @@ function toolsSection(config: RoomConfig): string {
            `closing tag is spoken to the room as usual. Writes are visible to everyone.`]),
       // The ceiling, stated. A room whose deliverable IS a file plans
       // around a number it knows and discovers a number it doesn't — the
-      // second costs a turn and arrives as a refusal mid-draft.
-      `A file holds up to ${t.maxFileChars.toLocaleString('en-US')} characters.`,
+      // second costs a turn and arrives as a refusal mid-draft. When the
+      // view is smaller than the write cap, say BOTH: promising 16,000 and
+      // then showing 2,000 with a truncation marker is how a room ends up
+      // spending tool actions reading a file it was told it could see.
+      t.fileViewChars < t.maxFileChars
+        ? `A file holds up to ${t.maxFileChars.toLocaleString('en-US')} characters; you see the first ${t.fileViewChars.toLocaleString('en-US')} of each here.`
+        : `A file holds up to ${t.maxFileChars.toLocaleString('en-US')} characters.`,
     );
   }
   if (t.python) {
@@ -473,13 +479,13 @@ function toolsSection(config: RoomConfig): string {
   return lines.join('\n');
 }
 
-function sharedFilesBlock(files: { name: string; content: string; binary?: boolean; size?: number }[]): string {
+function sharedFilesBlock(files: { name: string; content: string; binary?: boolean; size?: number }[], viewChars: number): string {
   if (!files.length) return '';
   const parts = files.map((f) => {
     // Binary files (python-published, e.g. plots) are listed, not inlined —
     // humans see them rendered in the viewer.
     if (f.binary) return `--- ${f.name} (binary file, ${Math.max(1, Math.round((f.size ?? 0) / 1024))} KB) ---`;
-    const body = f.content.length > 2000 ? f.content.slice(0, 2000) + '\n…(truncated)' : f.content;
+    const body = f.content.length > viewChars ? f.content.slice(0, viewChars) + '\n…(truncated)' : f.content;
     return `--- ${f.name} ---\n${body}`;
   });
   return `\nShared files in the room:\n${parts.join('\n')}`;
@@ -608,7 +614,7 @@ export function buildTurnMessages(opts: {
     searchSection(config),
     toolsSection(config),
     governanceSection(config),
-    sharedFilesBlock(sharedFiles ?? []),
+    sharedFilesBlock(sharedFiles ?? [], config.tools.fileViewChars),
     config.journal.enabled && config.journal.recall && ownJournal
       ? `\nYour journal so far:\n${ownJournal}`
       : '',
