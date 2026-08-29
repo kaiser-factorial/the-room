@@ -373,8 +373,15 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **DEPLOYED 2026-08-29.** PR #16 merged (main `28f1a6f`), viewer
-   `3f7ead7`, runner `12bf1f1`. Verified, in this order: the liveness
+0. **DEPLOYED 2026-08-29, twice.** PR #16 merged (main `28f1a6f`), viewer
+   `3f7ead7`, runner `12bf1f1`; then PR #17 (main `3200b2c`) put the
+   site page's metadata-only fetch on the viewer — **viewer `b1c9e4f`**,
+   runner untouched and deliberately NOT redeployed (the diff was
+   `viewer/` and docs only; `src/` and `conditions/` were unchanged, so
+   there was nothing for it to pick up and no reason to risk a restart).
+   The served `site.html` is byte-identical to `viewer/site.html` apart
+   from HF's injected `window.huggingface` tag. Deploy record for the
+   first pass: Verified, in this order: the liveness
    probe FIRST (`state: idle`, uptime 75456s — no live round to kill),
    then the viewer (`/site.html` and `/conditions.json` both 200 on
    `brick-factorial-the-room.static.hf.space`; the served HTML is
