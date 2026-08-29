@@ -4,8 +4,9 @@ Multi-agent room experiment: 6 different AI models locked in a task-free,
 facilitator-free group conversation; we measure linguistic drift/moulding.
 Everything below is true as of **2026-08-29** (end of the FIFTH build
 session — the TASK-ROOM sprint: the room now builds its own website and
-ends its own session by agreement. Merged/pushed but **NOT yet deployed**
-— see reminder 0).
+ends its own session by agreement. Merged to main AND deployed to both
+Spaces; see reminder 0 for the record and the credential follow-up it
+leaves).
 
 ## Read these, in order
 
@@ -372,19 +373,28 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **NOT DEPLOYED YET (2026-08-29).** The task-room sprint is committed and
-   pushed but neither Space has it: a live room today has no `site`
-   condition, no `[DONE]`, and the viewer has no `/site.html`. Redeploy
-   BOTH (`./deploy/deploy.sh brick-factorial` — viewer for `site.html` +
-   the regenerated conditions.json, runner for the new conditions and the
-   completion axis), **checking the runner's liveness probe FIRST** — a
-   deploy kills a live round. No Supabase migration is needed: §9.8 added
-   no event kind, only `system` lines and payload fields. The deploy needs
-   the two things a Claude container lacks by default:
-   `pip install huggingface_hub` for the `hf` CLI, and an `HF_TOKEN` with
-   write scope (the HF MCP connector is read-only and never returns a
-   token). **The token pasted into a session transcript on 2026-08-28 is
-   still to be ROTATED.**
+0. **DEPLOYED 2026-08-29.** PR #16 merged (main `28f1a6f`), viewer
+   `3f7ead7`, runner `12bf1f1`. Verified, in this order: the liveness
+   probe FIRST (`state: idle`, uptime 75456s — no live round to kill),
+   then the viewer (`/site.html` and `/conditions.json` both 200 on
+   `brick-factorial-the-room.static.hf.space`; the served HTML is
+   byte-identical to `viewer/` apart from HF's injected
+   `window.huggingface` tag, and conditions.json lists 24 with all three
+   site arms), then the runner (restarted onto the new build, uptime
+   75456s → 15s; the deployed `src/parse.ts` carries `DONE_RE`/`doneVote`,
+   `src/session.ts` carries `castSpokenVote`/`agreementReached`/
+   `maxFileChars`, and `conditions/` holds site, site-native and
+   site-unwitnessed). No Supabase migration was needed: §9.8 added no
+   event kind, only `system` lines and payload fields.
+   *So a live room today HAS the task room, `[DONE]`, and a public
+   `/site.html` with version history. What it still lacks is a session
+   that has used any of it.*
+   *Deploying from a Claude session needs two things the container lacks
+   by default: `pip install huggingface_hub` for the `hf` CLI (works
+   fine), and an `HF_TOKEN` with write scope — the HF MCP connector is
+   read-only and never returns a token.* **TWO tokens are now owed a
+   rotation: the one pasted on 2026-08-28, and the one pasted for this
+   deploy on 2026-08-29.**
 0b. **The previous deploy record — 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
    Spaces deployed (runner `07a6d27`, viewer `137ed59`); then the floor +
    identity work (main `6bbccf5`) deployed on top — runner `568daed`,
@@ -430,20 +440,22 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Next up (the queue — roadmap artifact has the full rationale)
 
-**TASK-ROOM SPRINT DONE (§9.8: `site` + `site-native`, the `completion`
-axis, `tools.maxFileChars`, `viewer/site.html`, `fileWork` +
-`completion` metrics; 128 tests green) — DEPLOY IT (reminder 0), then run
-one.** Before the first live `site` session, three calls are Corina's, and
-all three are one edit away rather than a build:
-1. **Does the room know it is watched? — BOTH now exist.** `site` says the
+**TASK-ROOM SPRINT DONE AND DEPLOYED (§9.8: `site` + `site-native` +
+`site-unwitnessed`, the `completion` axis, `tools.maxFileChars`,
+`viewer/site.html` with version history and the chat/site switch,
+`fileWork` + `completion` metrics; 130 tests green; merged as PR #16 and
+live on both Spaces — reminder 0). All three arms are one admin-panel
+click away. NEXT: RUN ONE.** Two calls before the first live session, both
+a choice rather than a build:
+1. **Which arm runs FIRST — `site` or `site-unwitnessed`?** Whichever it
+   is becomes the reference the other is read against. `site` says the
    page "will be served publicly" (true, and load-bearing: an artifact for
    nobody is a different task); `site-unwitnessed` removes that clause and
-   nothing else. Which one runs first is a call, not a build. Held on
-   purpose: `/site.html` serves whatever `index.html` was written most
-   recently by ANY session, so an unwitnessed room's page can go public
-   without the room having been told — pin the public page with
-   `?session=<id>` if that matters for a run.
-2. **`site` or `site-native` first?** `site` (sentinels) keeps the
+   nothing else. Held on purpose: `/site.html` opens on whichever session
+   wrote `index.html` most recently, so an unwitnessed room's page can go
+   public without the room having been told — link a witnessed session's
+   `?session=<id>` URL instead of the bare page if that matters for a run.
+2. **`site` before `site-native`.** `site` (sentinels) keeps the
    furniture framing the whole apparatus is measured in — but a miswritten
    `[WRITE]` is spoken to the room as prose and the file silently does not
    change, which cost a conversation a sentence in August and would cost a
