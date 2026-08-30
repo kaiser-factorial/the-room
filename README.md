@@ -677,7 +677,7 @@ means anything against the other three cells. What it isolates is the
 interaction: in `site-open` a room that picks a subject also gets to
 decide when that subject is exhausted, so a thin choice is survivable —
 they write the page, agree, and stop. Remove the ending and **the subject
-has to hold for the full 90 minutes**. A room that chose something thin
+has to hold for the whole session**. A room that chose something thin
 runs out of it with no way to hand the time back; a room that chose
 something with depth keeps building.
 

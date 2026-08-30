@@ -1290,7 +1290,9 @@ three separate stories.
 The interaction it isolates: in `site-open`, choosing a subject and
 choosing when to stop are the same decision made twice — a room that picks
 something thin writes it, agrees it is finished, and the thinness never
-shows. Remove the ending and the subject must hold for 90 minutes. That
+shows. Remove the ending and the subject must hold for the whole
+session — however long the run is set for; the condition files say 90
+minutes but every live site room so far has been run at 30. That
 turns the round-1 agenda-setting move from a cheap one into an expensive
 one, and makes the *depth* of what was chosen measurable rather than just
 its content.
