@@ -103,7 +103,12 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       kind: 'system', ts: now(), round, agentId: agent.id,
       text: agree
         ? changed
-          ? `${agent.name} says the work is finished.`
+          ? config.completion.muteOnDone
+            // §9.10: standing is also stepping out. Said plainly, because
+            // the room's shape just changed and the seats still speaking
+            // need to know who is left.
+            ? `${agent.name} says the work is finished, and steps out of the conversation.`
+            : `${agent.name} says the work is finished.`
           : `${agent.name} says again that the work is finished.`
         : changed
           ? `${agent.name} is no longer saying the work is finished.`
@@ -199,7 +204,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       done.clear();
       record({
         kind: 'system', ts: now(), round,
-        text: `${agent.name} changed ${name}, so the room is no longer agreed that the work is finished (${stood} had been).`,
+        text: config.completion.muteOnDone
+          ? `${agent.name} changed ${name}, so the room is no longer agreed that the work is finished — ${stood} are back in the conversation.`
+          : `${agent.name} changed ${name}, so the room is no longer agreed that the work is finished (${stood} had been).`,
         ...(config.completion.notice ? {} : { private: true }),
       });
     }
@@ -329,7 +336,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         done.clear();
         record({
           kind: 'system', ts: now(), round,
-          text: `${agent.name} deleted ${parsed.name}, so the room is no longer agreed that the work is finished (${stood} had been).`,
+          text: config.completion.muteOnDone
+            ? `${agent.name} deleted ${parsed.name}, so the room is no longer agreed that the work is finished — ${stood} are back in the conversation.`
+            : `${agent.name} deleted ${parsed.name}, so the room is no longer agreed that the work is finished (${stood} had been).`,
           ...(config.completion.notice ? {} : { private: true }),
         });
       }
@@ -562,7 +571,20 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     // their chance to withdraw, so it cannot be one — `ending` would have
     // read 'agreement' for a session we stopped.
     let roundComplete = true;
+    // §9.10: a seat that has said [DONE] is no longer routed to. The room's
+    // population whittles down as seats agree, and only an edit (which
+    // clears every vote) brings anyone back. This is evaluated per turn,
+    // not once per round: a write mid-round revives the rest of the round's
+    // order immediately, and a seat that agrees mid-round is skipped for
+    // the seats after it.
+    //
+    // `roundComplete` stays true through a muted skip. It means "every seat
+    // that COULD speak was offered its turn" — a seat that took itself out
+    // was not denied anything, and treating the round as truncated would
+    // make agreement unreachable in exactly the arm built around it.
+    const muted = (a: AgentConfig) => config.completion.muteOnDone && done.has(a.id);
     for (const agent of order) {
+      if (muted(agent)) continue;
       await pollAdmin(round);
       if (stopping || existsSync(stopFile)) { roundComplete = false; break; }
       if (Date.now() >= endAt) { roundComplete = false; break; }

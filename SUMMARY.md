@@ -271,6 +271,16 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    whose project this is — `fileWork` reports `deleted` / `deletedOthers`
    and attributes every removed line. `completion.target` is `'*'`: the
    agreement is about the whole tree, so any write or deletion lapses it.
+18. **The price of agreeing** (§9.10, BUILT 2026-08-30; NOT YET RUN) —
+   `site-open-whittle` and `project-whittle`. One knob,
+   `completion.muteOnDone`: a seat standing on `[DONE]` is no longer
+   offered a turn, so the conversation whittles down as seats agree and the
+   last holdout addresses a room that cannot answer. Only an EDIT revives
+   anyone; `[NOT DONE]` cannot exist here, because a muted seat has no turn
+   in which to say it. Built because axis 16's result has a confound —
+   agreeing is FREE there, so "3–4 rounds" may measure how cheap the button
+   is rather than real convergence. Terminates by construction: all seats
+   standing IS unanimity.
 
 ## Measurement summary
 

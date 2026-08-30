@@ -769,6 +769,48 @@ caps the block, and past the budget the remaining files are still **listed
 with their sizes** — a seat that cannot see a file must still know it
 exists, which is the failure the 2 KB clip already produced once.
 
+### Agreeing costs your voice (§9.10)
+
+`site-open-whittle` and `project-whittle` change what `[DONE]` *is*. In
+every other arm agreeing is free — you keep your seat either way. Here a
+seat that is standing **is no longer offered a turn**, so the population of
+the conversation whittles down as seats agree, and the last holdout ends up
+addressing a room that cannot answer.
+
+`completion.muteOnDone`, off everywhere else. The mechanics, and why they
+are not a deadlock:
+
+- **Only an edit brings anyone back.** `resetOnEdit` already clears every
+  standing vote; here it clears the silence with it, and the room hears
+  *"…so the room is no longer agreed that the work is finished — X, Y are
+  back in the conversation."*
+- **The asymmetry is deliberate.** A seat can normally withdraw with
+  `[NOT DONE]`; here it cannot, because it has no turn in which to say so.
+  Agreeing is a door only someone else can reopen — so the prompt does not
+  offer `[NOT DONE]` in these arms at all. Offering a move a seat cannot
+  make would be a lie in the prompt, and the rule is stated *before* a seat
+  can spend it: discovering the cost by never getting another turn is a
+  seat being misled by its own room, not a finding.
+- **Every seat standing IS unanimity**, which ends the session at the end
+  of that round. So the room cannot fall silent and hang.
+- **The stable state is one holdout taking every turn** — a real fixed
+  point, with exactly three exits: edit (reviving the room), agree (ending
+  it), or keep talking to nobody until the clock runs out.
+
+Skipped seats don't leave a "skipped" event: the shrinking room is visible
+only as absence in the transcript, plus the vote lines that caused it.
+`roundComplete` deliberately stays true through a muted skip — it means
+"every seat that *could* speak was offered its turn", and a seat that took
+itself out was not denied anything. Reading it the other way would make
+agreement unreachable in exactly the arm built around it.
+
+What it asks: the ordinary arms show a room agreeing in 3–4 rounds, but
+agreement there is cheap. Does a room that must **pay** to agree still
+agree as fast — and does the last holdout use the leverage of being the
+only seat that can still act? Read `completion.resets` against `fileWork`:
+an edit by a holdout is a summons, and whether the revived seats re-agree
+at once or reopen the work is the datum.
+
 ### Reading a site session
 
 `metrics.json` grows two exploratory blocks (out of registered stats):

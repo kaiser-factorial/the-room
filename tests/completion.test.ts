@@ -18,7 +18,7 @@ import type { CompletionConfig, JournalConfig, RoomEvent, ToolsConfig } from '..
 
 const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0 };
 const C = (over: Partial<CompletionConfig> = {}): CompletionConfig =>
-  ({ enabled: true, rule: 'unanimous', quorum: 0, target: 'index.html', resetOnEdit: true, notice: true, ...over });
+  ({ enabled: true, rule: 'unanimous', quorum: 0, target: 'index.html', resetOnEdit: true, notice: true, muteOnDone: false, ...over });
 const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({
   files: true, python: false, maxFileChars: 16_000, fileViewChars: 2_000, maxFiles: 20, directories: false, fileDelete: false, fileViewTotalChars: 0, callFeedback: false, budget: 'per-seat', turnSteps: 1, transport: 'sentinel',
   notice: true, pythonTimeoutSeconds: 10, pythonPackages: [], pythonInstall: false, runPublic: true,
@@ -456,4 +456,112 @@ test('fileWork: a deletion removes lines rather than rewriting nothing', () => {
   const ownBy = own.byAgent as Record<string, Record<string, unknown>>;
   assert.equal(ownBy.alpha.deleted, 1);
   assert.equal(ownBy.alpha.deletedOthers, 0);
+});
+
+// ── §9.10 the whittling arm: [DONE] takes you out of the room ─────────────
+
+/** Which rounds each agent actually took a turn in. A muted seat simply
+ *  produces nothing — there is no "skipped" event to look for, and that is
+ *  the point: the room's population is visible only as absence. */
+function roundsActedIn(es: RoomEvent[], agentId: string): number[] {
+  return [...new Set(es.filter((e) => 'agentId' in e && e.agentId === agentId && e.round > 0).map((e) => e.round))];
+}
+
+/** Who agreed in a given round, read out of the transcript. WHO is never
+ *  fixed: the order is shuffled and the stub script is indexed by a global
+ *  turn counter, so naming a seat makes a test that passes most of the
+ *  time — which is worse than one that fails. */
+function agreedIn(es: RoomEvent[], round: number): string[] {
+  return es
+    .filter((e) => e.kind === 'system' && e.round === round && /says the work is finished/.test(e.text ?? ''))
+    .map((e) => (e as { agentId?: string }).agentId)
+    .filter((id): id is string => !!id);
+}
+
+test('a seat that says [DONE] stops being given turns, and unanimity still ends it', async () => {
+  const dir = await runStubSession(
+    testConfig({ agents: AGENTS.slice(0, 2), maxRounds: 3, completion: C({ muteOnDone: true }), tools: T() }),
+    'done,plain',
+  );
+  const es = events(dir);
+  const [quiet] = agreedIn(es, 1);
+  assert.ok(quiet, 'someone agreed in round 1');
+  const other = AGENTS.slice(0, 2).find((a) => a.id !== quiet)!.id;
+  assert.deepEqual(roundsActedIn(es, quiet), [1], 'the seat that agreed was never routed to again');
+  assert.ok(roundsActedIn(es, other).includes(2), 'the other kept its turns');
+  assert.ok(systemTexts(es).some((t) => /says the work is finished, and steps out/.test(t)),
+    'and the room was told what standing costs');
+  // No deadlock: everyone standing IS unanimity.
+  const end = es.find((e) => e.kind === 'end');
+  assert.equal(end?.kind === 'end' && end.payload.ending, 'agreement');
+});
+
+test('an edit brings the silenced back into the conversation', async () => {
+  const dir = await runStubSession(
+    testConfig({
+      agents: AGENTS.slice(0, 2), maxRounds: 3,
+      completion: C({ muteOnDone: true, target: 'notes.md' }), tools: T(),
+    }),
+    'done,write',
+  );
+  const es = events(dir);
+  const [quiet] = agreedIn(es, 1);
+  assert.ok(quiet, 'someone agreed in round 1');
+  assert.ok(roundsActedIn(es, quiet).includes(2), 'and was routed to again after the write cleared the vote');
+  assert.ok(systemTexts(es).some((t) => /back in the conversation/.test(t)),
+    'the room heard the revival, not just the reset');
+});
+
+test('the stable state is one holdout taking every turn', async () => {
+  const dir = await runStubSession(
+    testConfig({ agents: AGENTS, maxRounds: 2, completion: C({ muteOnDone: true }), tools: T() }),
+    'done,done,plain',
+  );
+  const es = events(dir);
+  // Round 1: two agree and leave; one is left. Round 2 belongs entirely to
+  // that one — a real fixed point, not a bug: its only exits are to edit,
+  // to agree, or to run out of clock.
+  const agreed = agreedIn(es, 1);
+  assert.equal(new Set(agreed).size, 2, 'two seats agreed in round 1');
+  const round2 = new Set(es.filter((e) => 'agentId' in e && e.round === 2 && e.agentId).map((e) => (e as { agentId: string }).agentId));
+  assert.equal(round2.size, 1, 'exactly one seat is still being offered turns');
+  for (const id of agreed) assert.ok(!round2.has(id), `${id} agreed and must not be routed to`);
+});
+
+test('muting is off everywhere it was not asked for', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  for (const n of ['site', 'site-open', 'site-unending', 'project', 'project-unending', 'house', 'control']) {
+    assert.equal(resolveCondition(n).completion.muteOnDone, false, `${n} must not silence anyone`);
+  }
+  for (const n of ['site-open-whittle', 'project-whittle']) {
+    const c = resolveCondition(n);
+    assert.equal(c.completion.muteOnDone, true);
+    assert.equal(c.completion.enabled, true, 'the arm needs the axis it modifies');
+    assert.equal(c.completion.resetOnEdit, true, 'and the only door back in');
+  }
+  // Each whittle arm differs from its base by exactly the one field.
+  for (const [base, arm] of [['site-open', 'site-open-whittle'], ['project', 'project-whittle']] as const) {
+    const b = resolveCondition(base), a = resolveCondition(arm);
+    assert.deepEqual({ ...a, completion: b.completion, conditionName: '', description: '' },
+                     { ...b, conditionName: '', description: '' });
+    assert.deepEqual({ ...a.completion, muteOnDone: false }, b.completion);
+  }
+});
+
+test('the prompt says what [DONE] costs before a seat can spend it', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const say = (n: string) => buildTurnMessages({
+    agent: AGENTS[0], config: resolveCondition(n), events: [], summary: '', minutesRemaining: 30, ownJournal: '',
+  })[0].content;
+  const whittle = say('site-open-whittle');
+  assert.match(whittle, /you stop being given turns/);
+  assert.match(whittle, /brings them back into the/);
+  // [NOT DONE] is NOT offered here: there is no turn left in which to say
+  // it, and offering a move a seat cannot make is a lie in the prompt.
+  assert.doesNotMatch(whittle, /NOT DONE/);
+  const plain = say('site-open');
+  assert.match(plain, /take it back the same way, with \[NOT DONE\]/);
+  assert.doesNotMatch(plain, /stop being given turns/);
+  // A project's agreement is about the whole tree, so the clause says so.
+  assert.match(say('project-whittle'), /Changing any of the files/);
 });

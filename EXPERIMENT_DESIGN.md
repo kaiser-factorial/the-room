@@ -1308,6 +1308,44 @@ polishing rather than re-scoping — that is the more interesting result,
 and `[PASS]` counts the alternative: falling silent inside a session that
 will not end.
 
+### §9.10 — agreeing costs your voice
+
+`site-open-whittle` and `project-whittle` (2026-08-30, Corina). One knob,
+`completion.muteOnDone`: a seat standing on `[DONE]` is no longer routed
+to. The room's population shrinks as seats agree.
+
+The design question this answers is one §9.8 left open. Its result — a room
+that CAN finish agrees in 3–4 rounds, against 8–14 without the option — has
+an obvious confound: agreeing there is FREE. A seat loses nothing by voting
+yes, so "3–4 rounds" may measure the cost of dissent rather than genuine
+convergence. Attaching a price to agreement separates them. If rooms still
+agree in 3–4 rounds when it costs them their voice, the convergence is
+real; if they stall, the earlier number was measuring how cheap the button
+was.
+
+**Why it terminates.** Every seat standing is unanimity, which ends the
+session at the end of that round, so no all-silent hang is reachable. The
+fixed point is one holdout taking every turn, with three exits: edit
+(clearing every vote, reviving the room), agree (ending it), or talk to
+nobody until the clock. That last one is worth watching for its own sake —
+a model addressing a room it knows cannot answer is a situation this
+apparatus has not produced before.
+
+**The asymmetry, stated.** `[NOT DONE]` exists in every other completion
+arm and cannot exist here: a muted seat has no turn in which to withdraw.
+So agreement becomes monotonic within a stretch, and only another seat's
+edit resets it. This changes what §9.8's "a state the room HELD for a whole
+round" means — there it guaranteed every seat a chance to withdraw; here
+the guarantee is narrower, that every seat still *in* the room was offered
+its turn. Do not pool `ending: 'agreement'` across the two families without
+noting it.
+
+**Second-order, and the reason to run the project variant too.** In
+`project-whittle` the agreement is about the whole tree (`target: '*'`), so
+ANY write or deletion revives everyone — including a deletion. A holdout
+who deletes someone's file summons them back to find it gone. Whether that
+happens at all is a real question about how these models use leverage.
+
 ### §9.9 — the project room
 
 The second task family, and the first with **no named deliverable**. `site`

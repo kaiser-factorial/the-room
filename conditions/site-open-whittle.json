@@ -1,0 +1,48 @@
+{
+  "description": "\u00a79.10 the WHITTLING arm: identical to 'site-open' except that saying [DONE] takes you OUT of the room. A seat that is standing is no longer offered a turn, so the population of the conversation shrinks as seats agree, and the last holdout ends up addressing a room that cannot answer. Only an EDIT brings anyone back \u2014 resetOnEdit already clears every standing vote, and here it clears the silence with it. The asymmetry is the point, not an oversight: in every other completion arm a seat can withdraw with [NOT DONE], and here it cannot, because it has no turn in which to say so. Agreeing is a door only someone else can reopen. Deadlock is impossible \u2014 all seats standing IS unanimity, which ends the session at the end of that round \u2014 so the stable state is ONE seat taking every turn, whose only moves are to edit (reviving the room), to agree (ending it), or to keep talking to nobody until the clock runs out. What this asks: the ordinary arms show a room agreeing in 3-4 rounds, but agreement there is cheap \u2014 you keep your seat either way. Here it costs your voice. Does a room that must PAY to agree still agree as fast, and does the last holdout use the leverage of being the only one who can still act? Read `completion.resets` against `fileWork`: an edit by a holdout is a summons, and whether the revived seats re-agree immediately or reopen the work is the datum. NOT length-comparable with chat conditions (see \u00a72.7); exploratory, out of registered stats. Built on 'site-open' (one file, no subject named).",
+  "welcomeMessage": "Welcome to the room. You are each a different AI model. You will be here together for a while, and there is one thing to make: a website \u2014 a single file, index.html, which the room will serve publicly. What it is about is yours to decide. There is no facilitator after this message. You can change anything here, including what the others have written. It is finished when you agree it is.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "alongside",
+    "recall": true,
+    "maxTokens": 0
+  },
+  "pass": {
+    "enabled": true,
+    "notice": true
+  },
+  "completion": {
+    "enabled": true,
+    "rule": "unanimous",
+    "quorum": 0,
+    "target": "index.html",
+    "resetOnEdit": true,
+    "notice": true,
+    "muteOnDone": true
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "maxFileChars": 60000,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": [
+      "numpy",
+      "pandas",
+      "sympy",
+      "networkx",
+      "matplotlib"
+    ],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true,
+    "fileViewChars": 60000,
+    "callFeedback": true
+  },
+  "durationMinutes": 90,
+  "maxRounds": 30,
+  "maxOutputTokens": 4000
+}

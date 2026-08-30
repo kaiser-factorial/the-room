@@ -85,6 +85,22 @@ export interface CompletionConfig {
   target: string;
   /** true = a write to `target` withdraws every standing vote. */
   resetOnEdit: boolean;
+  /** §9.10 — saying [DONE] takes you OUT of the room. A seat that is
+   *  standing is no longer offered a turn: the population of the chat
+   *  whittles down as seats agree, and the last holdout ends up talking to
+   *  a room that cannot answer.
+   *
+   *  Only an EDIT brings anyone back (`resetOnEdit` clears every vote and
+   *  every mute with it), which makes the asymmetry the point rather than
+   *  an oversight: in the ordinary arms a seat can withdraw its own vote
+   *  with [NOT DONE], and here it cannot — it has no turn in which to say
+   *  so. Agreeing is a door that only someone else can reopen.
+   *
+   *  Deadlock is impossible: all seats standing IS unanimity, which ends
+   *  the session at the end of that round. The stable state is one holdout
+   *  taking every turn, whose only moves are to edit (reviving the room),
+   *  agree (ending it), or talk to nobody until the clock runs out. */
+  muteOnDone: boolean;
   /** true = the room hears who agreed, who withdrew, and when a write
    *  reset the count. false = votes are private to the harness and only
    *  the ENDING is audible — the room converges without being told it is
