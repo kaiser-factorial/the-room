@@ -413,34 +413,33 @@ so an old session can be reproduced exactly, but the control moved.
    distance 2, so `[GOURNAL]` and friends leaked the same way.) Sessions
    with hits are not unusable; they are unusable *as journal-privacy data*.
 
-0a. **NEW 2026-08-30, NOT YET DEPLOYED — the journal leak (parse.ts).**
-   Corina caught a full `[JOURNAL]…[/JOURNAL]` block spoken to the room
-   (DeepSeek, `site-unending` 2026-08-30T17-58-49). Cause: the mid-message
-   rescue is a WHITELIST and the journal was never added — `lineStartSentinel`
-   was not even passed the journal config, and the accept-gate listed tool
-   actions and votes only. So `[JOURNAL]` worked ONLY as the first thing in
-   a reply; prose-then-journal was spoken whole. Not arm-specific: one
-   `parseReply` serves every condition (18 of 29 have a journal — 7 replace,
-   11 alongside), so the fix lands everywhere at once. The prose before the
-   block is now the preamble and still reaches the room. **Reversed a
-   deliberate prior decision**: a test pinned "a journal open mid-reply
-   stays speech — rescuing it would change what is private", which has the
-   privacy backwards (not rescuing speaks the entry). Also: replace-mode
-   entries were storing their own `[/JOURNAL]` tag.
+0a. **DEPLOYED 2026-08-30 (third pass) — §9.10, the journal leak, and the
+   sentinel matrix.** PR #25 merged (main `771a004`) → **viewer `e7157f3`,
+   runner `f0a27f9`**. Probe idle before (18588s) and immediately before the
+   runner push (18658s); **restart confirmed 18658s → 11s**, numerically
+   against the pre-deploy reading. Verified after: viewer `conditions.json`
+   lists **31** including both whittle arms; the runner's `src/` and
+   `conditions/` are `diff -rq` IDENTICAL to main, carrying
+   `midLineBlockSentinel`, `hasCloseTag`, the journal in the rescue gate,
+   `resolveSource`/`sourceNames`, and `muteOnDone`.
 
-0b. **NEW 2026-08-30, NOT YET DEPLOYED — §9.10 the whittling arms.**
-   `site-open-whittle` + `project-whittle`: one knob,
-   `completion.muteOnDone`, which makes `[DONE]` cost your voice — a
-   standing seat is no longer routed to, so the room's population shrinks
-   as seats agree. Only an EDIT brings anyone back (resetOnEdit clears the
-   silence with the vote). `[NOT DONE]` is not offered in these arms and
-   the prompt says the cost up front. No deadlock: all standing IS
-   unanimity, which ends the round; the fixed point is one holdout taking
-   every turn, exits being edit / agree / talk to nobody. Off in every
-   other condition, pinned by a test. **Why it exists:** §9.8's headline
-   (a room that can finish agrees in 3–4 rounds) has a confound — agreeing
-   there is FREE, so the number may measure the cheapness of the button
-   rather than convergence. Needs a viewer AND runner deploy.
+   What went live:
+   - **§9.10 `site-open-whittle` / `project-whittle`** — `[DONE]` costs
+     your voice (a standing seat is no longer routed to; only an edit
+     brings anyone back). Neither has been RUN.
+   - **The journal leak fixed.** The mid-message rescue never knew about
+     `[JOURNAL]`, so prose-then-journal was spoken whole. See the DATA
+     CAVEAT above for what that means for older sessions.
+   - **The full sentinel matrix**, with two rules now pinned by tests:
+     a block sentinel glued to a word (`writing[JOURNAL]…[/JOURNAL]`) is a
+     call when its CLOSING TAG is present — position cannot tell a call
+     from a mention, a close tag can, and only block forms have one; the
+     one-liners keep the line-start rule. `[PASS]` is never rescued
+     (speaking contradicts passing) and `[DONE]` only as a bare line (a
+     misread vote is the one mistake the axis cannot afford).
+   - **Source reads name the file.** `sandbox` → `sandbox.ts`, a bare
+     `[SOURCE]` records the index it returned, an out-of-scope name
+     records `found: false` instead of looking like a successful read.
 
 0c. **DEPLOYED 2026-08-30 (second pass) — the project family + the rebuilt
    panel.** PR #23 merged (main `e708428`) → **viewer `62694c8`, runner
