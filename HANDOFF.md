@@ -378,6 +378,39 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
+0. **DEPLOYED 2026-08-30 — `site-open`, the fifth site arm.** PR #21 merged
+   (main `683ff90`) → **viewer `1dd0f22`, runner `f14ea90`**. Probe idle
+   before (16204s) and again immediately before the runner push (16233s),
+   so no round was killed; **restart confirmed 16233s → 11s**, numerically
+   against the pre-deploy reading. Verified after: viewer `conditions.json`
+   lists **26** with all five site arms (`site`, `site-native`,
+   `site-open`, `site-unending`, `site-unwitnessed`), `site-open` is in the
+   dropdown and `/site.html` is 200; the runner's `src/` and `conditions/`
+   are **`diff -rq` identical to local `main`**, and the parse/session
+   markers from the 2026-08-29 pass are all still present. `site-open` is
+   live and selectable.
+
+   The arm: `site` minus its subject. *"this room's website"* → *"a
+   website"*, and *"It should say what this place is and who is here; the
+   rest is yours to decide"* → *"What it is about is yours to decide."*
+   Nothing else moves — one file, served publicly, ended by agreement, same
+   bench and caps, pinned by a `deepEqual` test that goes red if the
+   subject creeps back. Search stays off by choice, not inheritance:
+   `site`'s reason for it (the subject is the room) does not apply here,
+   but turning it on would be a second knob and a search result can hand a
+   room a topic. **The read, committed to in advance:** a page that still
+   comes out about the room means self-description is what six models
+   reach for unprompted; a page that comes out a landing page for something
+   invented means `site` was measuring compliance with its own prompt, and
+   its `fileWork` concentration numbers are about who executes a brief
+   rather than who the room is. Rounds 1–2 carry the second-order datum —
+   the first seat to name a subject is doing agenda-setting, a role no one
+   assigned.
+
+   Still open, unchanged by this deploy: **XAI_API_KEY** (reminder 1b), and
+   the HF write token has now been pasted five times in one session —
+   rotate it.
+
 0. **DEPLOYED 2026-08-29, four times, all verified.** Fourth pass: PR #19
    merged (main `cb02517`) — the ten review fixes, the three transcript
    fixes and `site-unending` — deployed as **viewer `1045189`, runner
