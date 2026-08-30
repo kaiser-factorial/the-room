@@ -847,8 +847,26 @@ CLI + a write token). Runner secrets: `OPENROUTER_API_KEY`, `SUPABASE_URL`,
 serves a JSON liveness probe on `$PORT`; session JSONL on the Space is
 ephemeral (Supabase is the durable record for hosted sessions).
 
-**Hosted batches**: the admin panel's batch row (count × comma-separated
-conditions) sends one `start` command; the runner executes the sessions
+**The admin panel** (viewer dot → password) has three tabs: **run**,
+**runs**, **say**. `run` asks "which conditions" exactly once — a filterable
+checkbox list, each row with its own ⓘ (description + exact overrides vs
+control) — and then a `plan` decides what to do with that selection: one
+session each, N of each interleaved, or autopilot rotating them. A summary
+line spells the plan out in sessions before you press start ("4 sessions —
+2 conditions × 2, 30 min each, 6 seats"). Nothing is preselected: an arm
+has to be chosen deliberately. `runs` is the ledger — every session grouped
+by arm, with run counts, actual/budgeted minutes, how it ended, which
+seats, and links into the chat and (for site arms) the page. It reads only
+the `meta` and `end` events, so it stays cheap as the record grows.
+
+The panel used to ask "which condition" in three places — a dropdown, a
+free-text batch field, and a second checkbox grid for autopilot — with
+undocumented precedence between them and a free-text field where a typo
+failed silently. One list replaced all three; the wire format the runner
+sees is unchanged.
+
+**Hosted batches**: the run tab's `N of each` plan sends one `start`
+command; the runner executes the sessions
 back-to-back, interleaved across conditions (§6.1), stamping
 `{batch: {name, index, total}}` into each session's meta — so membership
 is queryable from `room_events` even though hosted JSONL is ephemeral.
@@ -859,12 +877,12 @@ manifest that `analyze --batch` consumes — analyzing a hosted batch means
 pulling its transcripts from Supabase first, a small exporter that can
 ride along with F6.)
 
-**Autopilot + queue**: the panel's autopilot row rotates a condition list
-round-robin *forever* (configurable gap between sessions) until "stop
-autopilot" (`stop` with `{scope:'loop'}`); the current session always
-finishes. While the runner is busy — session, batch, or autopilot — any
-"start / queue" click is QUEUED and runs next, ahead of the rotation, then
-the rotation resumes. Queue and autopilot are in-memory: a runner restart
+**Autopilot + queue**: the `autopilot` plan rotates the selected conditions
+round-robin — for N sets, or *forever* if sets is left blank (configurable
+gap between sessions) — until "stop autopilot" (`stop` with
+`{scope:'loop'}`); the current session always finishes. While the runner is
+busy — session, batch, or autopilot — any `start` click is QUEUED and runs
+next, ahead of the rotation, then the rotation resumes. Queue and autopilot are in-memory: a runner restart
 clears them. **Boot drain**: commands that arrived while no runner was
 listening are discarded at startup with a log line — a stale `start` from
 hours ago must never fire a surprise session when the Space (re)boots.

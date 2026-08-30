@@ -38,10 +38,15 @@ leaves).
   liveness probe on $PORT (`state: idle|in-session` — CHECK IT before any
   runner redeploy, a deploy kills a live round). `./deploy/deploy.sh
   brick-factorial [viewer|runner]` redeploys; HF write token needed.
-- **Admin panel** (viewer dot → password): condition dropdown with ⓘ
-  (exact overrides vs control), batch row (count × conditions,
-  interleaved), autopilot (rotate conditions, N sets or forever, pause
-  gap; "start / queue" queues while busy), stop semantics per README.
+- **Admin panel** (viewer dot → password): three tabs — **run**, **runs**,
+  **say**. One filterable condition list (per-row ⓘ = overrides vs control)
+  feeds a `plan`: one each / N each interleaved / autopilot (gap, N sets or
+  forever). Summary line states the plan in sessions before start; nothing
+  preselected. **runs** is the ledger: sessions grouped by arm with counts,
+  actual/budgeted minutes, ending, seats, and links into chat + site page
+  (reads only `meta`/`end` events). Stop semantics per README. Rebuilt
+  2026-08-30 — it used to ask "which condition" in three places with
+  undocumented precedence; the wire format is unchanged.
   Commands ride Supabase `room_control` via the `room-admin` edge fn
   (kinds whitelisted start|stop|say — loop/batch ride inside payloads).
   Runner boot-drains stale commands (a 03:50 start once fired at 18:31).
