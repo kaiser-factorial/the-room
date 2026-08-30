@@ -51,6 +51,24 @@ export function sourceIndex(scope: SourceScope = 'tools'): string {
   return `The room's ${scope === 'all' ? '' : 'tool '}source code, readable with [SOURCE: name]:\n${lines.join('\n')}${condition}`;
 }
 
+/** What a [SOURCE: name] actually resolves to, so the room's transcript can
+ *  name the FILE rather than echo whatever the caller typed. `[SOURCE:
+ *  Sandbox.ts]` and `[SOURCE: sandbox]` are the same read, and a reader of
+ *  the transcript should be able to see which one it was without knowing
+ *  the alias table. Returns null for a name this scope does not expose —
+ *  which is itself worth recording, since a refused read and a successful
+ *  one look identical in a transcript that only stores the request. */
+export function resolveSource(name: string, scope: SourceScope = 'tools'): { key: string; file: string } | null {
+  const key = name.toLowerCase().replace(/\.ts$/, '');
+  const entry = filesFor(scope)[key];
+  return entry ? { key, file: entry.file } : null;
+}
+
+/** The names this scope exposes — what a bare [SOURCE] hands back. */
+export function sourceNames(scope: SourceScope = 'tools'): string[] {
+  return [...Object.keys(filesFor(scope)), ...(scope === 'all' ? ['condition'] : [])];
+}
+
 export function readSource(name: string, scope: SourceScope = 'tools'): string | null {
   const entry = filesFor(scope)[name.toLowerCase().replace(/\.ts$/, '')];
   if (!entry) return null;

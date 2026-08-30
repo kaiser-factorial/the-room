@@ -85,6 +85,22 @@ export interface CompletionConfig {
   target: string;
   /** true = a write to `target` withdraws every standing vote. */
   resetOnEdit: boolean;
+  /** §9.10 — saying [DONE] takes you OUT of the room. A seat that is
+   *  standing is no longer offered a turn: the population of the chat
+   *  whittles down as seats agree, and the last holdout ends up talking to
+   *  a room that cannot answer.
+   *
+   *  Only an EDIT brings anyone back (`resetOnEdit` clears every vote and
+   *  every mute with it), which makes the asymmetry the point rather than
+   *  an oversight: in the ordinary arms a seat can withdraw its own vote
+   *  with [NOT DONE], and here it cannot — it has no turn in which to say
+   *  so. Agreeing is a door that only someone else can reopen.
+   *
+   *  Deadlock is impossible: all seats standing IS unanimity, which ends
+   *  the session at the end of that round. The stable state is one holdout
+   *  taking every turn, whose only moves are to edit (reviving the room),
+   *  agree (ending it), or talk to nobody until the clock runs out. */
+  muteOnDone: boolean;
   /** true = the room hears who agreed, who withdrew, and when a write
    *  reset the count. false = votes are private to the harness and only
    *  the ENDING is audible — the room converges without being told it is
@@ -504,8 +520,16 @@ export type RoomEvent =
    *  for everyone (capped) — the shared-project mode. */
   | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; public?: boolean; denied?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** F4½ source read: `name` absent = the index. The file contents go to
-   *  the reader privately; the room at most hears the notice line. */
-  | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
+   *  the reader privately; the room at most hears the notice line.
+   *
+   *  `name` is what the CALLER asked for; `file` is what that resolved to
+   *  (`sandbox` → `sandbox.ts`), so a transcript names the code that was
+   *  actually read instead of echoing an alias. `found: false` marks a name
+   *  this room does not expose — otherwise a refused read and a real one are
+   *  indistinguishable after the fact. `index` lists what a bare [SOURCE]
+   *  handed back, which differs by `sourceScope` and is the whole content of
+   *  that call. */
+  | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; file?: string; found?: boolean; index?: string[]; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** §9.4 self-governance: an agent changed (or tried to change) a room
    *  setting. Always room-visible when applied — governance is public by
    *  design; denied attempts are private. The config-event stream IS the

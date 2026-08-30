@@ -68,7 +68,7 @@ export const config: RoomConfig = {
   // conversation with nothing to finish has nothing to agree about, and
   // every session before 2026-08-29 ended on the clock. The task
   // conditions ('site') turn it on and name the artifact.
-  completion: { enabled: false, rule: 'unanimous', quorum: 0, target: '', resetOnEdit: true, notice: true },
+  completion: { enabled: false, rule: 'unanimous', quorum: 0, target: '', resetOnEdit: true, notice: true, muteOnDone: false },
 
   search: {
     enabled: false, // control = the closed room; search conditions enable

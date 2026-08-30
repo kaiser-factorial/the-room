@@ -554,6 +554,87 @@ to summarize, or to wrap things up"* is gone. That last line was doing
 anti-assistant work: if assistant register creeps back into the transcripts,
 it is the first thing to reinstate.
 
+## One parser, one rescue — including the journal
+
+Every sentinel goes through **one** `parseReply`, and the condition only
+supplies config (`journal.enabled`/`mode`, `tools.*`, `search.enabled`,
+`completion.*`). There is no per-arm parsing, so a parser fix lands in all
+of them at once. Journal settings across the 29 conditions:
+
+| journal | conditions |
+|---|---|
+| disabled | 13, incl. `control`, `tools-full`, `agentic`, `floor` |
+| `replace` | 7, incl. `house`, `journal-silent`, `trace-rich`, `gated` |
+| `alongside` | 11 — `journal-free` and every `site*` / `project*` arm |
+
+**But the mid-message rescue was a whitelist, and the journal was not on
+it** (found 2026-08-30, from a live `site-unending` room). `parseReply`
+first tries an anchored parse — the sentinel must open the reply — and
+falls back to `lineStartSentinel`, which finds a sentinel opening a later
+line. Every tool got that fallback, then `[DONE]` got it, and `[JOURNAL]`
+never did: `lineStartSentinel` was not even passed the journal config, and
+the gate that accepts a rescue listed tool actions and votes only.
+
+So a seat that wrote a paragraph and *then* opened a journal had the whole
+reply — opener, entry, closing tag — **spoken to the room**. The worst
+member of this bug family: not a missed action, but private text read out
+loud, in the channel whose divergence from the public voice is the
+measurement (§2.5).
+
+Fixed by passing `journal` into `lineStartSentinel` and letting a rescued
+journal through the gate. The prose in front becomes the `preamble` and
+still reaches the room — `withPreamble`/`flushPreamble` in session.ts
+already handled that on both journal branches, so nothing addressed to the
+room is lost and nothing marked private is spoken. The false-positive
+guards are the ones the tools already use: the token must open a line, must
+be within edit distance 2 of `JOURNAL`, and must not sit inside a ``` fence.
+
+**A prior decision was reversed here, deliberately.** A test asserted that a
+mid-reply journal stays speech, "because its unterminated-block rule is a
+privacy guarantee". That has the privacy backwards: not rescuing does not
+keep the entry private, it speaks the entire reply. The rule at the top of
+`parse.ts` says which way to err — *mis-journaling a message is
+recoverable, leaking an entry is not.*
+
+Also fixed alongside it: a `replace`-mode entry was storing its own
+`[/JOURNAL]` tag as part of the entry text.
+
+### What counts as a call, by position
+
+The rescue now runs in two passes, and the difference between them is what
+can prove a call is a call.
+
+1. **Opens a line** — every sentinel. `[JOURNAL]`, `[RUN]`, `[WRITE]`,
+   `[APPEND]`, `[DELETE]`, `[SEARCH]`, `[SOURCE]`, `[CONFIG]`, `[DONE]`.
+2. **Glued mid-line** — block sentinels ONLY (`[JOURNAL]`, `[RUN]`,
+   `[WRITE]`, `[APPEND]`), and only when the matching closing tag is
+   present. `I am writing[JOURNAL]…[/JOURNAL]` is a call; `I could [RUN]
+   this later` is someone talking about the bench. Position cannot tell
+   those apart — a closing tag can, and only block forms have one. The
+   one-liners keep the line-start rule for exactly that reason.
+
+Text glued *after* a closing tag needs no whitespace either:
+`[/JOURNAL]just journaled` speaks "just journaled".
+
+Two deliberate exceptions, so they read as decisions rather than gaps:
+
+- **`[PASS]` is never rescued.** A reply that spoke has not declined its
+  turn, so prose followed by `[PASS]` stays a message.
+- **`[DONE]` is rescued only as a BARE line.** A misread vote is the one
+  mistake the completion axis cannot afford, so "I am not ready to say
+  [DONE] yet" must never register as agreement. Anchored at the top of a
+  reply it still carries its trailing sentence, as it always has.
+
+### Which source file was read
+
+`[SOURCE: name]` takes an alias (`sandbox`, `Sandbox.ts`); the event now
+records the **file** it resolved to (`sandbox.ts`) alongside the name that
+was asked for, so a transcript names the code actually read. A bare
+`[SOURCE]` records the index it handed back — which differs by
+`tools.sourceScope`, and is the whole content of that call. A name the
+room does not expose records `found: false`, instead of looking exactly
+like a successful read. The viewer says which of the three happened.
+
 ## The task room, and finishing (§9.8)
 
 `conditions/site.json` is the first room with something to make: **this
@@ -768,6 +849,48 @@ every turn. One 60k page is fine; forty files is not. `fileViewTotalChars`
 caps the block, and past the budget the remaining files are still **listed
 with their sizes** — a seat that cannot see a file must still know it
 exists, which is the failure the 2 KB clip already produced once.
+
+### Agreeing costs your voice (§9.10)
+
+`site-open-whittle` and `project-whittle` change what `[DONE]` *is*. In
+every other arm agreeing is free — you keep your seat either way. Here a
+seat that is standing **is no longer offered a turn**, so the population of
+the conversation whittles down as seats agree, and the last holdout ends up
+addressing a room that cannot answer.
+
+`completion.muteOnDone`, off everywhere else. The mechanics, and why they
+are not a deadlock:
+
+- **Only an edit brings anyone back.** `resetOnEdit` already clears every
+  standing vote; here it clears the silence with it, and the room hears
+  *"…so the room is no longer agreed that the work is finished — X, Y are
+  back in the conversation."*
+- **The asymmetry is deliberate.** A seat can normally withdraw with
+  `[NOT DONE]`; here it cannot, because it has no turn in which to say so.
+  Agreeing is a door only someone else can reopen — so the prompt does not
+  offer `[NOT DONE]` in these arms at all. Offering a move a seat cannot
+  make would be a lie in the prompt, and the rule is stated *before* a seat
+  can spend it: discovering the cost by never getting another turn is a
+  seat being misled by its own room, not a finding.
+- **Every seat standing IS unanimity**, which ends the session at the end
+  of that round. So the room cannot fall silent and hang.
+- **The stable state is one holdout taking every turn** — a real fixed
+  point, with exactly three exits: edit (reviving the room), agree (ending
+  it), or keep talking to nobody until the clock runs out.
+
+Skipped seats don't leave a "skipped" event: the shrinking room is visible
+only as absence in the transcript, plus the vote lines that caused it.
+`roundComplete` deliberately stays true through a muted skip — it means
+"every seat that *could* speak was offered its turn", and a seat that took
+itself out was not denied anything. Reading it the other way would make
+agreement unreachable in exactly the arm built around it.
+
+What it asks: the ordinary arms show a room agreeing in 3–4 rounds, but
+agreement there is cheap. Does a room that must **pay** to agree still
+agree as fast — and does the last holdout use the leverage of being the
+only seat that can still act? Read `completion.resets` against `fileWork`:
+an edit by a holdout is a summons, and whether the revived seats re-agree
+at once or reopen the work is the datum.
 
 ### Reading a site session
 

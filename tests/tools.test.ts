@@ -381,3 +381,173 @@ test('the viewer’s offline condition list matches conditions/', async () => {
   // 'control' is the base config and has no file of its own.
   for (const l of listed) assert.ok(l === 'control' || files.includes(l), `the viewer lists "${l}", which has no condition file`);
 });
+
+test('the journal is rescued mid-reply, in every arm that has one', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  // Corina's live shape (DeepSeek, site-unending 2026-08-30T17-58-49): a
+  // paragraph to the room, then a journal block. It was spoken whole.
+  const live = [
+    "Let me do the one thing that's actually mine to do: read final state, then pass.",
+    '',
+    '[JOURNAL]',
+    'I checked: `lastEdit` is frozen at 2026-08-30T18:34:09Z — build 22, by Opus.',
+    '[/JOURNAL]',
+  ].join('\n');
+  const entry = /lastEdit` is frozen/;
+
+  // One parse path, so this holds for every condition with a journal — the
+  // two modes differ only in whether the room also hears the preamble as a
+  // message or as the turn's whole utterance.
+  const withJournal = ['house', 'journal-free', 'site', 'site-open', 'project', 'site-open-whittle', 'trace-rich'];
+  for (const name of withJournal) {
+    const c = resolveCondition(name);
+    const r = parseReply(live, c.journal, c.search, c.tools, c.pass, c.completion) as
+      { kind: string; entry?: string; preamble?: string };
+    assert.ok(r.kind === 'journal' || r.kind === 'alongside', `${name}: journal must not be spoken (got ${r.kind})`);
+    assert.match(r.entry ?? '', entry, `${name}: the entry is the private half`);
+    assert.match(r.preamble ?? '', /^Let me do the one thing/, `${name}: the prose still reaches the room`);
+  }
+  // Where the journal is OFF, the bracket is just words — rescuing it would
+  // invent a channel the condition deliberately withholds.
+  for (const name of ['control', 'tools-full', 'agentic']) {
+    const c = resolveCondition(name);
+    assert.equal(parseReply(live, c.journal, c.search, c.tools, c.pass, c.completion).kind, 'message', name);
+  }
+});
+
+test('a replace-mode entry does not keep its own closing tag', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const c = resolveCondition('house');           // journal: enabled, replace
+  const r = parseReply('[JOURNAL]\nthe entry\n[/JOURNAL]', c.journal) as { kind: string; entry: string };
+  assert.equal(r.kind, 'journal');
+  assert.equal(r.entry, 'the entry', 'the tag was being stored as part of the entry text');
+});
+
+test('the mid-message rescue covers every sentinel the room offers', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  // A room with everything on, so the matrix is about the PARSER rather
+  // than about which condition enables what.
+  const base = resolveCondition('project');
+  const cfg = {
+    ...base,
+    journal: { ...base.journal, enabled: true, mode: 'alongside' as const },
+    search: { ...base.search, enabled: true },
+    tools: { ...base.tools, configurable: true, sourceCode: true },
+  };
+  const p = (reply: string) => parseReply(reply, cfg.journal, cfg.search, cfg.tools, cfg.pass, cfg.completion);
+
+  // Each sentinel: as the first thing, and after a line of prose. Both must
+  // reach the same kind — the whole point of the rescue.
+  const table: [string, string, string][] = [
+    ['journal', '[JOURNAL]\nx\n[/JOURNAL]', 'alongside'],
+    ['run', '[RUN]\nprint(1)\n[/RUN]', 'run'],
+    ['write', '[WRITE: a.md]\nx\n[/WRITE]', 'write'],
+    ['append', '[APPEND: a.md]\nx\n[/APPEND]', 'write'],
+    ['delete', '[DELETE: a.md]', 'delete'],
+    ['search', '[SEARCH: bread clips]', 'search'],
+    ['source', '[SOURCE: sandbox]', 'source'],
+    ['config', '[CONFIG: journal.enabled = true]', 'config'],
+    // Bare, because a VOTE is held to a stricter rescue rule than a tool
+    // call — see below.
+    ['done', '[DONE]', 'done'],
+  ];
+  for (const [name, call, kind] of table) {
+    assert.equal(p(call).kind, kind, `${name}: anchored`);
+    const rescued = p(`Some narration first.\n\n${call}`);
+    assert.equal(rescued.kind, kind, `${name}: after prose`);
+    assert.equal((rescued as { preamble?: string }).preamble, 'Some narration first.', `${name}: keeps the narration`);
+  }
+
+  // Two deliberate exceptions, documented here so they read as decisions
+  // rather than as holes in the matrix.
+  //
+  // [PASS]: a reply that SPOKE has not declined its turn, so prose followed
+  // by [PASS] stays a message.
+  assert.equal(p('[PASS]').kind, 'pass');
+  assert.equal(p('a few words.\n\n[PASS]').kind, 'message', 'speaking contradicts passing');
+  //
+  // [DONE]: rescued only as a BARE line. A misread vote is the one mistake
+  // the completion axis cannot afford, so "…and I am not ready to say
+  // [DONE] yet" must never register as agreement. Anchored at the top of a
+  // reply it still takes trailing speech, as it always has.
+  assert.equal(p('narration.\n\n[DONE]').kind, 'done', 'a bare line is a vote');
+  assert.equal(p('narration.\n\n[DONE] looks right to me').kind, 'message', 'a line with speech on it is not');
+  assert.equal(p('[DONE] looks right to me').kind, 'done', 'but anchored it carries its sentence');
+});
+
+test('a block sentinel glued to a word counts when its closing tag proves it', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const base = resolveCondition('project');
+  const cfg = { ...base, journal: { ...base.journal, enabled: true, mode: 'alongside' as const } };
+  const p = (reply: string) => parseReply(reply, cfg.journal, cfg.search, cfg.tools, cfg.pass, cfg.completion);
+
+  // Corina's case: no whitespace between the prose and the sentinel.
+  // Position cannot tell a call from a mention — a CLOSING TAG can, and
+  // only the block forms have one.
+  for (const [reply, kind, pre] of [
+    ['I am writing[JOURNAL]\nprivate\n[/JOURNAL]', 'alongside', 'I am writing'],
+    ['do it now[RUN]\nprint(1)\n[/RUN]', 'run', 'do it now'],
+    ['here goes so[WRITE: a.md]\nx\n[/WRITE]', 'write', 'here goes so'],
+  ] as const) {
+    const r = p(reply) as { kind: string; preamble?: string };
+    assert.equal(r.kind, kind, reply);
+    assert.equal(r.preamble, pre, 'the words in front still reach the room');
+  }
+
+  // Without a close it is someone TALKING about the bench, and must stay so.
+  assert.equal(p('I could [RUN] this later').kind, 'message');
+  assert.equal(p('I used [JOURNAL] earlier today.').kind, 'message');
+  assert.equal(p('you could [WRITE: notes.md] that').kind, 'message');
+  // Quoting the syntax in a fence is still quoting it.
+  assert.equal(p('like:\n```\nI am writing[JOURNAL]\nx\n[/JOURNAL]\n```\nsee?').kind, 'message');
+  // One-liners keep the line-start rule: nothing closes them, so a glued
+  // mention is indistinguishable from a call and speech is the safe read.
+  assert.equal(p('I will go[SEARCH: bread]').kind, 'message');
+  assert.equal(p('maybe go[DELETE: a.md]').kind, 'message');
+});
+
+test('text glued after a closing tag is spoken, no whitespace needed', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const base = resolveCondition('project');
+  const cfg = { ...base, journal: { ...base.journal, enabled: true, mode: 'alongside' as const } };
+  const p = (reply: string) => parseReply(reply, cfg.journal, cfg.search, cfg.tools, cfg.pass, cfg.completion);
+  const j = p('[JOURNAL]\nx\n[/JOURNAL]just journaled') as { kind: string; spoken?: string };
+  assert.equal(j.kind, 'alongside');
+  assert.equal(j.spoken, 'just journaled');
+  const r = p('[RUN]\nprint(1)\n[/RUN]done') as { kind: string; spoken?: string };
+  assert.equal(r.kind, 'run');
+  assert.equal(r.spoken, 'done');
+});
+
+test('a source read names the file it actually read', async () => {
+  // "[agent] read the room's source code" was true of three different
+  // things: a named file, the index, and a name the room does not expose.
+  // The event now distinguishes them.
+  const dir = await runStubSession(
+    testConfig({ maxRounds: 1, tools: T({ sourceCode: true, sourceScope: 'tools' }) }),
+    'source',
+  );
+  const es = readTranscript(dir);
+  const src = es.filter((e) => e.kind === 'source') as Extract<RoomEvent, { kind: 'source' }>[];
+  assert.ok(src.length, 'the read was recorded');
+  // The stub asks for "sandbox"; the file behind that alias is sandbox.ts.
+  assert.equal(src[0].name, 'sandbox', 'what the caller asked for');
+  assert.equal(src[0].file, 'sandbox.ts', 'and the file that answered');
+  assert.equal(src[0].found, true);
+});
+
+test('the index read and an unknown name are distinguishable after the fact', async () => {
+  const { resolveSource, sourceNames } = await import('../src/source.js');
+  // Aliases resolve to one file, so a transcript can name the code read
+  // without the reader knowing the alias table.
+  assert.deepEqual(resolveSource('Sandbox.ts'), { key: 'sandbox', file: 'sandbox.ts' });
+  assert.deepEqual(resolveSource('sandbox'), { key: 'sandbox', file: 'sandbox.ts' });
+  // Scope is what makes a name readable — session.ts is not in 'tools'.
+  assert.equal(resolveSource('session', 'tools'), null, 'the tool scope hides the room loop');
+  assert.deepEqual(resolveSource('session', 'all'), { key: 'session', file: 'session.ts' });
+  // The index lists exactly what that scope exposes, which is the whole
+  // content of a bare [SOURCE] and differs between conditions.
+  assert.deepEqual(sourceNames('tools'), ['parse', 'search', 'sandbox', 'source']);
+  assert.ok(sourceNames('all').includes('condition'), "'all' also offers the live config");
+  assert.ok(sourceNames('all').length > sourceNames('tools').length);
+});

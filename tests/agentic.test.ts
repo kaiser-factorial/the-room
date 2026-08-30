@@ -245,18 +245,24 @@ test('prose before the sentinel: the call is rescued, the narration is a preambl
 
   // The invariants this must not break. A reply that already parsed is
   // untouched; a sentinel mid-SENTENCE is speech; a fenced sentinel is
-  // someone quoting the bench; and the journal is never rescued, because
-  // its unterminated-block rule is a privacy guarantee.
+  // someone quoting the bench.
   const anchored = parseReply('[RUN]\nprint(1)\n[/RUN]\nthere', J, S, t);
   assert.equal((anchored as { preamble?: string }).preamble, undefined);
   assert.equal((anchored as { spoken?: string }).spoken, 'there');
   assert.equal(parseReply('I could [RUN] this later', J, S, t).kind, 'message');
   assert.equal(parseReply('like this:\n```\n[RUN]\nx\n[/RUN]\n```\nsee?', J, S, t).kind, 'message');
-  assert.equal(
-    parseReply('thinking out loud\n[JOURNAL] private thought', { ...J, enabled: true }, S, t).kind,
-    'message',
-    'a journal open mid-reply stays speech — rescuing it would change what is private',
-  );
+  // REVERSED 2026-08-30. This used to assert 'message', on the reasoning
+  // that "rescuing it would change what is private". It has the privacy
+  // backwards: NOT rescuing does not keep a mid-reply journal private, it
+  // speaks the whole reply — opener, entry and all — to the room. That is
+  // the leak Corina caught live (DeepSeek, site-unending 2026-08-30T17-58-49:
+  // a full [JOURNAL]…[/JOURNAL] block read out to the room). The file's own
+  // rule at the top says which way to err: "mis-journaling a message is
+  // recoverable, leaking an entry is not."
+  const rescued = parseReply('thinking out loud\n[JOURNAL] private thought', { ...J, enabled: true }, S, t);
+  assert.equal(rescued.kind, 'journal');
+  assert.equal((rescued as { entry: string }).entry, 'private thought', 'the entry is private');
+  assert.equal((rescued as { preamble?: string }).preamble, 'thinking out loud', 'the prose still reaches the room');
 });
 
 test('every call in one reply runs — not just the first', async () => {

@@ -11,7 +11,7 @@ credential follow-up it leaves).
 
 ## Read these, in order
 
-1. **SUMMARY.md** — abstract, control state, roster, axes (now 17 —
+1. **SUMMARY.md** — abstract, control state, roster, axes (now 18 —
    §9.9's project bench is the newest), measurement + robustness layer.
    The at-a-glance spec.
 2. **EXPERIMENT_DESIGN.md** — §0 program (Phase A pilot → Phase B journal
@@ -391,7 +391,58 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **DEPLOYED 2026-08-30 (second pass) — the project family + the rebuilt
+0. **DATA CAVEAT — leaked journals in sessions recorded before 2026-08-30.**
+   The journal was never part of the mid-message rescue (see 0a), so in
+   EVERY session up to that fix, a seat that wrote prose and THEN opened a
+   journal had the entry spoken into the room. Those entries are in the
+   transcript as `message` events, not `journal` ones — which means:
+   - the room's other seats SAW them, so the session is contaminated for
+     any journal-vs-room voice comparison (§2.5's three-channel intra);
+   - `journals` undercounts and `messages` overcounts for those turns.
+
+   Before pooling old sessions, find the affected ones:
+
+   ```sql
+   select session_id, count(*) as leaked
+   from room_events
+   where kind = 'message' and payload->>'text' ilike '%[JOURNAL]%'
+   group by 1 order by 2 desc;
+   ```
+
+   (Also check `[/JOURNAL]`, and the typo forms — the tolerance is edit
+   distance 2, so `[GOURNAL]` and friends leaked the same way.) Sessions
+   with hits are not unusable; they are unusable *as journal-privacy data*.
+
+0a. **NEW 2026-08-30, NOT YET DEPLOYED — the journal leak (parse.ts).**
+   Corina caught a full `[JOURNAL]…[/JOURNAL]` block spoken to the room
+   (DeepSeek, `site-unending` 2026-08-30T17-58-49). Cause: the mid-message
+   rescue is a WHITELIST and the journal was never added — `lineStartSentinel`
+   was not even passed the journal config, and the accept-gate listed tool
+   actions and votes only. So `[JOURNAL]` worked ONLY as the first thing in
+   a reply; prose-then-journal was spoken whole. Not arm-specific: one
+   `parseReply` serves every condition (18 of 29 have a journal — 7 replace,
+   11 alongside), so the fix lands everywhere at once. The prose before the
+   block is now the preamble and still reaches the room. **Reversed a
+   deliberate prior decision**: a test pinned "a journal open mid-reply
+   stays speech — rescuing it would change what is private", which has the
+   privacy backwards (not rescuing speaks the entry). Also: replace-mode
+   entries were storing their own `[/JOURNAL]` tag.
+
+0b. **NEW 2026-08-30, NOT YET DEPLOYED — §9.10 the whittling arms.**
+   `site-open-whittle` + `project-whittle`: one knob,
+   `completion.muteOnDone`, which makes `[DONE]` cost your voice — a
+   standing seat is no longer routed to, so the room's population shrinks
+   as seats agree. Only an EDIT brings anyone back (resetOnEdit clears the
+   silence with the vote). `[NOT DONE]` is not offered in these arms and
+   the prompt says the cost up front. No deadlock: all standing IS
+   unanimity, which ends the round; the fixed point is one holdout taking
+   every turn, exits being edit / agree / talk to nobody. Off in every
+   other condition, pinned by a test. **Why it exists:** §9.8's headline
+   (a room that can finish agrees in 3–4 rounds) has a confound — agreeing
+   there is FREE, so the number may measure the cheapness of the button
+   rather than convergence. Needs a viewer AND runner deploy.
+
+0c. **DEPLOYED 2026-08-30 (second pass) — the project family + the rebuilt
    panel.** PR #23 merged (main `e708428`) → **viewer `62694c8`, runner
    `8bf622e`**. Probe idle before (7708s) and again immediately before the
    runner push (7798s); **restart confirmed 7798s → 11s**, numerically
@@ -418,7 +469,7 @@ so an old session can be reproduced exactly, but the control moved.
    **Still open** — `XAI_API_KEY` (reminder 1b), and the HF write token has
    been pasted many times across sessions and wants rotating.
 
-0. **DEPLOYED 2026-08-30 — `site-open`, the fifth site arm.** PR #21 merged
+0d. **DEPLOYED 2026-08-30 — `site-open`, the fifth site arm.** PR #21 merged
    (main `683ff90`) → **viewer `1dd0f22`, runner `f14ea90`**. Probe idle
    before (16204s) and again immediately before the runner push (16233s),
    so no round was killed; **restart confirmed 16233s → 11s**, numerically
@@ -580,7 +631,7 @@ arms (`site`, `-native`, `-open`, `-unwitnessed`, `-unending`, plus
 
 The queue, in the order it matters:
 
-1. **Run `project` and `project-unending`.** Nothing has exercised the new
+1. **Run `project`, `project-unending`, and the two whittle arms.** Nothing has exercised the new
    bench against live models — folders, `[DELETE]`, a 40-file room. The
    tests cover the mechanics; what is untested is whether six models
    handed a filesystem and no deliverable converge on one project or fork

@@ -274,17 +274,37 @@ function completionSection(config: RoomConfig, standing: string[]): string {
   if (!c.enabled) return '';
   // The number the loop will actually enforce — see requiredVotes.
   const need = c.rule === 'unanimous' ? 'all of you' : `${requiredVotes(config)} of you`;
-  const lines = [
-    ``,
-    `When you think the work here is finished, say so: begin your reply with`,
-    `[DONE], and anything after it is spoken to the room as usual. You can`,
-    `take it back the same way, with [NOT DONE]. When ${need} are standing on`,
-    `[DONE] at the end of a round, the session ends.`,
-  ];
+  // §9.10: where standing also takes you out of the room, [DONE] is a
+  // different act and the prompt has to say so BEFORE a seat spends it —
+  // discovering it by never getting another turn is not a finding, it is a
+  // seat being misled by its own room. The [NOT DONE] clause goes with it,
+  // because there is no turn left in which to say that.
+  const lines = c.muteOnDone
+    ? [
+        ``,
+        `When you think the work here is finished, say so: begin your reply`,
+        `with [DONE], and anything after it is spoken to the room as usual.`,
+        `Once you do, you stop being given turns — you will not speak again`,
+        `unless someone changes the work. When ${need} are standing on [DONE]`,
+        `at the end of a round, the session ends.`,
+      ]
+    : [
+        ``,
+        `When you think the work here is finished, say so: begin your reply with`,
+        `[DONE], and anything after it is spoken to the room as usual. You can`,
+        `take it back the same way, with [NOT DONE]. When ${need} are standing on`,
+        `[DONE] at the end of a round, the session ends.`,
+      ];
   if (c.resetOnEdit && c.target) {
+    const what = c.target === '*' ? 'Changing any of the files' : `Changing ${c.target}`;
     lines.push(
-      `Changing ${c.target} after that clears everyone's [DONE] — the thing you`,
-      `agreed about is no longer the thing in front of you.`,
+      c.muteOnDone
+        ? `${what} clears everyone's [DONE] and brings them back into the`
+        : `${what} after that clears everyone's [DONE] — the thing you`,
+      c.muteOnDone
+        ? `conversation — the thing they agreed about is no longer the thing in`
+        : `agreed about is no longer the thing in front of you.`,
+      ...(c.muteOnDone ? [`front of them.`] : []),
     );
   }
   if (c.notice) {
