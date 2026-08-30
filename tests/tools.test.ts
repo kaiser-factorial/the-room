@@ -365,3 +365,19 @@ test('native: the write schema states the room’s real limits, and delete appea
   assert.ok(pdefs.some((d) => d.function.name === 'delete_file'), 'project can');
   assert.match(pdefs.find((d) => d.function.name === 'write_file')!.function.description, /folders/);
 });
+
+test('the viewer’s offline condition list matches conditions/', async () => {
+  // conditions.json is generated at deploy time and is what the panel
+  // normally reads; this hardcoded list is the fallback when that fetch
+  // fails. It had silently drifted — `floor` existed as a condition for
+  // days and could not be selected without a working fetch.
+  const { readdirSync } = await import('node:fs');
+  const html = readFileSync(join(process.cwd(), 'viewer', 'index.html'), 'utf8');
+  const block = html.match(/const CONDITIONS = \[(.*?)\];/s);
+  assert.ok(block, 'the viewer still declares a CONDITIONS list');
+  const listed = new Set([...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  const files = readdirSync(join(process.cwd(), 'conditions')).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5));
+  for (const f of files) assert.ok(listed.has(f), `conditions/${f}.json is missing from the viewer list`);
+  // 'control' is the base config and has no file of its own.
+  for (const l of listed) assert.ok(l === 'control' || files.includes(l), `the viewer lists "${l}", which has no condition file`);
+});

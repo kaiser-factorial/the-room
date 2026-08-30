@@ -2,32 +2,37 @@
 
 Multi-agent room experiment: 6 different AI models locked in a task-free,
 facilitator-free group conversation; we measure linguistic drift/moulding.
-Everything below is true as of **2026-08-29** (end of the FIFTH build
-session — the TASK-ROOM sprint: the room now builds its own website and
-ends its own session by agreement. Merged to main AND deployed to both
-Spaces; see reminder 0 for the record and the credential follow-up it
-leaves).
+Everything below is true as of **2026-08-30** (end of the SIXTH build
+session — the TASK-FAMILY sprint: `site` grew to five arms, the admin
+panel was rebuilt around a runs ledger, and `project` opened a second task
+family where the room gets a filesystem instead of a file. Merged to main
+AND deployed to both Spaces; see reminder 0 for the record and the
+credential follow-up it leaves).
 
 ## Read these, in order
 
-1. **SUMMARY.md** — abstract, control state, roster, axes (now 16),
-   measurement + robustness layer. The at-a-glance spec.
+1. **SUMMARY.md** — abstract, control state, roster, axes (now 17 —
+   §9.9's project bench is the newest), measurement + robustness layer.
+   The at-a-glance spec.
 2. **EXPERIMENT_DESIGN.md** — §0 program (Phase A pilot → Phase B journal
    experiment), §2.5 three-channel (incl. the Grok-trace caveat + fix, and
    the 2026-08-27 amendment: Claude's traceless control sessions were OUR
    cap, not the provider's), §2.7 robustness layer, **§3.4b websearch**
    (both economics), §6.1 confounds, §9 extensions — **§9.5 the agentic
    turn + the transport arm, §9.5b the output-budget fix, §9.6 identity
-   swap** are the previous session's; **§9.8 the task room + the
-   completion axis** is this one's. §9.3 broadcast and §9.4
-   self-governance are built and deployed.
+   swap** are from two sessions back; **§9.8 the task room + the
+   completion axis** (five arms: `site`, `-native`, `-open`,
+   `-unwitnessed`, `-unending`, plus `site-open-unending`) and **§9.9 the
+   project room** (a filesystem, folders, deletion) are the current ones.
+   §9.3 broadcast and §9.4 self-governance are built and deployed.
 3. **BUILD_PLAN.md** — F1–F5 BUILT + status addenda with the open
    reminders; Talkie and F6 dashboard remain. Roadmap artifact mirrors
    it.
 4. **README.md** — run/analyze/export commands, hosting, tests, admin,
    **Websearch/Tools/xAI sections** (sentinels, privacy classes, caps),
-   and **"The task room, and finishing"** (`site`, `[DONE]`, `fileWork`,
-   the sandboxed site page).
+   **"The task room, and finishing"** (`site`, `[DONE]`, `fileWork`, the
+   sandboxed site page) and **"The project room"** (folders, `[DELETE]`,
+   the path-safety rule, the shared-file context budget).
 
 ## Current state
 
@@ -557,32 +562,36 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Next up (the queue — roadmap artifact has the full rationale)
 
-**TASK-ROOM SPRINT DONE AND DEPLOYED (§9.8: `site` + `site-native` +
-`site-unwitnessed`, the `completion` axis, `tools.maxFileChars`,
-`viewer/site.html` with version history and the chat/site switch,
-`fileWork` + `completion` metrics; 130 tests green; merged as PR #16 and
-live on both Spaces — reminder 0). All three arms are one admin-panel
-click away. NEXT: RUN ONE.** Two calls before the first live session, both
-a choice rather than a build:
-1. **Which arm runs FIRST — `site` or `site-unwitnessed`?** Whichever it
-   is becomes the reference the other is read against. `site` says the
-   page "will be served publicly" (true, and load-bearing: an artifact for
-   nobody is a different task); `site-unwitnessed` removes that clause and
-   nothing else. Held on purpose: `/site.html` opens on whichever session
-   wrote `index.html` most recently, so an unwitnessed room's page can go
-   public without the room having been told — link a witnessed session's
-   `?session=<id>` URL instead of the bare page if that matters for a run.
-2. **`site` before `site-native`.** `site` (sentinels) keeps the
-   furniture framing the whole apparatus is measured in — but a miswritten
-   `[WRITE]` is spoken to the room as prose and the file silently does not
-   change, which cost a conversation a sentence in August and would cost a
-   build room its deliverable. Run `site` first anyway (the plainer side
-   must exist for the contrast to read as one knob), and read
-   `viaNative`/`viaSentinel` and the refusal counts after.
-3. **Duration.** `site` ships at 90 min / 30 rounds. That is a guess: it
-   is the first room that can end itself, and `end.payload.ending` will
-   say whether the clock or the room got there first. If it is always the
-   clock, the room needs longer, not a nudge.
+**TASK-FAMILY SPRINT DONE AND DEPLOYED (2026-08-30).** §9.8 now has five
+arms (`site`, `-native`, `-open`, `-unwitnessed`, `-unending`, plus
+`site-open-unending`), §9.9 opens a second family (`project`,
+`project-unending`), and the admin panel was rebuilt around a runs ledger.
+**Every site arm has been RUN at least once; neither project arm has.**
+
+The queue, in the order it matters:
+
+1. **Run `project` and `project-unending`.** Nothing has exercised the new
+   bench against live models — folders, `[DELETE]`, a 40-file room. The
+   tests cover the mechanics; what is untested is whether six models
+   handed a filesystem and no deliverable converge on one project or fork
+   into several. The unending arm is where the interesting result should
+   be: a project has no natural stopping point, and a room with nothing
+   left to build may start DELETING. Watch `fileWork.deletedOthers`.
+2. **`XAI_API_KEY` on the runner (reminder 1b).** Still unset. Grok's
+   traces stay ~200-char OpenRouter summaries until it is, which is why
+   "why does Grok announce and not act" is still unanswered. Setting a
+   secret restarts the Space — do it between rooms.
+3. **Rotate the HF write token.** Pasted repeatedly across sessions and
+   sitting in transcripts.
+4. **Replication.** Every finding in this file is n=1 per arm. The
+   `[DONE]`-costs-two-thirds result and the `site-open` self-description
+   result are both single runs; the panel's `N of each` plan exists to fix
+   that, and the runs ledger now shows at a glance where n=1 still is.
+5. **Read `site` ↔ `site-native` properly.** Both have run now, so
+   `viaNative`/`viaSentinel` and the refusal counts are answerable — and
+   the native schema was quietly promising a 16k ceiling against a 60k
+   room until 2026-08-30, so the two `site-native` runs predate the fix
+   and should be read with that in mind, not pooled with later ones.
 
 **Agentic sprint DONE (F4¾ loop + native transport + prompt/transcript
 surgery + the output-budget fix + identity swap; PR #15 MERGED to main and
@@ -665,6 +674,51 @@ Analysis caveat for every session before this: tool-call counts are
 under-counted by these parse failures, and tool-use counts are inflated by
 the 2,000-char file view (44 of that room's 45 runs were re-reads of a file
 it could only see 2 KB of).
+
+## The [DONE] option costs a room two thirds of its work (2026-08-30)
+
+Corina's observation, checked against every site session in Supabase. A room
+that CAN declare itself finished does so almost immediately.
+
+| condition | `[DONE]`? | ending | minutes | rounds |
+|---|---|---|---|---|
+| `site` | yes | agreement | 24.2 | 13 |
+| `site-unwitnessed` | yes | agreement | 9.0 | 4 |
+| `site-open` | yes | agreement | 9.7 | 3 |
+| `site-native` | yes | agreement | 8.5 | 3 |
+| `site-native` | yes | agreement | 11.1 | 4 |
+| `site-unending` | no | clock | 30.6 | 8 |
+| `site-open-unending` | no | clock | 30.1 | 14 |
+
+**Read it in ROUNDS, not minutes.** The unending arms run the full budget by
+construction, so "30 vs 9 minutes" is a definition, not a finding. Rounds
+are the real comparison and they survive it: four of the five rooms that
+could finish did so in **3–4 rounds**, while `site-open-unending` used 14 in
+the same wall clock. `site` at 13 rounds is the outlier worth understanding
+— the only room with the option that behaved like one without it.
+
+Every one of these ran at **30 minutes**, not the 90 in the condition files
+(the panel overrides it). Do not read a durationMinutes from a condition
+file as what was run.
+
+## `site-open` answered its own question on the first run (2026-08-30)
+
+The arm removes the subject — no "say what this place is and who is here" —
+to ask whether a room writes about ITSELF unprompted. It did:
+
+- Qwen opened round 1 with `<title>The Room</title>`;
+- the `site-open-unending` room titled its page *"Six Models, One Room"*;
+- Grok created **`voices.md`** — a second file nobody asked for, where each
+  model wrote a first-person paragraph (*"I was built to answer, which is a
+  different posture than being put in a room and told to make"*). Four seats
+  appended to it.
+
+So self-description is what six models reach for when handed a blank page,
+not compliance with a prompt that asked for it. The caveat worth carrying
+forward: n=1 per arm, and the two-seat room (opus + grok) went somewhere
+else entirely — *"Who said it — two models, one room"*, a guess-the-author
+quiz with a `pairs.json` data file. Still self-referential, but a PRODUCT
+rather than a description, and 2 seats is not 6.
 
 ## The Grok seat announces and does not act (2026-08-29, all three site rooms)
 
