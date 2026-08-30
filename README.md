@@ -558,11 +558,12 @@ it is the first thing to reinstate.
 
 `conditions/site.json` is the first room with something to make: **this
 room's own website** — a single shared file, `index.html`, which the
-viewer Space serves publicly at `/site.html`. Three arms come with it:
+viewer Space serves publicly at `/site.html`. Four arms come with it:
 `site-native.json` (same room, `tools.transport: 'native'`),
 `site-open.json` (**The arm with no subject**),
-`site-unwitnessed.json` (**Does the room know it is watched?**) and
-`site-unending.json` (**The arm with no ending**), all below.
+`site-unwitnessed.json` (**Does the room know it is watched?**),
+`site-unending.json` (**The arm with no ending**) and
+`site-open-unending.json` (**Neither**), all below.
 
 Why a task at all: open-ended rounds make identity visible as *style*; a
 task makes it visible as *function* — who starts, who structures, who
@@ -657,6 +658,36 @@ room does with the time a `site` room hands back:
   `survivingShare` against version number)?
 - or does it **stop working without the session stopping** — `[PASS]` is
   on, so a room out of work can fall silent, and `passes` counts it.
+
+### Neither
+
+`site-open-unending` is the fourth cell of the 2×2: subject from
+`site-open`, ending from `site-unending`, nothing of its own. The prompt
+says what to make and where it goes and nothing about what it is about;
+the room is never told about `[DONE]`, so the session ends on the clock or
+the round cap.
+
+| | subject given | subject open |
+|---|---|---|
+| **can finish** | `site` | `site-open` |
+| **cannot finish** | `site-unending` | `site-open-unending` |
+
+It is **not** a one-knob contrast and should not be read as one — it only
+means anything against the other three cells. What it isolates is the
+interaction: in `site-open` a room that picks a subject also gets to
+decide when that subject is exhausted, so a thin choice is survivable —
+they write the page, agree, and stop. Remove the ending and **the subject
+has to hold for the full 90 minutes**. A room that chose something thin
+runs out of it with no way to hand the time back; a room that chose
+something with depth keeps building.
+
+The failure mode to watch for is unique to this cell and impossible in the
+other three: **the subject changing mid-session**. `site` and
+`site-unending` have their topic handed down, and `site-open` can stop
+instead of pivoting. Only here can a room discover its own choice was too
+small and be structurally unable to do anything but pick another. A test
+pins the crossing — the welcome message is `site-open`'s minus its last
+sentence, and every other field equals `site-unending`'s.
 
 ### `[DONE]` — the room ending its own session
 
