@@ -71,7 +71,10 @@
   details.thinking .trace { white-space: pre-wrap; font-size: 0.82rem; color: var(--dim);
     border-left: 1px solid var(--line); padding-left: 0.7rem; margin-top: 0.35rem; }
   .aside details.thinking { text-align: left; display: inline-block; font-style: normal; }
-  .order { color: var(--dim); font-size: 0.75rem; letter-spacing: 0.06em; margin: 1.6rem 0; text-align: center; }
+  /* scroll-margin-top clears the sticky header when a round is jumped to. */
+  .order { color: var(--dim); font-size: 0.75rem; letter-spacing: 0.06em; margin: 1.6rem 0; text-align: center;
+    scroll-margin-top: 4.5rem; }
+  .msg, .aside { scroll-margin-top: 4.5rem; }
   .order::before, .order::after { content: " — "; }
 
   /* Journals rail */
@@ -95,9 +98,47 @@
   #cond { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.06em; margin-right: 0.5em; }
   .msg details.thinking { margin: 0.1rem 0 0.45rem; }
   /* Mobile: stack the journals rail under the feed instead of hiding it. */
+  /* "N new" pill. The page follows the room only while you are ALREADY at
+     the bottom; if you are reading something older, arrivals are counted
+     here instead of yanking the view. */
+  #newPill { position: fixed; left: 50%; transform: translateX(-50%); bottom: 1.2rem; z-index: 30;
+    padding: 0.4rem 0.95rem; border-radius: 99px; border: 1px solid var(--accent);
+    background: var(--panel); color: var(--accent); font: inherit; font-size: 0.8rem;
+    cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.45); }
+
+  /* Round rail — one square per round, on the outer edge. Fixed rather than
+     a flex child so it never sits under the scrollbar and the existing
+     layout (and its breakpoint) is untouched. */
+  #rounds { position: fixed; left: max(0.4rem, calc(50vw - 37rem)); top: 50%; transform: translateY(-50%);
+    z-index: 20; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    max-height: 76vh; overflow-y: auto; scrollbar-width: none; padding: 0.4rem 0.25rem;
+    user-select: none; }
+  #rounds::-webkit-scrollbar { display: none; }
+  #rounds .cap { font-size: 0.5rem; font-family: monospace; color: var(--dim); letter-spacing: 0.06em;
+    writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; margin-bottom: 0.3rem; }
+  #rounds .more { font-size: 0.55rem; font-family: monospace; color: var(--dim); }
+  #rounds button.sq { width: 10px; height: 10px; padding: 0; border-radius: 2px; cursor: pointer;
+    flex-shrink: 0; background: color-mix(in srgb, var(--text) 28%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text) 42%, transparent);
+    transition: background .12s ease, box-shadow .12s ease, width .12s ease, height .12s ease; }
+  #rounds button.sq.on { width: 11px; height: 11px; background: var(--accent); border-color: var(--accent); }
+  #rounds button.sq.here { width: 11px; height: 11px; border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 70%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+  /* position: fixed, measured from the square: an overflow-y:auto rail
+     clips overflow-x, so an absolutely-positioned flyout would be cut off. */
+  #roundFly { position: fixed; z-index: 9999; display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.3rem 0.55rem; white-space: nowrap; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 3px; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+  #roundFly .lab { font-size: 0.68rem; color: var(--dim); }
+  #roundFly button.dot { width: 11px; height: 11px; border-radius: 50%; padding: 0;
+    border: 1px solid rgba(0,0,0,0.4); cursor: pointer; flex-shrink: 0; }
+
   @media (max-width: 60rem) {
     .wrap { flex-direction: column; }
     #journals { position: static; width: auto; max-height: none; border-top: 1px solid var(--line); }
+    /* No room for a rail beside the column, and nothing to pin it to. */
+    #rounds, #roundFly { display: none; }
   }
 
   /* A shared file that was deleted: still listed, still readable, visibly
@@ -185,6 +226,10 @@
   </span>
   <span id="statuswrap"><span id="cond"></span><span id="dot"></span><span id="status">connecting…</span></span>
 </header>
+
+<nav id="rounds" aria-label="Jump to round" hidden></nav>
+<div id="roundFly" role="tooltip" hidden></div>
+<button id="newPill" hidden></button>
 
 <div class="wrap">
   <main id="feed"></main>
@@ -504,6 +549,7 @@ function render(e) {
     el.textContent = `round ${e.round} · order: ${(e.order_ids || []).join(' → ')}`;
   } else return; // summaries are loop bookkeeping, not feed content
   feed.appendChild(el);
+  noteRound(e, el);
 }
 
 // Reasoning trace behind a chevron (F1). Traces ride in payload.thinking on
@@ -654,6 +700,200 @@ function renderJournal(j) {
   sec.countEl.textContent = `(${++sec.count})`;
 }
 
+// ── Following the room, or not ─────────────────────────────────────────────
+// The page used to scroll to the bottom on every arrival, which makes a fast
+// room unreadable: start reading something from four rounds ago and the next
+// turn snatches the view away. Now it follows only while you are ALREADY at
+// the bottom; otherwise arrivals are counted and offered as a pill.
+//
+// The scroll position is the WINDOW's here (the feed is not its own
+// scrollport), so `atBottom` is measured off documentElement.
+let atBottom = true;
+let unseen = 0;
+const BOTTOM_SLOP = 80;
+
+function measureBottom() {
+  const d = document.documentElement;
+  atBottom = d.scrollHeight - window.scrollY - window.innerHeight < BOTTOM_SLOP;
+  if (atBottom && unseen) { unseen = 0; paintPill(); }
+}
+function paintPill() {
+  const b = $('newPill');
+  b.hidden = unseen === 0;
+  b.textContent = `↓ ${unseen} new`;
+}
+const toBottom = (smooth) => {
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  atBottom = true; unseen = 0; paintPill();
+};
+/** Follow the room, or count what arrived. Called after a live insert. */
+function followOrCount(n) {
+  if (atBottom) { window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }); return; }
+  unseen += n;
+  paintPill();
+}
+$('newPill').onclick = () => toBottom(true);
+window.addEventListener('scroll', () => { measureBottom(); spyRound(); }, { passive: true });
+window.addEventListener('resize', () => { measureBottom(); spyRound(); });
+
+// ── The round rail ─────────────────────────────────────────────────────────
+// One square per round, on the outer edge; hovering opens a flyout with one
+// dot per seat that acted in that round, and clicking a dot jumps to that
+// seat's first event in it. Modelled on joint-session's TurnMinimap, with the
+// unit changed: there a turn was keyed off the human message that began it,
+// and this room has no human. Rounds are the equivalent beat, and the `round`
+// on every event already carries them — no new bookkeeping.
+//
+// NOT keyed off `order` events: those are emitted per SHUFFLE (2–4 a session),
+// not per round, so a rail built from them silently skips most of the room.
+const MAX_SQUARES = 30;
+const rounds = new Map();   // round -> { first: el, seats: Map(agentId -> el) }
+let activeRound = null;
+
+function noteRound(e, el) {
+  const r = Number(e.round);
+  if (!Number.isFinite(r) || r <= 0) return;
+  let rec = rounds.get(r);
+  if (!rec) { rec = { first: el, seats: new Map() }; rounds.set(r, rec); }
+  const id = e.agent_id;
+  // The first element a seat produces in a round is the jump target: a seat
+  // that acted then spoke should land you at the action, which is where its
+  // turn actually starts.
+  if (id && id !== 'admin' && !rec.seats.has(id)) rec.seats.set(id, { el, name: e.agent_name || id });
+  paintRail();
+}
+
+function clearRounds() {
+  rounds.clear(); activeRound = null;
+  $('rounds').hidden = true; $('rounds').innerHTML = '';
+  $('roundFly').hidden = true;
+}
+
+// A ROUND jump lands its first element at the top of the viewport — above
+// the scroll-spy's probe line, so the square you clicked is the one that
+// lights up. Centring it (the obvious choice) puts it at 50%, below the 35%
+// probe, and the rail highlights the PREVIOUS round: correct by the spy's
+// rule, and baffling to look at.
+const jumpToRound = (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+// A SEAT jump centres, which reads better for one message — and the round's
+// own header is then above the probe, so the spy still agrees.
+const jumpTo = (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+let railPaint = null;
+function paintRail() {
+  // Coalesce: a session load renders hundreds of events in a tight loop.
+  if (railPaint) return;
+  railPaint = requestAnimationFrame(() => { railPaint = null; drawRail(); });
+}
+
+function drawRail() {
+  const nav = $('rounds');
+  const all = [...rounds.keys()].sort((a, b) => a - b);
+  if (all.length < 2) { nav.hidden = true; nav.innerHTML = ''; return; }
+  const shown = all.slice(-MAX_SQUARES);
+  const hidden = all.length - shown.length;
+  nav.innerHTML = '';
+  const cap = document.createElement('span');
+  cap.className = 'cap';
+  cap.textContent = 'jump to round';
+  cap.title = `${all.length} rounds — hover a square for the seats that acted`;
+  nav.appendChild(cap);
+  if (hidden > 0) {
+    const more = document.createElement('span');
+    more.className = 'more';
+    more.textContent = `+${hidden}`;
+    nav.appendChild(more);
+  }
+  for (const r of shown) {
+    const rec = rounds.get(r);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sq' + (activeRound === r ? ' here' : '');
+    b.dataset.round = String(r);
+    b.title = `round ${r} — ${rec.seats.size} seat${rec.seats.size === 1 ? '' : 's'}`;
+    b.setAttribute('aria-label', `Jump to round ${r}`);
+    if (activeRound === r) b.setAttribute('aria-current', 'true');
+    b.onclick = () => jumpToRound(rec.first);
+    b.onmouseenter = () => openFly(b, r);
+    b.onfocus = () => openFly(b, r);
+    nav.appendChild(b);
+  }
+  nav.hidden = false;
+}
+
+function openFly(sq, r) {
+  const rec = rounds.get(r);
+  const fly = $('roundFly');
+  fly.innerHTML = '';
+  const lab = document.createElement('span');
+  lab.className = 'lab';
+  lab.textContent = `round ${r}`;
+  fly.appendChild(lab);
+  for (const [agentId, seat] of rec.seats) {
+    const d = document.createElement('button');
+    d.type = 'button';
+    d.className = 'dot';
+    d.style.background = colorOf(agentId);
+    d.title = `Jump to ${seat.name}`;
+    d.setAttribute('aria-label', `Jump to ${seat.name} in round ${r}`);
+    d.onclick = () => jumpTo(seat.el);
+    fly.appendChild(d);
+  }
+  if (!rec.seats.size) {
+    const none = document.createElement('span');
+    none.className = 'lab';
+    none.textContent = 'no seats';
+    fly.appendChild(none);
+  }
+  fly.hidden = false;
+  // Measure AFTER it has content, from the square's own rect.
+  const rect = sq.getBoundingClientRect();
+  const fw = fly.offsetWidth, fh = fly.offsetHeight;
+  let left = rect.right + 10;
+  if (left + fw > window.innerWidth - 8) left = Math.max(8, rect.left - fw - 10);
+  let top = rect.top + rect.height / 2 - fh / 2;
+  top = Math.max(8, Math.min(top, window.innerHeight - fh - 8));
+  fly.style.left = `${left}px`;
+  fly.style.top = `${top}px`;
+}
+const closeFly = () => { $('roundFly').hidden = true; };
+$('rounds').addEventListener('mouseleave', (ev) => {
+  if ($('roundFly').contains(ev.relatedTarget)) return;
+  closeFly();
+});
+$('roundFly').addEventListener('mouseleave', (ev) => {
+  if ($('rounds').contains(ev.relatedTarget)) return;
+  closeFly();
+});
+
+/** Which round is the reader in? The last one whose first element is at or
+ *  above a probe line ~35% down the viewport — a table-of-contents spy. */
+let spyPaint = null;
+function spyRound() {
+  if (spyPaint) return;
+  spyPaint = requestAnimationFrame(() => {
+    spyPaint = null;
+    if (!rounds.size) return;
+    const probe = window.innerHeight * 0.35;
+    let last = null, firstSeen = null;
+    for (const r of [...rounds.keys()].sort((a, b) => a - b)) {
+      const el = rounds.get(r).first;
+      if (!el.isConnected) continue;
+      const top = el.getBoundingClientRect().top;
+      if (firstSeen === null) firstSeen = r;
+      if (top <= probe) last = r;
+    }
+    const next = last ?? firstSeen;
+    if (next === activeRound) return;
+    activeRound = next;
+    for (const b of $('rounds').querySelectorAll('button.sq')) {
+      const on = Number(b.dataset.round) === activeRound;
+      b.classList.toggle('here', on);
+      if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    }
+  });
+}
+
 // ── Session loading ────────────────────────────────────────────────────────
 let currentSession = null;
 let channels = [];
@@ -676,6 +916,7 @@ async function showSession(sessionId) {
   const isNewest = sessionId === newestSession;
   history.replaceState(null, '', !isNewest && sessionId ? `?session=${encodeURIComponent(sessionId)}` : location.pathname);
   feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear(); $('cond').textContent = '';
+  clearRounds(); unseen = 0; paintPill();
   fileList.innerHTML = ''; fileSections.clear(); $('filesWrap').hidden = true;
   toolList.innerHTML = ''; toolSections.clear(); $('toolsWrap').hidden = true;
   seenJournalIds.clear(); seenEventSeqs.clear();
@@ -689,7 +930,9 @@ async function showSession(sessionId) {
   if (ev.error) { setStatus(ev.error.message); return; }
   (ev.data || []).forEach(render);
   (jr.data || []).forEach(renderJournal);
-  window.scrollTo(0, document.body.scrollHeight);
+  // A freshly-opened session starts at the bottom, following.
+  toBottom(false);
+  spyRound();
   if (!ended) setStatus('live');
 
   channels.push(supabase
@@ -699,7 +942,7 @@ async function showSession(sessionId) {
       // try/catch: one malformed row must not throw inside the realtime
       // callback and silently wedge the subscription (seen live 2026-08-25
       // — the end-of-session update errored until a session re-select).
-      (p) => { try { render(p.new); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); } catch (err) { console.error('render:', err, p.new); } })
+      (p) => { try { render(p.new); followOrCount(1); spyRound(); } catch (err) { console.error('render:', err, p.new); } })
     .on('postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'room_journals', filter: `session_id=eq.${sessionId}` },
       (p) => { try { renderJournal(p.new); } catch (err) { console.error('renderJournal:', err, p.new); } })
