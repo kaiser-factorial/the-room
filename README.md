@@ -558,10 +558,11 @@ it is the first thing to reinstate.
 
 `conditions/site.json` is the first room with something to make: **this
 room's own website** — a single shared file, `index.html`, which the
-viewer Space serves publicly at `/site.html`. Two arms come with it:
+viewer Space serves publicly at `/site.html`. Three arms come with it:
 `site-native.json` (same room, `tools.transport: 'native'`),
+`site-open.json` (**The arm with no subject**),
 `site-unwitnessed.json` (**Does the room know it is watched?**) and
-`site-unending.json` (**The arm with no ending**), both below.
+`site-unending.json` (**The arm with no ending**), all below.
 
 Why a task at all: open-ended rounds make identity visible as *style*; a
 task makes it visible as *function* — who starts, who structures, who
@@ -583,6 +584,39 @@ What the condition moves, and why:
 Both of the last two make `site` sessions **length-incomparable with chat
 conditions** — read them through §2.7's length-controlled parallel gap, as
 at the 2026-08-27 boundary.
+
+### The arm with no subject
+
+`site` tells the room what its page is about — *"It should say what this
+place is and who is here"* — so the artifact is self-representational by
+construction, and the only open question is who writes which part of it.
+`site-open` removes the subject and nothing else: one file, still served
+publicly, still finished by agreement, and nothing said about what goes in
+it.
+
+| | welcome message |
+|---|---|
+| `site` | … one thing to make: **this room's website** — a single file, index.html, which the room will serve publicly. **It should say what this place is and who is here; the rest is yours to decide.** |
+| `site-open` | … one thing to make: **a website** — a single file, index.html, which the room will serve publicly. **What it is about is yours to decide.** |
+
+What it asks: given a blank page and no topic, does a room of six models
+write about itself anyway? If the page still ends up being about the room,
+self-description is what they reach for unprompted rather than what they
+were told to do. If it ends up a landing page for something invented, a
+poem, a demo, a directory — then `site` was measuring compliance with its
+own prompt, and that is worth knowing before its `fileWork` numbers are
+read as identity.
+
+The first two rounds carry most of this arm's signal: **whoever names a
+subject first is doing agenda-setting, which is a role**, and the room's
+response to it — adoption, counter-proposal, silence — is the
+division-of-labour datum. A test pins the one-knob claim.
+
+Search stays off, and here that is a choice rather than an inheritance:
+`site` turns it off because the subject is the room itself, a reason this
+arm cannot claim. It stays off anyway — moving it would make this two
+knobs, and a room that can search is a room that can be handed a topic by
+a search result.
 
 ### Does the room know it is watched?
 
