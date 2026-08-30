@@ -488,5 +488,8 @@ export type RoomEvent =
    *  ending = WHY the session stopped (§9.8). Absent on every session
    *  before the completion axis existed, where the answer was always the
    *  clock or the round cap. 'agreement' is the one that says the room
-   *  decided; the others say the apparatus did. */
-  | { kind: 'end'; ts: string; round: number; payload: { adminTouched: boolean; traceSeats?: string[]; ending?: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile' } };
+   *  decided; the others say the apparatus did.
+   *  rounds = how many rounds actually opened, so a ledger can report it
+   *  without scanning the session. Absent on sessions recorded before
+   *  2026-08-30, where it has to be counted from the rows. */
+  | { kind: 'end'; ts: string; round: number; payload: { adminTouched: boolean; rounds?: number; traceSeats?: string[]; ending?: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile' } };

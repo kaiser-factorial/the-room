@@ -43,8 +43,11 @@ leaves).
   feeds a `plan`: one each / N each interleaved / autopilot (gap, N sets or
   forever). Summary line states the plan in sessions before start; nothing
   preselected. **runs** is the ledger: sessions grouped by arm with counts,
-  actual/budgeted minutes, ending, seats, and links into chat + site page
-  (reads only `meta`/`end` events). Stop semantics per README. Rebuilt
+  actual/budgeted minutes, rounds, ending, seats, and links into chat +
+  page, behind a task/chat filter (a task room = its condition carries a
+  `completion` target, NOT a name prefix). Reads only `meta`/`end`; the
+  `end` event stamps `rounds` since 2026-08-30, and older sessions are
+  counted from their rows (paged, missing-only). Stop semantics per README. Rebuilt
   2026-08-30 — it used to ask "which condition" in three places with
   undocumented precedence; the wire format is unchanged.
   Commands ride Supabase `room_control` via the `room-admin` edge fn

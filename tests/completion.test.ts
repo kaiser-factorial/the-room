@@ -106,6 +106,14 @@ test('a withdrawal keeps the room open; the clock is what ends it', async () => 
   assert.ok(!systemTexts(es).some((t) => /The room agreed/.test(t)), 'never unanimous, never closed');
   const end = es.find((e) => e.kind === 'end');
   assert.equal(end?.kind === 'end' && end.payload.ending, 'rounds');
+  // The end event counts the rounds that actually opened, so the runs ledger
+  // does not have to scan a whole session to report it.
+  assert.equal(end?.kind === 'end' && end.payload.rounds, 2);
+  assert.equal(
+    end?.kind === 'end' && end.payload.rounds,
+    Math.max(...es.filter((e) => e.round > 0).map((e) => e.round)),
+    'and it agrees with the rows',
+  );
 });
 
 test('a write to the target clears every standing vote, out loud', async () => {

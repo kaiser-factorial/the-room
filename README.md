@@ -855,9 +855,20 @@ session each, N of each interleaved, or autopilot rotating them. A summary
 line spells the plan out in sessions before you press start ("4 sessions —
 2 conditions × 2, 30 min each, 6 seats"). Nothing is preselected: an arm
 has to be chosen deliberately. `runs` is the ledger — every session grouped
-by arm, with run counts, actual/budgeted minutes, how it ended, which
-seats, and links into the chat and (for site arms) the page. It reads only
-the `meta` and `end` events, so it stays cheap as the record grows.
+by arm, with run counts, actual/budgeted minutes, rounds, how it ended,
+which seats, and links into the chat and (for task rooms) the page.
+A **task / chat** filter splits it: a *task room* is one that was handed
+something to make, and the mark of that is a `completion` block naming the
+artifact — deliberately not a `site-*` name check, so a future task arm
+called something else still lands on the right side. It reads only the
+`meta` and `end` events, so it stays cheap as the record grows.
+
+The `end` event now stamps `rounds`, the number of rounds that actually
+opened. Sessions recorded before 2026-08-30 don't carry it, so the ledger
+counts those from their rows — only the missing ones, only the
+`(session_id, round)` pair, and paged, since PostgREST caps a response at
+1000 rows and a silent truncation would under-report a long session. That
+fallback shrinks to nothing as stamped sessions accrue.
 
 The panel used to ask "which condition" in three places — a dropdown, a
 free-text batch field, and a second checkbox grid for autopilot — with

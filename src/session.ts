@@ -481,8 +481,14 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         ? 1
         : Number.POSITIVE_INFINITY; // fixed-random: one draw, kept forever
 
+  // How many rounds actually ran — stamped into the `end` event so a ledger
+  // does not have to scan every row of a session to count them. Set inside
+  // the body, after the break: a round that never opened is not a round.
+  let roundsRun = 0;
+
   for (let round = 1; round <= config.maxRounds; round++) {
     if (stopping || existsSync(stopFile) || Date.now() >= endAt) break;
+    roundsRun = round;
 
     if (roundsUntilShuffle <= 0 || order.length === 0) {
       order = shuffledOrder(config.agents, previousLast);
@@ -868,7 +874,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   // both arrive as the same stop.)
   ending ??= stopping ? 'admin' : existsSync(stopFile) ? 'stopfile' : Date.now() >= endAt ? 'clock' : 'rounds';
   record({ kind: 'system', ts: now(), round: -1, text: 'The session has ended.' });
-  record({ kind: 'end', ts: now(), round: -1, payload: { adminTouched, traceSeats: [...traceSeats].sort(), ...(ending ? { ending } : {}) } });
+  record({ kind: 'end', ts: now(), round: -1, payload: { adminTouched, rounds: roundsRun, traceSeats: [...traceSeats].sort(), ...(ending ? { ending } : {}) } });
   writeFileSync(join(sessionDir, 'summary-final.md'), summary || '(no rolling summary — full-context session or too short)');
   clog(`\nDone. Everything saved under ${sessionDir}`);
   return sessionId;

@@ -153,10 +153,19 @@
   .runs td { padding: 0.1rem 0.5rem 0.1rem 0; color: var(--dim); vertical-align: baseline;
     overflow: hidden; text-overflow: ellipsis; }
   .runs td.when { white-space: nowrap; }
-  .runs td:nth-child(1) { width: 8.4rem; }
-  .runs td:nth-child(2) { width: 7rem; }
-  .runs td:nth-child(3) { width: 5.5rem; }
-  .runs td:nth-child(5) { width: 4.6rem; }
+  .runs td:nth-child(1) { width: 7.4rem; }
+  .runs td:nth-child(2) { width: 6.4rem; }
+  .runs td:nth-child(3) { width: 3rem; }
+  .runs td:nth-child(4) { width: 4.8rem; }
+  /* Seats take the slack and wrap: a partial roster is a list of names, and
+     clipping it to an ellipsis loses exactly the thing the column is for. */
+  .runs td:nth-child(5) { overflow: visible; text-overflow: clip; white-space: normal; }
+  .runs td:nth-child(6) { width: 4.4rem; }
+  .seg { display: inline-flex; border: 1px solid var(--line); }
+  .seg button { background: none; border: none; color: var(--dim); font: inherit; font-size: 0.78rem;
+    padding: 0.2rem 0.6rem; letter-spacing: 0.04em; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { color: var(--text); background: rgba(111,206,111,0.1); }
   .runs a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line); }
   .runs a:hover { border-bottom-color: var(--accent); }
   .runs .agree { color: var(--accent); }
@@ -255,7 +264,13 @@
     <!-- RUNS. What has actually been run, by arm: how many, how long, which
          seats, and a link into each transcript. -->
     <section class="pane" data-panel="runs" hidden>
-      <div class="spread"><span class="lbl" id="runsSummary">…</span><button id="runsRefresh" type="button">refresh</button></div>
+      <div class="spread">
+        <span class="seg" id="runsFilter">
+          <button class="on" data-kind="all">all</button><button data-kind="task">task</button><button data-kind="chat">chat</button>
+        </span>
+        <button id="runsRefresh" type="button">refresh</button>
+      </div>
+      <div class="lbl" id="runsSummary">…</div>
       <div class="runs" id="runsBody"></div>
     </section>
 
@@ -952,13 +967,24 @@ $('sayBtn').onclick = async () => {
 
 // ── Runs: the ledger ───────────────────────────────────────────────────────
 // Which arms have actually been run, how many times, how long they lasted,
-// which seats were in them, and a way back into each transcript. Reads the
-// `meta` and `end` events only — the two rows per session that carry it.
+// how many rounds, which seats, and a way back into each transcript. Reads
+// the `meta` and `end` events — the two rows per session that carry it.
+//
+// TASK vs CHAT: a task room is one that was given something to make, and the
+// mark of that is a `completion` block naming the artifact (`target`). Every
+// site arm carries one — including the unending arms, where it is present
+// with `enabled: false` — and no open-ended condition does. Deliberately not
+// a name prefix: a future task condition that is not called site-* still
+// classifies correctly, as long as it declares what is being made.
 let RUNS = null;
+let runsKind = 'all';
+
+const isTask = (s) => !!s.completion?.target;
 
 async function fetchRuns() {
   const cols = 'session_id,kind,ts,cond:payload->condition->>name,mins:payload->>durationMinutes,'
-    + 'agents:payload->agents,ending:payload->>ending';
+    + 'agents:payload->agents,completion:payload->condition->completion,'
+    + 'ending:payload->>ending,rounds:payload->>rounds';
   let { data, error } = await supabase.from('room_events').select(cols)
     .in('kind', ['meta', 'end']).order('id', { ascending: true });
   if (error) {
@@ -970,7 +996,8 @@ async function fetchRuns() {
     data = (full.data || []).map((r) => ({
       session_id: r.session_id, kind: r.kind, ts: r.ts,
       cond: r.payload?.condition?.name, mins: r.payload?.durationMinutes,
-      agents: r.payload?.agents, ending: r.payload?.ending,
+      agents: r.payload?.agents, completion: r.payload?.condition?.completion,
+      ending: r.payload?.ending, rounds: r.payload?.rounds,
     }));
   }
   const byId = new Map();
@@ -979,10 +1006,42 @@ async function fetchRuns() {
     if (!s) { s = { id: r.session_id }; byId.set(r.session_id, s); }
     if (r.kind === 'meta') {
       // First meta wins: a re-stamped session keeps the run it started as.
-      if (!s.start) { s.cond = r.cond; s.mins = Number(r.mins) || null; s.agents = r.agents || []; s.start = r.ts; }
-    } else if (!s.end) { s.ending = r.ending; s.end = r.ts; }
+      if (!s.start) {
+        s.cond = r.cond; s.mins = Number(r.mins) || null; s.agents = r.agents || [];
+        s.completion = r.completion; s.start = r.ts;
+      }
+    } else if (!s.end) {
+      s.ending = r.ending; s.end = r.ts;
+      if (r.rounds != null) s.rounds = Number(r.rounds);
+    }
   }
-  return [...byId.values()].filter((s) => s.cond);
+  const runs = [...byId.values()].filter((s) => s.cond);
+  await fillRounds(runs);
+  return runs;
+}
+
+// Sessions recorded before the runner stamped `rounds` into the end event
+// have to be counted from their rows. Only those, and only the (session_id,
+// round) pair — so this shrinks to nothing as the stamped sessions accrue.
+// Paged, because PostgREST caps a response at 1000 rows and a silent
+// truncation here would under-report a long session's rounds.
+async function fillRounds(runs) {
+  const missing = runs.filter((s) => s.rounds == null).map((s) => s.id);
+  if (!missing.length) return;
+  const max = new Map();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from('room_events').select('session_id,round')
+      .in('session_id', missing).gte('round', 0)
+      .order('id', { ascending: true }).range(from, from + PAGE - 1);
+    if (error) return;                       // leave them blank rather than wrong
+    for (const r of data || []) {
+      const cur = max.get(r.session_id) ?? 0;
+      if (r.round > cur) max.set(r.session_id, r.round);
+    }
+    if (!data || data.length < PAGE) break;
+  }
+  for (const s of runs) if (s.rounds == null) s.rounds = max.get(s.id) ?? null;
 }
 
 const seatLabel = (agents) => {
@@ -994,13 +1053,21 @@ const seatLabel = (agents) => {
 function renderRuns() {
   const body = $('runsBody');
   body.innerHTML = '';
+  const all = RUNS;
+  const shown = runsKind === 'all' ? all : all.filter((s) => (runsKind === 'task') === isTask(s));
+  const tasks = all.filter(isTask).length;
+  for (const b of $('runsFilter').children) {
+    const k = b.dataset.kind;
+    b.classList.toggle('on', k === runsKind);
+    b.textContent = k === 'all' ? `all ${all.length}` : k === 'task' ? `task ${tasks}` : `chat ${all.length - tasks}`;
+  }
   const arms = new Map();
-  for (const s of RUNS) {
+  for (const s of shown) {
     if (!arms.has(s.cond)) arms.set(s.cond, []);
     arms.get(s.cond).push(s);
   }
-  const running = RUNS.filter((s) => !s.end).length;
-  $('runsSummary').textContent = `${RUNS.length} sessions · ${arms.size} arms`
+  const running = shown.filter((s) => !s.end).length;
+  $('runsSummary').textContent = `${shown.length} sessions · ${arms.size} arms`
     + (running ? ` · ${running} unfinished` : '');
   const order = [...arms.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
   for (const [cond, runs] of order) {
@@ -1015,40 +1082,51 @@ function renderRuns() {
     const table = document.createElement('table');
     for (const s of runs.sort((a, b) => (b.start || '').localeCompare(a.start || ''))) {
       const tr = document.createElement('tr');
-      const when = document.createElement('td');
-      when.className = 'when';
-      when.textContent = (s.start || s.id).slice(0, 16).replace('T', ' ');
-      const dur = document.createElement('td');
-      dur.className = 'when';
+      const td = (text, cls) => {
+        const c = document.createElement('td');
+        c.textContent = text; if (cls) c.className = cls;
+        return c;
+      };
       const actual = s.start && s.end
         ? ((new Date(s.end) - new Date(s.start)) / 60000).toFixed(1) : null;
-      dur.textContent = actual ? `${actual}/${s.mins ?? '?'} min` : `${s.mins ?? '?'} min · running`;
-      const how = document.createElement('td');
-      how.className = 'when';
-      how.textContent = s.ending || '—';
-      if (s.ending === 'agreement') how.className += ' agree';
-      const seats = document.createElement('td');
-      seats.textContent = seatLabel(s.agents);
+      const how = td(s.ending || '—', 'when' + (s.ending === 'agreement' ? ' agree' : ''));
       const link = document.createElement('td');
       link.className = 'when';
       const a = document.createElement('a');
       a.href = `?session=${encodeURIComponent(s.id)}`;
       a.textContent = 'chat';
       link.appendChild(a);
-      if (cond.startsWith('site')) {
+      // The site page only exists where the room was making one.
+      if (isTask(s)) {
         const b = document.createElement('a');
         b.href = `./site.html?session=${encodeURIComponent(s.id)}`;
-        b.textContent = 'site';
+        b.textContent = 'page';
         b.style.marginLeft = '0.5rem';
         link.appendChild(b);
       }
-      tr.append(when, dur, how, seats, link);
+      const seats = td(seatLabel(s.agents));
+      seats.title = (s.agents || []).map((a) => a.name || a.id).join(', ');
+      tr.append(
+        td((s.start || s.id).slice(0, 16).replace('T', ' '), 'when'),
+        td(actual ? `${actual}/${s.mins ?? '?'} min` : `${s.mins ?? '?'} min · running`, 'when'),
+        td(s.rounds != null ? `${s.rounds} rd` : '—', 'when'),
+        how,
+        seats,
+        link,
+      );
       table.appendChild(tr);
     }
     arm.append(h, table);
     body.appendChild(arm);
   }
 }
+
+$('runsFilter').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-kind]');
+  if (!b || !RUNS) return;
+  runsKind = b.dataset.kind;
+  renderRuns();
+});
 
 async function loadRuns(force) {
   if (RUNS && !force) return renderRuns();
