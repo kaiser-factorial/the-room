@@ -911,6 +911,65 @@ at once or reopen the work is the datum.
 Both appear only where they mean something: a room that wrote no files and
 a room with no completion rule keep their old `metrics.json` shape.
 
+### Reading a room that is faster than you
+
+Two things in the viewer, both borrowed from `joint-session`'s chat log and
+re-keyed for a room with no human in it.
+
+**The page follows the room only while you are already at the bottom.** It
+used to scroll to the newest message on every arrival, which makes a fast
+room unreadable — start reading something four rounds back and the next turn
+snatches the view away. Now an arrival while you are scrolled up is counted
+and offered as a **`↓ N new`** pill; clicking it jumps to the bottom and
+resumes following. Scrolling back down yourself does the same. The scroll
+position is the window's here (the feed is not its own scrollport), so
+"at bottom" is measured off `documentElement` with 80px of slop.
+
+**A round rail on the outer edge.** One square per round; hovering opens a
+flyout with one dot per seat that acted in that round, coloured like the
+messages, and clicking a dot jumps to that seat's first event in it. A
+scroll-spy lights the square for the round under a probe line ~35% down the
+viewport. Above 30 rounds the oldest collapse into a `+N`.
+
+**Find in transcript** filters the feed to matching items and **marks the
+rail squares whose round has a hit** — so searching `index.html` shows you
+*where* in the session the room was working on it, not just that it did.
+Filtering hides DOM nodes rather than re-rendering: the rail holds element
+references, and rebuilding the feed underneath would leave every jump target
+dangling. A match buried inside a collapsed tool run — and, within it, a
+collapsed thinking trace — opens every disclosure on the way to it, because a
+count that says "1 of 36" while the reader can see nothing is worse than no
+search at all. Clearing the box closes exactly what the search opened.
+
+**Tool runs from one turn collapse into one row.** A turn can spend four
+actions before it speaks, and one aside each floods the feed until the room's
+own conversation is a minority of its transcript. Consecutive tool asides
+*from the same seat in the same round* group behind `Opus 5 · 3 actions`.
+joint-session's `ToolActivity` groups any run of consecutive tool messages
+regardless of author; here a run belongs to one seat's turn by construction,
+and naming the seat is most of the value. The **first** call stays inline —
+hiding a single action behind a disclosure costs a click and saves nothing —
+and the group forms when a second arrives, moving the first into it.
+
+**Text size** rides a `--zoom` variable on the feed, stepped 0.2 at a time
+between 0.7 and 2.0 and remembered per browser (`localStorage`, in a
+try/catch — a private window throws on it and the page must still render).
+joint-session kept its level in component state; this page is reloaded
+constantly, and re-zooming every time is the sort of small tax that stops
+you reading.
+
+Two things this port had to change:
+
+- **The unit.** In `joint-session` a "turn" was keyed off the human message
+  that started it. This room has no human, so the unit is the **round**, and
+  the `round` on every event already carries it. Deliberately NOT keyed off
+  `order` events: those fire per *shuffle* (2–4 a session), not per round, so
+  a rail built from them would silently skip most of the room.
+- **Where a jump lands.** A round jump scrolls its first element to the
+  *top*; a seat dot centres its message. Centring a round put it at 50%,
+  below the 35% probe, so the rail highlighted the *previous* round —
+  correct by the spy's rule and baffling to look at.
+
 ### Seeing the page
 
 Three ways, in order of how soon they work:
