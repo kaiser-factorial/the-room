@@ -931,6 +931,26 @@ messages, and clicking a dot jumps to that seat's first event in it. A
 scroll-spy lights the square for the round under a probe line ~35% down the
 viewport. Above 30 rounds the oldest collapse into a `+N`.
 
+**Find in transcript** filters the feed to matching items and **marks the
+rail squares whose round has a hit** — so searching `index.html` shows you
+*where* in the session the room was working on it, not just that it did.
+Filtering hides DOM nodes rather than re-rendering: the rail holds element
+references, and rebuilding the feed underneath would leave every jump target
+dangling. A match buried inside a collapsed tool run — and, within it, a
+collapsed thinking trace — opens every disclosure on the way to it, because a
+count that says "1 of 36" while the reader can see nothing is worse than no
+search at all. Clearing the box closes exactly what the search opened.
+
+**Tool runs from one turn collapse into one row.** A turn can spend four
+actions before it speaks, and one aside each floods the feed until the room's
+own conversation is a minority of its transcript. Consecutive tool asides
+*from the same seat in the same round* group behind `Opus 5 · 3 actions`.
+joint-session's `ToolActivity` groups any run of consecutive tool messages
+regardless of author; here a run belongs to one seat's turn by construction,
+and naming the seat is most of the value. The **first** call stays inline —
+hiding a single action behind a disclosure costs a click and saves nothing —
+and the group forms when a second arrives, moving the first into it.
+
 **Text size** rides a `--zoom` variable on the feed, stepped 0.2 at a time
 between 0.7 and 2.0 and remembered per browser (`localStorage`, in a
 try/catch — a private window throws on it and the page must still render).

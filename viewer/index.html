@@ -98,6 +98,22 @@
   #cond { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.06em; margin-right: 0.5em; }
   .msg details.thinking { margin: 0.1rem 0 0.45rem; }
   /* Mobile: stack the journals rail under the feed instead of hiding it. */
+  #find { width: 12rem; font-size: 0.8rem; padding: 0.15rem 0.4rem; }
+  #findCount { font-size: 0.75rem; color: var(--dim); min-width: 4.5rem; }
+  /* A square whose round contains a search hit. */
+  #rounds button.sq.hit { background: var(--accent); border-color: var(--accent); }
+
+  /* A run of tool actions from one seat's turn, collapsed. */
+  details.toolrun { margin: 1.1rem 0; text-align: center; }
+  details.toolrun > summary { cursor: pointer; color: var(--dim); font-style: italic;
+    font-size: 0.9rem; list-style: none; }
+  details.toolrun > summary::-webkit-details-marker { display: none; }
+  details.toolrun > summary::before { content: "› "; }
+  details.toolrun[open] > summary::before { content: "⌄ "; }
+  details.toolrun .tbody { border-left: 1px solid var(--line); margin: 0.4rem 0 0 1rem;
+    padding-left: 0.8rem; text-align: left; }
+  details.toolrun .tbody .aside { margin: 0.7rem 0; }
+
   /* Text size. joint-session scaled its scrollport's font-size and kept the
      level in component state; here it rides a CSS variable on #feed and is
      remembered per browser, because this page is reloaded constantly and
@@ -231,6 +247,8 @@
   <span class="switch" id="views" hidden>
     <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a>
   </span>
+  <input id="find" type="search" placeholder="find in transcript…" autocomplete="off" />
+  <span id="findCount"></span>
   <span class="switch" id="zoom" title="text size">
     <a href="#" id="zoomOut" aria-label="Smaller text">−</a><a href="#" id="zoomIn" aria-label="Larger text">+</a>
   </span>
@@ -558,8 +576,55 @@ function render(e) {
     el.className = 'order';
     el.textContent = `round ${e.round} · order: ${(e.order_ids || []).join(' → ')}`;
   } else return; // summaries are loop bookkeeping, not feed content
-  feed.appendChild(el);
-  noteRound(e, el);
+  noteRound(e, placeInFeed(e, el));
+}
+
+// ── Tool-run grouping ──────────────────────────────────────────────────────
+// A turn can spend four actions before it speaks, and one aside each floods
+// the feed — the room's own conversation ends up a minority of its transcript.
+// Consecutive tool asides FROM THE SAME SEAT IN THE SAME ROUND collapse behind
+// one row ("Opus 5 · 3 actions"). joint-session's ToolActivity groups any run
+// of consecutive tool messages regardless of author; here a run belongs to one
+// seat's turn by construction, and saying whose turn it was is most of the
+// value, so the run is keyed on the seat.
+//
+// The FIRST call stays inline: hiding a single action behind a disclosure
+// costs a click and saves nothing. The group forms when a second arrives, and
+// the first is moved into it.
+const TOOL_KINDS = new Set(['file', 'run', 'search', 'source', 'config']);
+let toolRun = null;   // { agentId, round, count, details, body, firstEl }
+
+function placeInFeed(e, el) {
+  if (!TOOL_KINDS.has(e.kind) || !e.agent_id) {
+    toolRun = null;
+    feed.appendChild(el);
+    return el;
+  }
+  const sameRun = toolRun && toolRun.agentId === e.agent_id && toolRun.round === e.round;
+  if (!sameRun) {
+    toolRun = { agentId: e.agent_id, round: e.round, count: 1, details: null, body: null, firstEl: el };
+    feed.appendChild(el);
+    return el;
+  }
+  if (!toolRun.details) {
+    // Second call in the run: build the group and move the first one in.
+    const d = document.createElement('details');
+    d.className = 'toolrun';
+    const sum = document.createElement('summary');
+    const body = document.createElement('div');
+    body.className = 'tbody';
+    d.append(sum, body);
+    feed.replaceChild(d, toolRun.firstEl);
+    body.appendChild(toolRun.firstEl);
+    toolRun.details = d; toolRun.body = body;
+  }
+  toolRun.body.appendChild(el);
+  toolRun.count++;
+  const name = e.agent_name || e.agent_id;
+  toolRun.details.querySelector('summary').textContent = `${name} · ${toolRun.count} actions`;
+  // The GROUP is the round rail's jump target: landing on an element inside a
+  // collapsed disclosure scrolls to something the reader cannot see.
+  return toolRun.details;
 }
 
 // Reasoning trace behind a chevron (F1). Traces ride in payload.thinking on
@@ -767,6 +832,80 @@ $('newPill').onclick = () => toBottom(true);
 window.addEventListener('scroll', () => { measureBottom(); spyRound(); }, { passive: true });
 window.addEventListener('resize', () => { measureBottom(); spyRound(); });
 
+// ── Find in transcript ─────────────────────────────────────────────────────
+// A 30-round room is thousands of words and the interesting thing is usually
+// one phrase. Filters the feed to matching items — and marks the rail squares
+// whose round contains a hit, so a term like "index.html" shows you WHERE in
+// the session the room was working on it, not just that it did.
+//
+// Filtering hides DOM nodes rather than re-rendering: the round rail holds
+// element references, and rebuilding the feed under it would leave every jump
+// target dangling.
+let query = '';
+const hitRounds = new Set();
+// Disclosures the search opened, so clearing it puts the transcript back the
+// way it was rather than leaving a dozen traces hanging open.
+const autoOpened = new Set();
+
+function closeAutoOpened() {
+  for (const d of autoOpened) d.open = false;
+  autoOpened.clear();
+}
+
+/** Reveal a match wherever it is buried. A hit can sit inside a collapsed
+ *  tool run AND, within it, a collapsed thinking trace — the code and output
+ *  of a run are exactly what is worth searching in a build room, and a count
+ *  that says "1 of 36" while the reader can see nothing is worse than no
+ *  search at all. */
+function revealMatch(el) {
+  if (el.tagName === 'DETAILS' && !el.open) { el.open = true; autoOpened.add(el); }
+  for (const d of el.querySelectorAll('details')) {
+    if (!d.open && (d.textContent || '').toLowerCase().includes(query)) {
+      d.open = true; autoOpened.add(d);
+    }
+  }
+}
+
+function clearSearch() {
+  query = '';
+  const f = $('find');
+  if (f) f.value = '';
+  hitRounds.clear();
+  closeAutoOpened();
+  $('findCount').textContent = '';
+  for (const el of feed.children) el.hidden = false;
+}
+
+function runSearch() {
+  query = $('find').value.trim().toLowerCase();
+  hitRounds.clear();
+  closeAutoOpened();
+  if (!query) {
+    for (const el of feed.children) el.hidden = false;
+    $('findCount').textContent = '';
+    paintRail();
+    return;
+  }
+  let hits = 0, total = 0;
+  for (const el of feed.children) {
+    // Round separators are scaffolding, not content: they match nothing and
+    // would otherwise survive every search as noise.
+    if (el.classList.contains('order')) { el.hidden = true; continue; }
+    total++;
+    const match = (el.textContent || '').toLowerCase().includes(query);
+    el.hidden = !match;
+    if (match) {
+      hits++;
+      const r = Number(el.dataset.round);
+      if (Number.isFinite(r) && r > 0) hitRounds.add(r);
+      revealMatch(el);
+    }
+  }
+  $('findCount').textContent = `${hits} of ${total}`;
+  paintRail();
+}
+$('find').addEventListener('input', runSearch);
+
 // ── The round rail ─────────────────────────────────────────────────────────
 // One square per round, on the outer edge; hovering opens a flyout with one
 // dot per seat that acted in that round, and clicking a dot jumps to that
@@ -784,6 +923,9 @@ let activeRound = null;
 function noteRound(e, el) {
   const r = Number(e.round);
   if (!Number.isFinite(r) || r <= 0) return;
+  // Stamped so the search can say WHICH round a hit is in without walking
+  // back up the feed.
+  el.dataset.round = String(r);
   let rec = rounds.get(r);
   if (!rec) { rec = { first: el, seats: new Map() }; rounds.set(r, rec); }
   const id = e.agent_id;
@@ -839,7 +981,7 @@ function drawRail() {
     const rec = rounds.get(r);
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'sq' + (activeRound === r ? ' here' : '');
+    b.className = 'sq' + (activeRound === r ? ' here' : '') + (hitRounds.has(r) ? ' hit' : '');
     b.dataset.round = String(r);
     b.title = `round ${r} — ${rec.seats.size} seat${rec.seats.size === 1 ? '' : 's'}`;
     b.setAttribute('aria-label', `Jump to round ${r}`);
@@ -947,7 +1089,7 @@ async function showSession(sessionId) {
   const isNewest = sessionId === newestSession;
   history.replaceState(null, '', !isNewest && sessionId ? `?session=${encodeURIComponent(sessionId)}` : location.pathname);
   feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear(); $('cond').textContent = '';
-  clearRounds(); unseen = 0; paintPill();
+  clearRounds(); unseen = 0; paintPill(); toolRun = null; clearSearch();
   fileList.innerHTML = ''; fileSections.clear(); $('filesWrap').hidden = true;
   toolList.innerHTML = ''; toolSections.clear(); $('toolsWrap').hidden = true;
   seenJournalIds.clear(); seenEventSeqs.clear();
