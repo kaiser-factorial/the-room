@@ -378,7 +378,23 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **DEPLOYED 2026-08-29, three times, all verified.** Third pass: PR #18 merged (main
+0. **DEPLOYED 2026-08-29, four times, all verified.** Fourth pass: PR #19
+   merged (main `cb02517`) — the ten review fixes, the three transcript
+   fixes and `site-unending` — deployed as **viewer `1045189`, runner
+   `3a3a709`**. Probe idle before (5391s) and immediately before the runner
+   push (5420s). **Restart confirmed the RIGHT way this time: uptime 5420s
+   → 7s**, compared against the pre-deploy reading rather than a digit
+   count. Deployed source verified file by file: `parseActions` and
+   `looksLikeUnparsedCall` in parse.ts with the `[NOT DONE]` bracket rule,
+   `sentinelActions`/`unreadableCallNote`/`roundComplete` in session.ts,
+   `fileViewChars` + `requiredVotes` in context.ts, `requiredVotes` in
+   agentic.ts; both site arms carry `fileViewChars: 60000` and
+   `callFeedback: true`. Viewer serves 25 conditions with all four site
+   arms. **A live room today runs every call in a reply, parses a bracket
+   with its token on the next line, shows a task room its whole file, and
+   tells an unreadable caller it was heard as speech.** Still open before
+   the next Grok question: **XAI_API_KEY** (reminder 1b).
+0a. **DEPLOYED 2026-08-29, three times (earlier passes).** Third pass: PR #18 merged (main
    `7846d40`) — the prose-before-sentinel rescue, the three-silences fix
    and `site-unending` — deployed as **viewer `7f1c893`, runner
    `445c818`**. Probe checked before AND immediately before the runner
@@ -402,7 +418,7 @@ so an old session can be reproduced exactly, but the control moved.
    the restart is expected — but expected is not verified, and the first
    `site` session after a deploy is exactly what would silently run the
    old parser.
-0a. **DEPLOYED 2026-08-29, twice (the first two passes).** PR #16 merged (main `28f1a6f`), viewer
+0b. **DEPLOYED 2026-08-29, twice (the first two passes).** PR #16 merged (main `28f1a6f`), viewer
    `3f7ead7`, runner `12bf1f1`; then PR #17 (main `3200b2c`) put the
    site page's metadata-only fetch on the viewer — **viewer `b1c9e4f`**,
    runner untouched and deliberately NOT redeployed (the diff was
@@ -438,7 +454,7 @@ so an old session can be reproduced exactly, but the control moved.
    read-only and never returns a token.* **TWO tokens are now owed a
    rotation: the one pasted on 2026-08-28, and the one pasted for this
    deploy on 2026-08-29.**
-0c. **The previous deploy record — 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
+0d. **The previous deploy record — 2026-08-28, twice.** PR #15 merged (main `188cfb8`) and both
    Spaces deployed (runner `07a6d27`, viewer `137ed59`); then the floor +
    identity work (main `6bbccf5`) deployed on top — runner `568daed`,
    viewer `79c83ed`, verified live at 22:22 UTC (probe idle before, uptime
