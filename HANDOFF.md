@@ -413,7 +413,45 @@ so an old session can be reproduced exactly, but the control moved.
    distance 2, so `[GOURNAL]` and friends leaked the same way.) Sessions
    with hits are not unusable; they are unusable *as journal-privacy data*.
 
-0a. **DEPLOYED 2026-08-30 (third pass) — §9.10, the journal leak, and the
+0a. **DEPLOYED 2026-08-30 (fourth pass) — the viewer's reading tools.**
+   PR #27 merged (main `41c90a0`) → **viewer `468be6d`. The runner was
+   deliberately NOT redeployed**: `git diff --name-only 771a004 HEAD --
+   src conditions` returned **0 files**, so the runner Space still runs
+   `f0a27f9` and is byte-current with main. Only `viewer/index.html`,
+   `README.md` and `HANDOFF.md` changed. Verified after: `index.html` 200
+   and byte-identical to the repo apart from HF's injected
+   `window.huggingface` tag (2 diff lines), all five features present in
+   the served bytes (`id="rounds"`, `id="newPill"`, `id="find"`,
+   `id="zoom"`, `details.toolrun` ×7, `placeInFeed` ×2, `revealMatch`
+   ×2), `site.html` 200, `conditions.json` lists **31**.
+
+   What went live:
+   - **The round rail** — a square per round down the right edge, click to
+     jump, hover for the seats that spoke that round. Rounds come from the
+     same counter the runs ledger uses. Jump lands with `block: 'start'`
+     plus `scroll-margin-top` — `'center'` put the target *below* the 35%
+     scroll-spy probe and lit the previous round.
+   - **No more yanking** — the feed only auto-follows when you are already
+     at the bottom; otherwise a `↓ N new` pill counts what arrived and
+     scrolls only when clicked.
+   - **Find** (`revealMatch` opens every disclosure on the path to a hit —
+     a match inside a collapsed tool run inside a collapsed thinking trace
+     used to read "1 of 36" with nothing on screen; clearing the search
+     re-closes only what the search opened).
+   - **Tool-run grouping** — a seat's consecutive tool actions collapse
+     into one `details.toolrun` instead of N feed rows.
+   - **Text size** — a zoom control on `--zoom`, remembered in
+     `localStorage`.
+
+   One verification gap worth knowing: the headless-Chromium smoke test
+   against the **deployed** page could not run from this container —
+   `page.goto` returns `net::ERR_CONNECTION_RESET` for
+   `brick-factorial-the-room.static.hf.space` on every attempt, while
+   `curl` to the same URL returns 200. That is the container's network
+   path to the HF static host, not the deploy. The Playwright checks in
+   `scratchpad/verify-*.mjs` all run against the LOCAL file and passed.
+
+0b. **DEPLOYED 2026-08-30 (third pass) — §9.10, the journal leak, and the
    sentinel matrix.** PR #25 merged (main `771a004`) → **viewer `e7157f3`,
    runner `f0a27f9`**. Probe idle before (18588s) and immediately before the
    runner push (18658s); **restart confirmed 18658s → 11s**, numerically
