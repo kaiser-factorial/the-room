@@ -931,6 +931,13 @@ messages, and clicking a dot jumps to that seat's first event in it. A
 scroll-spy lights the square for the round under a probe line ~35% down the
 viewport. Above 30 rounds the oldest collapse into a `+N`.
 
+**Text size** rides a `--zoom` variable on the feed, stepped 0.2 at a time
+between 0.7 and 2.0 and remembered per browser (`localStorage`, in a
+try/catch — a private window throws on it and the page must still render).
+joint-session kept its level in component state; this page is reloaded
+constantly, and re-zooming every time is the sort of small tax that stops
+you reading.
+
 Two things this port had to change:
 
 - **The unit.** In `joint-session` a "turn" was keyed off the human message

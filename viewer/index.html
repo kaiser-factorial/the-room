@@ -98,6 +98,13 @@
   #cond { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.06em; margin-right: 0.5em; }
   .msg details.thinking { margin: 0.1rem 0 0.45rem; }
   /* Mobile: stack the journals rail under the feed instead of hiding it. */
+  /* Text size. joint-session scaled its scrollport's font-size and kept the
+     level in component state; here it rides a CSS variable on #feed and is
+     remembered per browser, because this page is reloaded constantly and
+     re-zooming every time is the kind of small tax that stops you reading. */
+  #feed { font-size: var(--zoom, 1rem); }
+  #zoom a { font-family: inherit; min-width: 1.6rem; text-align: center; }
+
   /* "N new" pill. The page follows the room only while you are ALREADY at
      the bottom; if you are reading something older, arrivals are counted
      here instead of yanking the view. */
@@ -223,6 +230,9 @@
   <span id="clock"></span>
   <span class="switch" id="views" hidden>
     <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a>
+  </span>
+  <span class="switch" id="zoom" title="text size">
+    <a href="#" id="zoomOut" aria-label="Smaller text">−</a><a href="#" id="zoomIn" aria-label="Larger text">+</a>
   </span>
   <span id="statuswrap"><span id="cond"></span><span id="dot"></span><span id="status">connecting…</span></span>
 </header>
@@ -699,6 +709,27 @@ function renderJournal(j) {
   sec.body.appendChild(entry);
   sec.countEl.textContent = `(${++sec.count})`;
 }
+
+// ── Text size ──────────────────────────────────────────────────────────────
+// Same shape as joint-session's: clamped, 0.2 steps. Persisted (try/catch —
+// a private window throws on localStorage and the viewer must still render).
+const ZOOM_MIN = 0.7, ZOOM_MAX = 2.0;
+let zoom = 1;
+try { zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number(localStorage.getItem('room-zoom')) || 1)); } catch {}
+function applyZoom() {
+  feed.style.setProperty('--zoom', `${zoom}rem`);
+  try { localStorage.setItem('room-zoom', String(zoom)); } catch {}
+}
+const stepZoom = (d) => (ev) => {
+  ev.preventDefault();
+  zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((zoom + d) * 10) / 10));
+  applyZoom();
+  // The rail's squares are positioned from live geometry, so re-measure.
+  spyRound();
+};
+$('zoomIn').onclick = stepZoom(0.2);
+$('zoomOut').onclick = stepZoom(-0.2);
+applyZoom();
 
 // ── Following the room, or not ─────────────────────────────────────────────
 // The page used to scroll to the bottom on every arrival, which makes a fast
