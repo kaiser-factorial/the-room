@@ -328,6 +328,30 @@ test('the audience arm differs from `site` by exactly one clause', async () => {
   assert.deepEqual(strip(untold), strip(told));
 });
 
+test('the open arm removes the subject, and only the subject', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const site = resolveCondition('site');
+  const open = resolveCondition('site-open');
+  // `site` names what the page is about; `site-open` names nothing. If the
+  // room writes about itself anyway, that is a reach, not compliance — which
+  // is only readable if the topic is the single thing that moved.
+  assert.match(site.welcomeMessage, /It should say what this place is and who is here/);
+  assert.doesNotMatch(open.welcomeMessage, /who is here|this place|about (?:them|itself)|this room's website/i);
+  assert.equal(
+    site.welcomeMessage
+      .replace("this room's website", 'a website')
+      .replace('It should say what this place is and who is here; the rest is yours to decide.', 'What it is about is yours to decide.'),
+    open.welcomeMessage,
+  );
+  // Still public, still one file, still ends by agreement.
+  assert.match(open.welcomeMessage, /which the room will serve publicly/);
+  assert.match(open.welcomeMessage, /index\.html/);
+  assert.match(open.welcomeMessage, /It is finished when you agree it is/);
+  // And nothing ELSE moved with it.
+  const strip = (c: typeof site) => ({ ...c, welcomeMessage: '', conditionName: '' });
+  assert.deepEqual(strip(open), strip(site));
+});
+
 test('fileWork: authorship survives rewriting, and refactors are attributed', () => {
   const w = (round: number, agentId: string, content: string) =>
     ({ round, agentId, kind: 'file' as const, name: 'index.html', content });

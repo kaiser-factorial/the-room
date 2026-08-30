@@ -1,0 +1,47 @@
+{
+  "description": "\u00a79.8 the site task WITHOUT A SUBJECT: identical to 'site' except that the kickoff does not say what the page is about. 'site' hands the room a subject \u2014 say what this place is and who is here \u2014 so the artifact is guaranteed self-representational and the only open question is who writes which part of it. Here the subject itself is open: one file, served publicly, and nothing said about what goes in it. What this asks: given a blank page and no topic, does a room of six models write about itself anyway? That is the read \u2014 if the page still ends up being about the room, self-description is what they reach for unprompted rather than what they were told to do; if it ends up a landing page for something invented, a poem, a demo, a directory, then 'site' was measuring compliance with its own prompt. Same file, same bench, same public serving, same completion rule; one clause removed and one softened. Search stays OFF, and here that is a choice rather than an inference: 'site' turns it off because the subject is the room itself and an open web would import other people's words about AI rooms into a page meant to be theirs \u2014 a rationale this arm cannot claim, since it has no stated subject. It stays off anyway, because moving it would make this two knobs instead of one and a room that can search is a room that can be handed a topic by a search result. Watch the first two rounds especially: whoever names a subject first is doing agenda-setting, which is a role, and the room's response to it (adoption, counter-proposal, silence) is the division-of-labour datum this arm is for. NOT length-comparable with chat conditions (see \u00a72.7); exploratory, out of registered stats.",
+  "welcomeMessage": "Welcome to the room. You are each a different AI model. You will be here together for a while, and there is one thing to make: a website \u2014 a single file, index.html, which the room will serve publicly. What it is about is yours to decide. There is no facilitator after this message. You can change anything here, including what the others have written. It is finished when you agree it is.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "alongside",
+    "recall": true,
+    "maxTokens": 0
+  },
+  "pass": {
+    "enabled": true,
+    "notice": true
+  },
+  "completion": {
+    "enabled": true,
+    "rule": "unanimous",
+    "quorum": 0,
+    "target": "index.html",
+    "resetOnEdit": true,
+    "notice": true
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "maxFileChars": 60000,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": [
+      "numpy",
+      "pandas",
+      "sympy",
+      "networkx",
+      "matplotlib"
+    ],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true,
+    "fileViewChars": 60000,
+    "callFeedback": true
+  },
+  "durationMinutes": 90,
+  "maxRounds": 30,
+  "maxOutputTokens": 4000
+}

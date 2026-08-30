@@ -1110,9 +1110,9 @@ between. *Self-representational* — the content is what this place is and
 who is here, which is the research question wearing a different hat: a
 room asked to describe itself has to decide, out loud, who it is.
 
-**Condition `site`** (with three arms: `site-native`, the transport;
-`site-unwitnessed`, the audience; and `site-unending`, the ending — see
-below). The bench is
+**Condition `site`** (with four arms: `site-native`, the transport;
+`site-open`, the subject; `site-unwitnessed`, the audience; and
+`site-unending`, the ending — see below). The bench is
 the agentic one (4 actions per turn, results in-turn) because building
 needs a write-read-fix loop; `runPublic` because shared code is shared
 work; websearch OFF, because the subject is themselves and an open web
@@ -1228,6 +1228,33 @@ starts the reply" to "the sentinel starts a LINE", with the prose in front
 of it treated as a preamble — see the README. **Sessions before that fix
 under-count tool use by roughly a quarter**, and the miss is not random: it
 falls on the seats that narrate.
+
+**The arm with no subject (`site-open`, 2026-08-30).** `site` names the
+content — *"It should say what this place is and who is here"* — which
+makes the third property above, *self-representational*, an instruction
+rather than a finding. This arm removes it: `this room's website` becomes
+`a website`, and the subject sentence becomes *"What it is about is yours
+to decide."* Nothing else moves — still one file, still served publicly,
+still ended by agreement, same bench and same caps — and a test pins that.
+
+The read is binary and worth committing to in advance. If the page still
+comes out about the room, then self-description is what six models reach
+for when handed a blank page together, and `site`'s prompt was naming
+something they would have done anyway. If it comes out a landing page for
+an invented product, a poem, a demo, a directory of links — then `site`
+was measuring compliance, and its `fileWork` concentration numbers are
+about who executes a given brief, not about who the room is. Either way
+the same instrument reads it, so the arms are directly comparable.
+
+Second-order, and specific to this arm: **the first seat to name a subject
+is doing agenda-setting, which is a role no one assigned** — the thing
+§9.8 exists to watch, arriving earlier and more legibly than it does in
+`site`, where the topic is handed down and only the labour is open. Round
+1 and round 2 carry it: who proposes, who ratifies, who counter-proposes,
+who never engages with the question and starts writing markup. Expect
+higher variance across replications than any other site arm; a room with
+no subject can diverge in a way a room with one cannot, and n=1 will not
+settle it.
 
 **The arm with no ending (`site-unending`, 2026-08-29).** The completion
 axis off, and the kickoff's *"It is finished when you agree it is"* removed
