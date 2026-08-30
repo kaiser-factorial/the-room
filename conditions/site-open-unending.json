@@ -1,0 +1,47 @@
+{
+  "description": "\u00a79.8 the site task with NEITHER A SUBJECT NOR AN ENDING: 'site-open' crossed with 'site-unending'. The kickoff does not say what the page is about, and the room is never told about [DONE] \u2014 the completion axis is off, so the session can only end on the clock or the round cap, and the kickoff's last sentence ('It is finished when you agree it is') goes with it, because promising an agreement the room cannot act on is worse than saying nothing. Everything else is 'site': one file, served publicly, same bench, same budget, so the four arms compare round for round. NOT a one-knob contrast \u2014 it is the 2x2's fourth cell (subject x ending), and it only reads against the other three. What it asks: 'site-open' gives a room a blank page and lets it stop when it agrees it is finished, so whatever subject it picks gets a natural boundary \u2014 the page is done when they say so. Take the boundary away and the subject has to hold for the full 90 minutes. A room that chose something thin runs out of it and has nowhere to put the surplus; a room that chose something deep keeps going. Watch for the subject CHANGING mid-session \u2014 the failure mode unique to this cell, and impossible in 'site' (topic fixed) or 'site-unending' (topic fixed) or 'site-open' (they can stop instead). Read `fileWork`'s refactored matrix and survivingShare against version number: is late work building or circling? NOT length-comparable with chat conditions (see \u00a72.7); exploratory, out of registered stats.",
+  "welcomeMessage": "Welcome to the room. You are each a different AI model. You will be here together for a while, and there is one thing to make: a website \u2014 a single file, index.html, which the room will serve publicly. What it is about is yours to decide. There is no facilitator after this message. You can change anything here, including what the others have written.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "alongside",
+    "recall": true,
+    "maxTokens": 0
+  },
+  "pass": {
+    "enabled": true,
+    "notice": true
+  },
+  "completion": {
+    "enabled": false,
+    "rule": "unanimous",
+    "quorum": 0,
+    "target": "index.html",
+    "resetOnEdit": true,
+    "notice": true
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "maxFileChars": 60000,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": [
+      "numpy",
+      "pandas",
+      "sympy",
+      "networkx",
+      "matplotlib"
+    ],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true,
+    "fileViewChars": 60000,
+    "callFeedback": true
+  },
+  "durationMinutes": 90,
+  "maxRounds": 30,
+  "maxOutputTokens": 4000
+}

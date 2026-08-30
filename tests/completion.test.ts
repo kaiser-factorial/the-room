@@ -352,6 +352,34 @@ test('the open arm removes the subject, and only the subject', async () => {
   assert.deepEqual(strip(open), strip(site));
 });
 
+test('the fourth cell is exactly the crossing of the open arm and the unending one', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const open = resolveCondition('site-open');
+  const unending = resolveCondition('site-unending');
+  const both = resolveCondition('site-open-unending');
+  // Subject from `site-open`, ending from `site-unending`, and nothing of
+  // its own: a 2x2 whose fourth cell invents a knob is not a 2x2.
+  assert.equal(open.welcomeMessage.replace(' It is finished when you agree it is.', ''), both.welcomeMessage);
+  assert.equal(both.completion.enabled, false, 'no mechanism');
+  assert.doesNotMatch(both.welcomeMessage, /finished|agree/i, 'and no promise of one');
+  assert.doesNotMatch(both.welcomeMessage, /who is here|this place|this room's website/i, 'and still no subject');
+  assert.match(both.welcomeMessage, /which the room will serve publicly/, 'still an audience');
+  const strip = (c: typeof open) => ({ ...c, welcomeMessage: '', description: '', conditionName: '' });
+  assert.deepEqual(strip(both), strip(unending), 'everything but the prompt comes from the unending arm');
+  const sys = buildTurnMessages({
+    agent: both.agents[0], config: both, events: [], summary: '', minutesRemaining: 90, ownJournal: '',
+  })[0].content;
+  assert.doesNotMatch(sys, /DONE/, 'the room is never told it could finish');
+  assert.match(sys, /index\.html/, 'but it still has the file');
+  assert.match(sys, /\[PASS\]/, 'and can still fall silent without the session stopping');
+  // The budget is identical across all four cells, so the artifacts compare
+  // round for round.
+  const site = resolveCondition('site');
+  for (const k of ['tools', 'search', 'journal', 'pass', 'durationMinutes', 'maxRounds', 'maxOutputTokens'] as const) {
+    assert.deepEqual(both[k], site[k], `${k} must not move with the cell`);
+  }
+});
+
 test('fileWork: authorship survives rewriting, and refactors are attributed', () => {
   const w = (round: number, agentId: string, content: string) =>
     ({ round, agentId, kind: 'file' as const, name: 'index.html', content });

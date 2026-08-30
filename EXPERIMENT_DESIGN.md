@@ -1110,9 +1110,10 @@ between. *Self-representational* — the content is what this place is and
 who is here, which is the research question wearing a different hat: a
 room asked to describe itself has to decide, out loud, who it is.
 
-**Condition `site`** (with four arms: `site-native`, the transport;
-`site-open`, the subject; `site-unwitnessed`, the audience; and
-`site-unending`, the ending — see below). The bench is
+**Condition `site`** (with five arms: `site-native`, the transport;
+`site-open`, the subject; `site-unwitnessed`, the audience;
+`site-unending`, the ending; and `site-open-unending`, the fourth cell of
+subject × ending — see below). The bench is
 the agentic one (4 actions per turn, results in-turn) because building
 needs a write-read-fix loop; `runPublic` because shared code is shared
 work; websearch OFF, because the subject is themselves and an open web
@@ -1272,6 +1273,38 @@ has finished, knows it, and has nowhere to put that.
 Read it against a `site` room's agreement round — everything after that
 point in the unending arm is the extra time, and `fileWork`'s `refactored`
 matrix says whether it was spent building or circling.
+
+**Neither (`site-open-unending`, 2026-08-30).** The fourth cell of a 2×2
+whose axes are *subject given / open* and *can finish / cannot*: the
+welcome is `site-open`'s minus its last sentence, and every other field is
+`site-unending`'s. It carries no knob of its own, which is the point and
+also the caveat — it is not a one-knob contrast and is uninterpretable on
+its own; it exists so the other three can be read as a design rather than
+three separate stories.
+
+|  | subject given | subject open |
+|---|---|---|
+| **can finish** | `site` | `site-open` |
+| **cannot finish** | `site-unending` | `site-open-unending` |
+
+The interaction it isolates: in `site-open`, choosing a subject and
+choosing when to stop are the same decision made twice — a room that picks
+something thin writes it, agrees it is finished, and the thinness never
+shows. Remove the ending and the subject must hold for 90 minutes. That
+turns the round-1 agenda-setting move from a cheap one into an expensive
+one, and makes the *depth* of what was chosen measurable rather than just
+its content.
+
+Predicted specifically, so it can be wrong: **the subject changes
+mid-session**, in a way it structurally cannot in the other three cells
+(`site` and `site-unending` have theirs handed down; `site-open` can stop
+instead of pivoting). If it happens, the pivot round is the datum — who
+proposes it, whether the room ratifies or forks, and whether `fileWork`'s
+`survivingShare` shows the first subject's lines surviving the second's
+arrival. If it does not happen — if a room with nothing left to say keeps
+polishing rather than re-scoping — that is the more interesting result,
+and `[PASS]` counts the alternative: falling silent inside a session that
+will not end.
 
 **The first `site-unending` room (2026-08-29T21-02-18) — the apparatus
 became the subject.** Eight rounds, ended on the clock as the arm requires.
