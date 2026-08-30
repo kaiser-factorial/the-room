@@ -391,7 +391,22 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **NEW 2026-08-30, NOT YET DEPLOYED — §9.10 the whittling arms.**
+0. **NEW 2026-08-30, NOT YET DEPLOYED — the journal leak (parse.ts).**
+   Corina caught a full `[JOURNAL]…[/JOURNAL]` block spoken to the room
+   (DeepSeek, `site-unending` 2026-08-30T17-58-49). Cause: the mid-message
+   rescue is a WHITELIST and the journal was never added — `lineStartSentinel`
+   was not even passed the journal config, and the accept-gate listed tool
+   actions and votes only. So `[JOURNAL]` worked ONLY as the first thing in
+   a reply; prose-then-journal was spoken whole. Not arm-specific: one
+   `parseReply` serves every condition (18 of 29 have a journal — 7 replace,
+   11 alongside), so the fix lands everywhere at once. The prose before the
+   block is now the preamble and still reaches the room. **Reversed a
+   deliberate prior decision**: a test pinned "a journal open mid-reply
+   stays speech — rescuing it would change what is private", which has the
+   privacy backwards (not rescuing speaks the entry). Also: replace-mode
+   entries were storing their own `[/JOURNAL]` tag.
+
+0a. **NEW 2026-08-30, NOT YET DEPLOYED — §9.10 the whittling arms.**
    `site-open-whittle` + `project-whittle`: one knob,
    `completion.muteOnDone`, which makes `[DONE]` cost your voice — a
    standing seat is no longer routed to, so the room's population shrinks

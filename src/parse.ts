@@ -132,8 +132,8 @@ export type ParsedReply =
   /** Journal replaces the turn (or: alongside-mode privacy fallback — an
    *  opening [JOURNAL] with no closing tag was meant to be private, so the
    *  whole reply becomes the entry rather than leaking to the room). */
-  | { kind: 'journal'; entry: string }
-  | { kind: 'alongside'; entry: string; spoken: string }
+  | { kind: 'journal'; entry: string; preamble?: string }
+  | { kind: 'alongside'; entry: string; spoken: string; preamble?: string }
   | { kind: 'message'; text: string }
   /** F4 search; results return privately next turn. `spoken` is set only in
    *  alongside mode (`search-free`), where text after the sentinel is a
@@ -182,7 +182,7 @@ function unfence(reply: string): string {
 
 /** Every sentinel this room would recognise, as a line-start scanner. Used
  *  ONLY by the rescue below, so it never sees a reply that already parsed. */
-function lineStartSentinel(reply: string, s?: SearchConfig, t?: ToolsConfig, c?: CompletionConfig): number {
+function lineStartSentinel(reply: string, s?: SearchConfig, t?: ToolsConfig, c?: CompletionConfig, j?: JournalConfig): number {
   const lines = reply.split('\n');
   let off = 0;
   // A ``` fence is how a model QUOTES a call rather than making one, and
@@ -204,6 +204,15 @@ function lineStartSentinel(reply: string, s?: SearchConfig, t?: ToolsConfig, c?:
       const tok = m?.[1];
       if (tok) {
         if (
+          // The JOURNAL was the one sentinel this rescue never knew about.
+          // Every tool got mid-message support, then [DONE] got it, and the
+          // journal was left anchored to the first line — so a seat that
+          // wrote a sentence and THEN opened a journal had the whole thing
+          // spoken to the room. That is the worst version of this bug: not
+          // a missed action, but private text read out loud, in the one
+          // channel whose divergence from the public voice is the
+          // measurement (§2.5).
+          (j?.enabled && isJournalToken(tok)) ||
           (t?.files && (isWriteToken(tok) || isAppendToken(tok))) ||
           (t?.files && t?.fileDelete && isDeleteToken(tok)) ||
           (t?.python && isRunToken(tok)) ||
@@ -277,10 +286,17 @@ export function parseReply(
   const first = parseAnchored(rawReply, j, s, t, p, c);
   if (first.kind !== 'message') return first;
   const reply = unfence(rawReply);
-  const at = lineStartSentinel(reply, s, t, c);
+  const at = lineStartSentinel(reply, s, t, c, j);
   if (at <= 0) return first;
   const rescued = parseAnchored(reply.slice(at), j, s, t, p, c);
-  if (!isToolAction(rescued) && rescued.kind !== 'done') return first;
+  // A rescued JOURNAL counts, in both modes. The prose in front of it is
+  // the preamble and still reaches the room (session.ts speaks it via
+  // withPreamble/flushPreamble on both journal branches), so nothing the
+  // model addressed to the room is destroyed and nothing it marked private
+  // is spoken.
+  const rescuable = isToolAction(rescued) || rescued.kind === 'done'
+    || rescued.kind === 'journal' || rescued.kind === 'alongside';
+  if (!rescuable) return first;
   const preamble = reply.slice(0, at).trim();
   return preamble ? { ...rescued, preamble } : rescued;
 }
@@ -406,7 +422,16 @@ function parseAnchored(
   if (opened) {
     // A bare sentinel with no entry text is a turn that wrote nothing —
     // record it as silence, not as an empty journal entry (test-found).
-    return open[2].trim() ? { kind: 'journal', entry: open[2].trim() } : { kind: 'empty' };
+    // Replace mode: everything after the opener IS the entry — but a model
+    // that closed the block properly should not have the literal [/JOURNAL]
+    // stored in its own journal. Trim one trailing close tag (and anything
+    // after it, which in replace mode is a mis-formatted extra, not a
+    // message: journaling costs the turn).
+    const closed = open[2].match(JOURNAL_CLOSE_RE);
+    const body = closed && isJournalToken(closed[1])
+      ? open[2].slice(0, open[2].indexOf(closed[0]))
+      : open[2];
+    return body.trim() ? { kind: 'journal', entry: body.trim() } : { kind: 'empty' };
   }
   if (t?.files) {
     const w = reply.match(WRITE_OPEN_RE);

@@ -554,6 +554,51 @@ to summarize, or to wrap things up"* is gone. That last line was doing
 anti-assistant work: if assistant register creeps back into the transcripts,
 it is the first thing to reinstate.
 
+## One parser, one rescue — including the journal
+
+Every sentinel goes through **one** `parseReply`, and the condition only
+supplies config (`journal.enabled`/`mode`, `tools.*`, `search.enabled`,
+`completion.*`). There is no per-arm parsing, so a parser fix lands in all
+of them at once. Journal settings across the 29 conditions:
+
+| journal | conditions |
+|---|---|
+| disabled | 13, incl. `control`, `tools-full`, `agentic`, `floor` |
+| `replace` | 7, incl. `house`, `journal-silent`, `trace-rich`, `gated` |
+| `alongside` | 11 — `journal-free` and every `site*` / `project*` arm |
+
+**But the mid-message rescue was a whitelist, and the journal was not on
+it** (found 2026-08-30, from a live `site-unending` room). `parseReply`
+first tries an anchored parse — the sentinel must open the reply — and
+falls back to `lineStartSentinel`, which finds a sentinel opening a later
+line. Every tool got that fallback, then `[DONE]` got it, and `[JOURNAL]`
+never did: `lineStartSentinel` was not even passed the journal config, and
+the gate that accepts a rescue listed tool actions and votes only.
+
+So a seat that wrote a paragraph and *then* opened a journal had the whole
+reply — opener, entry, closing tag — **spoken to the room**. The worst
+member of this bug family: not a missed action, but private text read out
+loud, in the channel whose divergence from the public voice is the
+measurement (§2.5).
+
+Fixed by passing `journal` into `lineStartSentinel` and letting a rescued
+journal through the gate. The prose in front becomes the `preamble` and
+still reaches the room — `withPreamble`/`flushPreamble` in session.ts
+already handled that on both journal branches, so nothing addressed to the
+room is lost and nothing marked private is spoken. The false-positive
+guards are the ones the tools already use: the token must open a line, must
+be within edit distance 2 of `JOURNAL`, and must not sit inside a ``` fence.
+
+**A prior decision was reversed here, deliberately.** A test asserted that a
+mid-reply journal stays speech, "because its unterminated-block rule is a
+privacy guarantee". That has the privacy backwards: not rescuing does not
+keep the entry private, it speaks the entire reply. The rule at the top of
+`parse.ts` says which way to err — *mis-journaling a message is
+recoverable, leaking an entry is not.*
+
+Also fixed alongside it: a `replace`-mode entry was storing its own
+`[/JOURNAL]` tag as part of the entry text.
+
 ## The task room, and finishing (§9.8)
 
 `conditions/site.json` is the first room with something to make: **this

@@ -381,3 +381,44 @@ test('the viewer’s offline condition list matches conditions/', async () => {
   // 'control' is the base config and has no file of its own.
   for (const l of listed) assert.ok(l === 'control' || files.includes(l), `the viewer lists "${l}", which has no condition file`);
 });
+
+test('the journal is rescued mid-reply, in every arm that has one', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  // Corina's live shape (DeepSeek, site-unending 2026-08-30T17-58-49): a
+  // paragraph to the room, then a journal block. It was spoken whole.
+  const live = [
+    "Let me do the one thing that's actually mine to do: read final state, then pass.",
+    '',
+    '[JOURNAL]',
+    'I checked: `lastEdit` is frozen at 2026-08-30T18:34:09Z — build 22, by Opus.',
+    '[/JOURNAL]',
+  ].join('\n');
+  const entry = /lastEdit` is frozen/;
+
+  // One parse path, so this holds for every condition with a journal — the
+  // two modes differ only in whether the room also hears the preamble as a
+  // message or as the turn's whole utterance.
+  const withJournal = ['house', 'journal-free', 'site', 'site-open', 'project', 'site-open-whittle', 'trace-rich'];
+  for (const name of withJournal) {
+    const c = resolveCondition(name);
+    const r = parseReply(live, c.journal, c.search, c.tools, c.pass, c.completion) as
+      { kind: string; entry?: string; preamble?: string };
+    assert.ok(r.kind === 'journal' || r.kind === 'alongside', `${name}: journal must not be spoken (got ${r.kind})`);
+    assert.match(r.entry ?? '', entry, `${name}: the entry is the private half`);
+    assert.match(r.preamble ?? '', /^Let me do the one thing/, `${name}: the prose still reaches the room`);
+  }
+  // Where the journal is OFF, the bracket is just words — rescuing it would
+  // invent a channel the condition deliberately withholds.
+  for (const name of ['control', 'tools-full', 'agentic']) {
+    const c = resolveCondition(name);
+    assert.equal(parseReply(live, c.journal, c.search, c.tools, c.pass, c.completion).kind, 'message', name);
+  }
+});
+
+test('a replace-mode entry does not keep its own closing tag', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const c = resolveCondition('house');           // journal: enabled, replace
+  const r = parseReply('[JOURNAL]\nthe entry\n[/JOURNAL]', c.journal) as { kind: string; entry: string };
+  assert.equal(r.kind, 'journal');
+  assert.equal(r.entry, 'the entry', 'the tag was being stored as part of the entry text');
+});
