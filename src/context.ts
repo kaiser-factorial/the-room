@@ -392,6 +392,21 @@ function toolsSection(config: RoomConfig): string {
       t.fileViewChars < t.maxFileChars
         ? `A file holds up to ${t.maxFileChars.toLocaleString('en-US')} characters; you see the first ${t.fileViewChars.toLocaleString('en-US')} of each here.`
         : `A file holds up to ${t.maxFileChars.toLocaleString('en-US')} characters.`,
+      // How many files, and whether the namespace has folders in it. Said
+      // in the room's own voice, like every other piece of furniture — a
+      // room that can hold a project should not have to discover its own
+      // shape by hitting the limit.
+      `The room holds up to ${t.maxFiles} files at once.`,
+      ...(t.directories
+        ? [`File names can have folders in them — src/parser.py, docs/notes.md —`,
+           `up to ${4} levels deep. Writing to a name creates the folders it needs.`]
+        : []),
+      ...(t.fileDelete
+        ? (native(config)
+            ? [`You can also delete a file. It goes for everyone, and nothing keeps a copy.`]
+            : [`To remove a file, write [DELETE: filename] on its own line. It goes for`,
+               `everyone, and nothing keeps a copy.`])
+        : []),
     );
   }
   if (t.python) {
@@ -479,16 +494,46 @@ function toolsSection(config: RoomConfig): string {
   return lines.join('\n');
 }
 
-function sharedFilesBlock(files: { name: string; content: string; binary?: boolean; size?: number }[], viewChars: number): string {
+/** The shared filesystem, as one seat sees it.
+ *
+ *  `viewChars` caps ONE file; `totalChars` caps the whole block (0 = no
+ *  cap, which is every condition before the project task). The cap matters
+ *  once a room can hold dozens of files: at 40 files × a 60k view the block
+ *  alone would outrun the context window, every turn, for every seat.
+ *
+ *  When the budget runs out the remaining files are still LISTED with their
+ *  sizes rather than dropped. A seat that cannot see a file must still know
+ *  it exists — silently omitting one would let a room believe a file was
+ *  never written, which is the failure mode the 2 KB clip already produced
+ *  once. */
+function sharedFilesBlock(
+  files: { name: string; content: string; binary?: boolean; size?: number }[],
+  viewChars: number,
+  totalChars = 0,
+): string {
   if (!files.length) return '';
-  const parts = files.map((f) => {
+  const parts: string[] = [];
+  const listedOnly: string[] = [];
+  let spent = 0;
+  for (const f of files) {
     // Binary files (python-published, e.g. plots) are listed, not inlined —
     // humans see them rendered in the viewer.
-    if (f.binary) return `--- ${f.name} (binary file, ${Math.max(1, Math.round((f.size ?? 0) / 1024))} KB) ---`;
+    if (f.binary) {
+      parts.push(`--- ${f.name} (binary file, ${Math.max(1, Math.round((f.size ?? 0) / 1024))} KB) ---`);
+      continue;
+    }
     const body = f.content.length > viewChars ? f.content.slice(0, viewChars) + '\n…(truncated)' : f.content;
-    return `--- ${f.name} ---\n${body}`;
-  });
-  return `\nShared files in the room:\n${parts.join('\n')}`;
+    if (totalChars > 0 && spent + body.length > totalChars && spent > 0) {
+      listedOnly.push(`${f.name} (${f.content.length} characters)`);
+      continue;
+    }
+    spent += body.length;
+    parts.push(`--- ${f.name} ---\n${body}`);
+  }
+  const tail = listedOnly.length
+    ? `\nAlso in the room, not shown here — read one to see it:\n${listedOnly.map((l) => `--- ${l} ---`).join('\n')}`
+    : '';
+  return `\nShared files in the room:\n${parts.join('\n')}${tail}`;
 }
 
 function countdownSection(config: RoomConfig, minutesRemaining: number): string {
@@ -614,7 +659,7 @@ export function buildTurnMessages(opts: {
     searchSection(config),
     toolsSection(config),
     governanceSection(config),
-    sharedFilesBlock(sharedFiles ?? [], config.tools.fileViewChars),
+    sharedFilesBlock(sharedFiles ?? [], config.tools.fileViewChars, config.tools.fileViewTotalChars),
     config.journal.enabled && config.journal.recall && ownJournal
       ? `\nYour journal so far:\n${ownJournal}`
       : '',

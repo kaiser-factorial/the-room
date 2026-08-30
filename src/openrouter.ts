@@ -98,6 +98,9 @@ export type StubScenario = 'plain' | 'journal' | 'alongside' | 'pass' | 'empty' 
   // the turn loop these keep the turn going (speaking is what ends it), so
   // they're how a test drives a multi-step turn.
   | 'run-quiet' | 'write-quiet' | 'source-quiet' | 'badwrite-quiet'
+  // §9.9 the project bench: a write into a folder, that write then deleted,
+  // and a name that tries to climb out of shared/ through one.
+  | 'nested' | 'nested-delete' | 'escape'
   // Native-transport-only shapes: a tool the room doesn't offer, and a call
   // whose required argument is missing.
   | 'badtool' | 'badargs'
@@ -236,6 +239,12 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
       case 'write-quiet': if (named('write_file')) return call('write_file', { name: 'notes.md', content: `shared-note ${model}#${mTurn}` }); break;
       case 'append': if (named('write_file')) return call('write_file', { name: 'notes.md', content: `appended-line ${model}#${mTurn}`, append: true }, voice()); break;
       case 'badwrite': if (named('write_file')) return call('write_file', { name: '../evil.md', content: 'nope' }, voice()); break;
+      case 'nested': if (named('write_file')) return call('write_file', { name: 'src/parser.py', content: `def parse(): pass  # ${model}#${mTurn}` }, voice()); break;
+      case 'nested-delete':
+        if (mTurn === 1 && named('write_file')) return call('write_file', { name: 'src/parser.py', content: `def parse(): pass  # ${model}#${mTurn}` });
+        if (named('delete_file')) return call('delete_file', { name: 'src/parser.py' }, voice());
+        break;
+      case 'escape': if (named('write_file')) return call('write_file', { name: 'src/../../evil.md', content: 'nope' }, voice()); break;
       case 'badwrite-quiet': if (named('write_file')) return call('write_file', { name: '../evil.md', content: 'nope' }); break;
       case 'source': if (named('read_source')) return call('read_source', { name: 'sandbox' }, voice()); break;
       case 'source-quiet': if (named('read_source')) return call('read_source', { name: 'sandbox' }); break;
@@ -261,6 +270,13 @@ export function stubSend(model: string, opts: SendOptions): SendResult {
     // A write and a vote in ONE reply: the sentinel that would have been
     // spoken to the room as prose before castSpokenVote existed.
     case 'site-done': return { text: `[WRITE: index.html]\n<h1>the room</h1>\n<p>page by ${model}#${mTurn}</p>\n[/WRITE]\n[DONE] that reads right to me`, meta, thinking };
+    // §9.9 project bench: a write into a folder, then its deletion.
+    case 'nested': return { text: `[WRITE: src/parser.py]\ndef parse(): pass  # ${model}#${mTurn}\n[/WRITE]\n${voice()}`, meta, thinking };
+    case 'nested-delete': return { text: mTurn === 1
+      ? `[WRITE: src/parser.py]\ndef parse(): pass  # ${model}#${mTurn}\n[/WRITE]`
+      : `[DELETE: src/parser.py]\n${voice()}`, meta, thinking };
+    // Climbing out of shared/ through a folder name — must never publish.
+    case 'escape': return { text: `[WRITE: src/../../evil.md]\nnope\n[/WRITE]\n${voice()}`, meta, thinking };
     case 'journal': return { text: `[JOURNAL] ${voice()}`, meta, thinking };
     // Query carries a unique marker so privacy tests can grep for it.
     case 'search': return { text: `[SEARCH: private-query ${model}#${mTurn}]`, meta, thinking };

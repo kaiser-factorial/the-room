@@ -100,6 +100,10 @@
     #journals { position: static; width: auto; max-height: none; border-top: 1px solid var(--line); }
   }
 
+  /* A shared file that was deleted: still listed, still readable, visibly
+     gone. */
+  #fileList details.gone > summary { text-decoration: line-through; opacity: 0.6; }
+
   /* Admin modal. `[hidden]` globally, because an author `display` rule beats
      the UA's — the same trap the .switch rule above documents. */
   [hidden] { display: none !important; }
@@ -304,7 +308,7 @@ const CATALOG = [
 // Must match conditions/*.json (redeploy viewer when adding presets).
 // Offline fallback only — the live list comes from conditions.json,
 // generated at deploy time from conditions/*.json.
-const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing', 'site', 'site-native', 'site-open', 'site-unwitnessed', 'site-unending', 'site-open-unending'];
+const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing', 'site', 'site-native', 'site-open', 'site-unwitnessed', 'site-unending', 'site-open-unending', 'project', 'project-unending'];
 const ADMIN_COLOR = '#e8e6e1';
 // The file the site view renders (site.html's default). A room that writes
 // it gets the chat/site switch in the header.
@@ -401,8 +405,11 @@ function render(e) {
     if (e.kind === 'run') renderToolCall(e);
     el.className = 'aside';
     el.textContent = e.kind === 'file'
-      ? (e.payload?.denied ? `${e.agent_name} tried to write a shared file, but it was refused.`
-                           : `${e.agent_name} updated the shared file "${e.payload?.name}".`)
+      ? (e.payload?.denied
+          ? `${e.agent_name} tried to ${e.payload?.deleted ? 'delete' : 'write'} a shared file, but it was refused.`
+          : e.payload?.deleted
+            ? `${e.agent_name} deleted the shared file "${e.payload?.name}".`
+            : `${e.agent_name} updated the shared file "${e.payload?.name}".`)
       : (e.payload?.denied ? `${e.agent_name} tried to run some code, but it was refused.`
                            : `${e.agent_name} ran some code.`);
     const d = document.createElement('details');
@@ -514,7 +521,7 @@ const fileSections = new Map(); // name -> {details, body, metaEl, versions}
 const IMG_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
 
 function renderSharedFile(e) {
-  const { name, content, encoding, denied } = e.payload || {};
+  const { name, content, encoding, denied, deleted } = e.payload || {};
   if (!name || denied) return;
   $('filesWrap').hidden = false;
   let sec = fileSections.get(name);
@@ -535,7 +542,13 @@ function renderSharedFile(e) {
   sec.versions++;
   sec.countEl.textContent = sec.versions > 1 ? `(v${sec.versions})` : '';
   updateViews();
-  sec.metaEl.textContent = `by ${e.agent_name} · round ${e.round}`;
+  // A deleted file keeps its last contents in the rail — the transcript is
+  // a record of what the room made, and a file that vanishes without trace
+  // would make the deletion unreadable after the fact.
+  sec.details.classList.toggle('gone', !!deleted);
+  sec.metaEl.textContent = deleted
+    ? `deleted by ${e.agent_name} · round ${e.round}`
+    : `by ${e.agent_name} · round ${e.round}`;
   sec.metaEl.style.color = '';
   sec.body.innerHTML = '';
   if (encoding === 'base64') {
@@ -1096,8 +1109,10 @@ function renderRuns() {
       a.href = `?session=${encodeURIComponent(s.id)}`;
       a.textContent = 'chat';
       link.appendChild(a);
-      // The site page only exists where the room was making one.
-      if (isTask(s)) {
+      // The page link belongs to a room whose artifact IS a page. A project
+      // room is a task room too, but its deliverable is a tree of files, and
+      // site.html would open on whatever index.html it happened to write.
+      if (/\.html?$/i.test(s.completion?.target || '')) {
         const b = document.createElement('a');
         b.href = `./site.html?session=${encodeURIComponent(s.id)}`;
         b.textContent = 'page';

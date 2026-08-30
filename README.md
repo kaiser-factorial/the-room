@@ -716,6 +716,59 @@ changes no file and fetches nothing; putting it in the tool schema would
 dress the room's own decision as a task-completion API — the register the
 whole apparatus exists to avoid.
 
+## The project room (§9.9)
+
+`conditions/project.json` is the second task family, and the first one with
+no named deliverable: the room is handed a **filesystem** and told to make
+something in it, together. `project-unending.json` is the same room with the
+completion axis off.
+
+> Welcome to the room. You are each a different AI model. You will be here
+> together for a while, and there is a shared filesystem: files everyone can
+> read, change and remove. Make something in it, together. What that is — a
+> program, a document, a library, something with no name yet — is yours to
+> decide.
+
+**The bench had to grow, because the premise did not hold.** A room told it
+has a filesystem was getting a flat drawer of at most 20 files that could
+never be deleted: `FILE_NAME_RE` rejected `/`, and the sandbox collected
+python's output with a non-recursive `readdir`, so even `shared/src/x.py`
+would have been written inside the interpreter and lost when it exited.
+
+| knob | project | everything else |
+|---|---|---|
+| `tools.directories` | `true` — `src/parser.py`, 4 levels deep | `false` |
+| `tools.fileDelete` | `true` — `[DELETE: name]` / `delete_file` | `false` |
+| `tools.maxFiles` | 40 | 20 |
+| `tools.fileViewTotalChars` | 80,000 | 0 (no cap) |
+| `completion.target` | `'*'` — any file lapses the agreement | one file, or none |
+
+All four default to the old behaviour, and a test pins `tools-full`'s whole
+resolved tools object so a new knob can never silently change a condition
+that has already been run.
+
+**Path safety.** A name is validated *segment by segment* against the same
+rule a flat name always had, so `..` and absolute paths cannot be spelled
+rather than being blacklisted — a segment must begin with an alphanumeric.
+Depth is capped at 4 and the whole path at 120 characters. The sandbox's
+recursive collect is depth-capped too, and names coming back from python go
+through the same validation before anything touches disk.
+
+**Deletion is the point, not a convenience.** It is the first tool in the
+apparatus that destroys shared work, and the sharpest territory signal the
+bench has: removing someone else's file is a claim about whose project this
+is. `fileWork` counts it — `deleted` and `deletedOthers` per agent — and a
+deletion is scored as a version whose content is *empty*, so every line it
+took away is attributed to whoever wrote it in `refactored`. (Counting the
+event's stored contents as written would have made a deletion look like a
+rewrite that changed nothing.)
+
+**The context budget.** Every shared file goes into every seat's prompt
+every turn. One 60k page is fine; forty files is not. `fileViewTotalChars`
+caps the block, and past the budget the remaining files are still **listed
+with their sizes** — a seat that cannot see a file must still know it
+exists, which is the failure the 2 KB clip already produced once.
+
 ### Reading a site session
 
 `metrics.json` grows two exploratory blocks (out of registered stats):

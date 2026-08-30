@@ -20,7 +20,7 @@ const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall
 const C = (over: Partial<CompletionConfig> = {}): CompletionConfig =>
   ({ enabled: true, rule: 'unanimous', quorum: 0, target: 'index.html', resetOnEdit: true, notice: true, ...over });
 const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({
-  files: true, python: false, maxFileChars: 16_000, fileViewChars: 2_000, callFeedback: false, budget: 'per-seat', turnSteps: 1, transport: 'sentinel',
+  files: true, python: false, maxFileChars: 16_000, fileViewChars: 2_000, maxFiles: 20, directories: false, fileDelete: false, fileViewTotalChars: 0, callFeedback: false, budget: 'per-seat', turnSteps: 1, transport: 'sentinel',
   notice: true, pythonTimeoutSeconds: 10, pythonPackages: [], pythonInstall: false, runPublic: true,
   sourceCode: false, sourceScope: 'tools', configurable: false, ...over,
 });
@@ -431,4 +431,29 @@ test('metrics.json carries fileWork and the completion record for a site-shaped 
   assert.equal(typeof r.completion.firstDoneRound, 'number');
   assert.ok((r.completion.byAgent as Record<string, { raised: number }>) !== undefined);
   assert.ok(['agreement', 'clock', 'rounds'].includes(r.completion.ending as string));
+});
+
+test('fileWork: a deletion removes lines rather than rewriting nothing', () => {
+  const w = (round: number, agentId: string, content: string, deleted?: boolean) =>
+    ({ round, agentId, kind: 'file' as const, name: 'lib.py', content, ...(deleted ? { deleted: true } : {}) });
+  const work = fileWork(
+    [
+      w(1, 'alpha', 'one\ntwo\nthree'),
+      // beta deletes alpha's file. The event still carries the contents.
+      w(2, 'beta', 'one\ntwo\nthree', true),
+    ],
+    ['alpha', 'beta'],
+  );
+  const by = work.byAgent as Record<string, Record<string, unknown>>;
+  assert.equal(by.beta.deleted, 1);
+  assert.equal(by.beta.deletedOthers, 1, 'and it was alpha’s file');
+  assert.equal(by.beta.rewrote, 0, 'a deletion is not a rewrite');
+  assert.equal(by.beta.linesRemoved, 3, 'every line it took away is counted');
+  assert.deepEqual(by.beta.refactored, { alpha: 3 }, 'and attributed to whoever wrote them');
+  assert.equal(by.alpha.survivingLines, 0, 'nothing of alpha’s is left');
+  // Deleting your OWN file is a different claim, and counted differently.
+  const own = fileWork([w(1, 'alpha', 'x'), w(2, 'alpha', 'x', true)], ['alpha', 'beta']);
+  const ownBy = own.byAgent as Record<string, Record<string, unknown>>;
+  assert.equal(ownBy.alpha.deleted, 1);
+  assert.equal(ownBy.alpha.deletedOthers, 0);
 });

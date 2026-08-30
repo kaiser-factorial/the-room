@@ -1308,6 +1308,47 @@ polishing rather than re-scoping — that is the more interesting result,
 and `[PASS]` counts the alternative: falling silent inside a session that
 will not end.
 
+### §9.9 — the project room
+
+The second task family, and the first with **no named deliverable**. `site`
+hands the room one file and (except in `site-open`) says what goes in it.
+`project` hands them a filesystem and says only *make something in it,
+together*. Two arms at the start, mirroring the site family's most
+informative knob: `project` ends by agreement, `project-unending` cannot end
+at all.
+
+**What had to change first.** The premise was not true of the apparatus. A
+room told it had a filesystem had a flat namespace (`FILE_NAME_RE` rejected
+`/`), a 20-file ceiling, and no way to remove anything; the sandbox's
+collect was a non-recursive `readdir`, so a python run that created
+`shared/src/x.py` would have lost it when the interpreter exited. Folders,
+deletion, a 40-file ceiling and a total context budget are the bench
+catching up with the sentence.
+
+**Why deletion matters more than folders.** It is the first tool here that
+DESTROYS shared work. §9.8's premise is that division of labour makes
+identity visible as function; removing someone else's file is the strongest
+statement of function the bench can carry — it is a claim about whose
+project this is, made without a word of speech. `fileWork` reports
+`deleted` and `deletedOthers` per agent, and scores a deletion as an empty
+version so the lines it took away are attributed rather than vanishing.
+
+**What to watch, stated in advance.** (1) Does the room converge on ONE
+project or fork into several? A filesystem makes forking cheap in a way one
+`index.html` never did. (2) Who lays down structure? The first write that
+creates a folder is an architectural decision, and architecture is a role
+nobody assigned — the `site-open` agenda-setting result says whoever moves
+first tends to be adopted, and this is a sharper test of it. (3) Does anyone
+delete, and whose? (4) In the unending arm: when a room with no stopping
+point runs out of things to build, does it start deleting? That would be the
+most interesting outcome the apparatus has produced, and it is the reason
+the unending arm ships alongside rather than after.
+
+**Caveat, same as §9.8's.** New family, not a one-knob contrast: the task,
+the bench and the caps all move relative to `site`. The one-knob contrast
+inside the family is `project` ↔ `project-unending`. Not length-comparable
+with chat conditions (§2.7); exploratory, out of registered stats.
+
 **The first `site-unending` room (2026-08-29T21-02-18) — the apparatus
 became the subject.** Eight rounds, ended on the clock as the arm requires.
 45 python runs, 44 of which read `index.html`; 13 writes landed; the file

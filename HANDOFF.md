@@ -386,6 +386,23 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
+0. **NEW 2026-08-30, NOT YET DEPLOYED — the project family (§9.9).**
+   `conditions/project.json` + `project-unending.json`: the room gets a
+   FILESYSTEM and no named deliverable. Needed a real bench change, because
+   "you have a shared filesystem" was not true — flat namespace, 20 files,
+   nothing deletable, and a non-recursive sandbox collect that would have
+   dropped `shared/src/x.py` on the floor. Now: `tools.directories` (4
+   levels, validated segment-by-segment so `..` cannot be spelled),
+   `tools.fileDelete` (`[DELETE: name]` + `delete_file`), `maxFiles: 40`,
+   `fileViewTotalChars: 80000` (past the budget files are LISTED, never
+   dropped), `completion.target: '*'` (any file lapses the agreement).
+   All four knobs default OFF, pinned by the `tools-full` preset test.
+   **Also fixed on the way**: the native `write_file` schema hardcoded
+   "20 files, 16000 characters each", so `site-native` had been telling
+   models a 16k ceiling while its prose promised 60k. Now read from config.
+   Needs a viewer AND runner deploy.
+
+
 0. **DEPLOYED 2026-08-30 — `site-open`, the fifth site arm.** PR #21 merged
    (main `683ff90`) → **viewer `1dd0f22`, runner `f14ea90`**. Probe idle
    before (16204s) and again immediately before the runner push (16233s),

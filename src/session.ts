@@ -1,5 +1,5 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { SUMMARIZER_MODEL } from './config.js';
 import { openrouterAdapter } from './openrouter.js';
 import { adapterFor } from './adapters.js';
@@ -158,12 +158,33 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     ].filter(Boolean).join('\n');
   };
 
-  const FILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+  // One path SEGMENT. Folders are made of these joined by '/', validated
+  // one at a time — which is why `..`, a leading '/', a trailing '/' and an
+  // empty segment cannot be spelled at all rather than being blacklisted.
+  const SEGMENT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+  const MAX_PATH_DEPTH = 4;
+  const MAX_PATH_CHARS = 120;
+  /** A shared-file name the room is allowed to use. Flat unless the
+   *  condition turns folders on; `..` never validates either way, because
+   *  a segment must START with an alphanumeric. */
+  const validName = (name: string): boolean => {
+    if (!name || name.length > MAX_PATH_CHARS) return false;
+    if (!config.tools.directories) return SEGMENT_RE.test(name);
+    const parts = name.split('/');
+    return parts.length <= MAX_PATH_DEPTH && parts.every((seg) => SEGMENT_RE.test(seg));
+  };
+  const FILE_NAME_RE = { test: validName };
   // Per-file ceiling, from the condition: a chat room passing notes and a
   // task room whose deliverable is one file want very different numbers.
   const MAX_FILE_CHARS = config.tools.maxFileChars;
   const MAX_BINARY_BYTES = 400_000;
-  const MAX_FILES = 20;
+  const MAX_FILES = config.tools.maxFiles;
+
+  /** Does a write to `name` lapse the room's agreement? `'*'` means the
+   *  agreement is about the whole tree — what a project-shaped task wants,
+   *  where there is no single deliverable to name. */
+  const targetsFile = (name: string) =>
+    config.completion.target === '*' || name === config.completion.target;
 
   /** Publish one shared file (from [WRITE] or a python run): store, mirror
    *  to disk, and record the room-visible file event. */
@@ -173,7 +194,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     // §9.8: the artifact just changed, so the agreement about it lapses.
     // Recorded as its own line — an agreement that quietly evaporated
     // would be indistinguishable in the transcript from one never reached.
-    if (config.completion.enabled && config.completion.resetOnEdit && name === config.completion.target && done.size) {
+    if (config.completion.enabled && config.completion.resetOnEdit && targetsFile(name) && done.size) {
       const stood = standingNames().join(', ');
       done.clear();
       record({
@@ -183,7 +204,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       });
     }
     const sharedDir = join(sessionDir, 'shared');
-    mkdirSync(sharedDir, { recursive: true });
+    // `name` may carry folders now; validName() has already guaranteed it
+    // cannot climb out of shared/.
+    mkdirSync(dirname(join(sharedDir, name)), { recursive: true });
     writeFileSync(join(sharedDir, name), data);
     record({
       kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name,
@@ -283,6 +306,42 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         observation: `You ${parsed.append ? 'appended to' : 'wrote'} the shared file "${parsed.name}" (${combined.length} characters). Everyone in the room can read it.`,
         refused: false,
       };
+    }
+
+    if (parsed.kind === 'delete') {
+      const lead = `Your deletion of "${parsed.name.slice(0, 80)}" did not happen.`;
+      const existing = sharedFiles.get(parsed.name);
+      const denial = !FILE_NAME_RE.test(parsed.name)
+        ? refusal('bad_file_name', `"${parsed.name.slice(0, 80)}" is not a valid file name.`, 'Check the name against the shared files you can see, then try again.')
+        : !existing
+          ? refusal('no_such_file', `There is no shared file called "${parsed.name}".`, 'Check the name against the shared files you can see.', [...sharedFiles.keys()])
+          : deny;
+      if (denial) {
+        record({ kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name: parsed.name.slice(0, 80), content: '', denied: true, deleted: true, notice: config.tools.notice, thinking, ...stamp });
+        return refuse(lead, denial);
+      }
+      spendRoomBudget(round);
+      // The agreement was about an artifact that no longer exists, so it
+      // lapses exactly as a rewrite would. Removing the thing is at least
+      // as big a change as editing it.
+      if (config.completion.enabled && config.completion.resetOnEdit && targetsFile(parsed.name) && done.size) {
+        const stood = standingNames().join(', ');
+        done.clear();
+        record({
+          kind: 'system', ts: now(), round,
+          text: `${agent.name} deleted ${parsed.name}, so the room is no longer agreed that the work is finished (${stood} had been).`,
+          ...(config.completion.notice ? {} : { private: true }),
+        });
+      }
+      const gone = existing!;
+      sharedFiles.delete(parsed.name);
+      rmSync(join(sessionDir, 'shared', parsed.name), { force: true });
+      record({
+        kind: 'file', ts: now(), round, agentId: agent.id, agentName: agent.name, name: parsed.name,
+        content: gone.binary ? '' : gone.data.toString('utf8'),
+        deleted: true, notice: config.tools.notice, thinking, ...stamp,
+      });
+      return { observation: `You deleted the shared file "${parsed.name}". It is gone for everyone.`, refused: false };
     }
 
     if (parsed.kind === 'run') {

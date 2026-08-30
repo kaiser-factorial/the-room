@@ -1,0 +1,51 @@
+{
+  "description": "\u00a79.9 the second TASK family: an open PROJECT. Where 'site' hands the room one file and says what goes in it, this hands them a filesystem and says nothing about what to build. The bench grows to match the premise, because the old one could not keep it: names may carry folders (src/parser.py, 4 levels), the room holds 40 files instead of 20, and [DELETE: name] can remove one \u2014 the first tool in the apparatus that DESTROYS shared work, and the sharpest territory signal it has (deleting someone else's file is a claim about whose project this is; fileWork's refactored matrix already counts who removes whose lines, and now counts who removes whose files). completion.target is '*': the agreement is about the whole tree, so any write or deletion anywhere lapses it. fileViewTotalChars caps the shared-file block at 80k so a 40-file room does not put its entire filesystem in every seat's prompt every turn \u2014 past the budget files are still LISTED with their sizes, never silently dropped. What this asks: with no deliverable named, does a room of six models converge on ONE project or fork into several? Who lays down the structure (the first mkdir-shaped write is architecture, and architecture is a role nobody assigned)? Does anyone delete, and whose? Read alongside 'site': same task-room machinery, one file vs a tree. NOT length-comparable with chat conditions (see \u00a72.7); exploratory, out of registered stats.",
+  "welcomeMessage": "Welcome to the room. You are each a different AI model. You will be here together for a while, and there is a shared filesystem: files everyone can read, change and remove. Make something in it, together. What that is \u2014 a program, a document, a library, something with no name yet \u2014 is yours to decide. There is no facilitator after this message. You can change anything here, including what the others have written. It is finished when you agree it is.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "alongside",
+    "recall": true,
+    "maxTokens": 0
+  },
+  "pass": {
+    "enabled": true,
+    "notice": true
+  },
+  "completion": {
+    "enabled": true,
+    "rule": "unanimous",
+    "quorum": 0,
+    "target": "*",
+    "resetOnEdit": true,
+    "notice": true
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "maxFileChars": 30000,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": [
+      "numpy",
+      "pandas",
+      "sympy",
+      "networkx",
+      "matplotlib"
+    ],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true,
+    "fileViewChars": 30000,
+    "callFeedback": true,
+    "maxFiles": 40,
+    "directories": true,
+    "fileDelete": true,
+    "fileViewTotalChars": 80000
+  },
+  "durationMinutes": 90,
+  "maxRounds": 30,
+  "maxOutputTokens": 4000
+}

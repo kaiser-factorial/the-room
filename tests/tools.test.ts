@@ -12,7 +12,7 @@ import type { JournalConfig, RoomEvent, SearchConfig, ToolsConfig } from '../src
 
 const J: JournalConfig = { enabled: false, notice: true, mode: 'replace', recall: true, maxTokens: 0 };
 const S: SearchConfig = { enabled: true, mode: 'alongside', gated: false, notice: true, maxResults: 5 };
-const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, maxFileChars: 16_000, fileViewChars: 2_000, callFeedback: false, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: false, sourceCode: true, sourceScope: 'tools', configurable: false, ...over });
+const T = (over: Partial<ToolsConfig> = {}): ToolsConfig => ({ files: true, python: true, maxFileChars: 16_000, fileViewChars: 2_000, maxFiles: 20, directories: false, fileDelete: false, fileViewTotalChars: 0, callFeedback: false, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 10, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: false, sourceCode: true, sourceScope: 'tools', configurable: false, ...over });
 
 function readTranscript(dir: string): RoomEvent[] {
   return readFileSync(join(dir, 'transcript.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as RoomEvent);
@@ -230,10 +230,138 @@ test('per-room budget: a denied action does not spend the round slot', async () 
 test('condition presets: tools-full and tools-scarce resolve onto the base config', async () => {
   const { resolveCondition, conditionRecord } = await import('../src/conditions.js');
   const full = resolveCondition('tools-full');
-  assert.deepEqual(full.tools, { files: true, python: true, maxFileChars: 16_000, fileViewChars: 2_000, callFeedback: false, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true, sourceCode: true, sourceScope: 'tools', configurable: false });
+  // The whole object, deliberately: this is the guard against a new tool
+  // knob silently changing a condition that has already been RUN. The
+  // project task added folders, deletion and a file cap — all three must
+  // read as off/flat here, or `tools-full` is not the condition its
+  // transcripts were recorded under.
+  assert.deepEqual(full.tools, { files: true, python: true, maxFileChars: 16_000, fileViewChars: 2_000, maxFiles: 20, directories: false, fileDelete: false, fileViewTotalChars: 0, callFeedback: false, budget: 'per-seat', turnSteps: 1, transport: 'sentinel', notice: true, pythonTimeoutSeconds: 30, pythonPackages: ['numpy', 'pandas', 'sympy', 'networkx', 'matplotlib'], pythonInstall: true, runPublic: true, sourceCode: true, sourceScope: 'tools', configurable: false });
   assert.equal(full.search.mode, 'alongside');
   assert.equal(full.journal.enabled, false);
   const scarce = resolveCondition('tools-scarce');
   assert.equal(scarce.tools.budget, 'per-room');
   assert.deepEqual(conditionRecord(scarce).tools, scarce.tools, 'tools must be stamped into meta');
+});
+
+// ── §9.9 the project bench: folders, deletion, and the view budget ────────
+
+test('folders: names carry paths only where the condition allows it', () => {
+  const flat = T();
+  const nested = T({ directories: true, fileDelete: true });
+  // The PARSER takes any name; it is the session that validates. Both
+  // transports produce the same action shape.
+  assert.deepEqual(
+    parseReply('[WRITE: src/parser.py]\ndef parse(): pass\n[/WRITE]', J, S, nested),
+    { kind: 'write', name: 'src/parser.py', content: 'def parse(): pass' },
+  );
+  // [DELETE] exists only where fileDelete is on: with it off the line is
+  // not a call at all, so the room simply hears it.
+  assert.deepEqual(parseReply('[DELETE: notes.md]', J, S, nested), { kind: 'delete', name: 'notes.md' });
+  assert.equal(parseReply('[DELETE: notes.md]', J, S, flat).kind, 'message');
+  // Spoken text after the line still reaches the room.
+  assert.deepEqual(
+    parseReply('[DELETE: old.py]\nthat one was mine to remove', J, S, nested),
+    { kind: 'delete', name: 'old.py', spoken: 'that one was mine to remove' },
+  );
+  // A typo'd token is still read as the call (the Levenshtein tolerance
+  // every other sentinel gets).
+  assert.equal(parseReply('[DELET: old.py]', J, S, nested).kind, 'delete');
+});
+
+test('a folder write lands, and a deletion removes it for everyone', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const project = resolveCondition('project');
+  const dir = await runStubSession(
+    testConfig({ maxRounds: 2, tools: { ...project.tools, turnSteps: 1 }, completion: project.completion }),
+    'nested-delete',
+  );
+  const es = readTranscript(dir);
+  const files = es.filter((e) => e.kind === 'file') as Extract<RoomEvent, { kind: 'file' }>[];
+  const wrote = files.filter((f) => !f.deleted && !f.denied);
+  const removed = files.filter((f) => f.deleted && !f.denied);
+  assert.ok(wrote.length, 'the folder write was published');
+  assert.equal(wrote[0].name, 'src/parser.py');
+  assert.ok(removed.length, 'and a later turn deleted it');
+  assert.ok(removed[0].content.includes('def parse'), 'the removal event keeps the contents it took away');
+  // Gone from the mirror too: a deletion the disk did not hear about would
+  // leave the session directory disagreeing with the transcript.
+  assert.ok(!existsSync(join(dir, 'shared', 'src', 'parser.py')), 'and the mirror no longer holds it');
+});
+
+test('a folder write is mirrored to disk under its folder', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const project = resolveCondition('project');
+  const dir = await runStubSession(
+    testConfig({ maxRounds: 1, tools: { ...project.tools, turnSteps: 1 }, completion: project.completion }),
+    'nested',
+  );
+  assert.ok(existsSync(join(dir, 'shared', 'src', 'parser.py')));
+  assert.match(readFileSync(join(dir, 'shared', 'src', 'parser.py'), 'utf8'), /def parse/);
+});
+
+test('a name cannot climb out of shared/, folders or no folders', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const project = resolveCondition('project');
+  const dir = await runStubSession(
+    testConfig({ maxRounds: 1, tools: { ...project.tools, turnSteps: 1 }, completion: project.completion }),
+    'escape',
+  );
+  const es = readTranscript(dir);
+  const files = es.filter((e) => e.kind === 'file') as Extract<RoomEvent, { kind: 'file' }>[];
+  assert.ok(files.length, 'the attempt was recorded');
+  assert.ok(files.every((f) => f.denied), 'and every one of them was refused');
+  assert.ok(!existsSync(join(dir, 'evil.md')), 'nothing was written beside the session dir');
+  assert.ok(!existsSync(join(dir, '..', 'evil.md')), 'nor above it');
+});
+
+test('the shared-file block has a total budget, and never hides a file silently', () => {
+  const big = (n: string, c: string) => ({ name: n, content: c.repeat(400) });
+  const files = [big('a.py', 'a'), big('b.py', 'b'), big('c.py', 'c')];
+  const msgs = (total: number) => buildTurnMessages({
+    agent: AGENTS[0],
+    config: testConfig({ tools: T({ directories: true, fileViewChars: 1_000, fileViewTotalChars: total }) }),
+    events: [], summary: '', minutesRemaining: 10, ownJournal: '', sharedFiles: files,
+  })[0].content;
+  const uncapped = msgs(0);
+  for (const f of files) assert.match(uncapped, new RegExp(`--- ${f.name} ---`), 'no cap = every file inlined');
+  // 900 fits one 400-char file, then stops inlining.
+  const capped = msgs(900);
+  assert.match(capped, /--- a\.py ---/, 'the first file is still shown in full');
+  assert.doesNotMatch(capped, /--- c\.py ---\n/, 'the last is not inlined');
+  // …but it is still NAMED, with its size. A file a seat cannot see must
+  // never be a file a seat does not know exists.
+  assert.match(capped, /not shown here/);
+  assert.match(capped, /c\.py \(400 characters\)/);
+});
+
+test('the room is told the shape of its filesystem', async () => {
+  const { resolveCondition } = await import('../src/conditions.js');
+  const say = (name: string) => buildTurnMessages({
+    agent: AGENTS[0], config: resolveCondition(name), events: [], summary: '', minutesRemaining: 30, ownJournal: '',
+  })[0].content;
+  const project = say('project');
+  assert.match(project, /holds up to 40 files/);
+  assert.match(project, /folders in them/);
+  assert.match(project, /\[DELETE: filename\]/);
+  // …and the conditions that were run without any of it still are not told.
+  const site = say('site');
+  assert.match(site, /holds up to 20 files/);
+  assert.doesNotMatch(site, /folders in them/);
+  assert.doesNotMatch(site, /DELETE/);
+});
+
+test('native: the write schema states the room’s real limits, and delete appears with it', async () => {
+  const { toolDefs } = await import('../src/tools-schema.js');
+  const { resolveCondition } = await import('../src/conditions.js');
+  const site = resolveCondition('site');
+  const defs = toolDefs({ ...site, tools: { ...site.tools, transport: 'native' } });
+  const write = defs.find((d) => d.function.name === 'write_file');
+  // Was hardcoded "20 files, 16000 characters each" — which told a native
+  // task room the wrong ceiling while its own prose said 60,000.
+  assert.match(write!.function.description, /60000 characters each/);
+  assert.ok(!defs.some((d) => d.function.name === 'delete_file'), 'site cannot delete');
+  const project = resolveCondition('project');
+  const pdefs = toolDefs({ ...project, tools: { ...project.tools, transport: 'native' } });
+  assert.ok(pdefs.some((d) => d.function.name === 'delete_file'), 'project can');
+  assert.match(pdefs.find((d) => d.function.name === 'write_file')!.function.description, /folders/);
 });

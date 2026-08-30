@@ -49,6 +49,10 @@ const SEARCH_RE = /^\s*\**\[\s*([A-Za-z]{4,8})(?::|\s)\s*([^\]\n]{0,300})\]?/;
 // All alongside-style: text after the closing tag is spoken as usual.
 const WRITE_OPEN_RE = /^\s*\**\[\s*([A-Za-z]{4,6})(?::|\s)\s*([^\]\n]{1,200})\]\**\s*\n?([\s\S]*)$/;
 const WRITE_CLOSE_RE = /\[\/([A-Za-z]{4,6})\]\s*([\s\S]*)/;
+// [DELETE: name] — one line, no body and no closing tag: there is nothing
+// to enclose. Same name grammar as WRITE so `src/old.py` works wherever
+// folders do.
+const DELETE_RE = /^\s*\**\[\s*([A-Za-z]{5,7})(?::|\s)\s*([^\]\n]{1,200})\]\**\s*\n?([\s\S]*)$/;
 const RUN_OPEN_RE = /^\s*\**\[\s*([A-Za-z]{2,4})\s*(?:\s*(>{1,2})\s*([^\]\n>]{1,80}))?\]\**:?\s*\n?([\s\S]*)$/;
 const RUN_CLOSE_RE = /\[\/RUN\]\s*([\s\S]*)/i;
 // [SOURCE] / [SOURCE: name] — read the tool layer's own code (F4½
@@ -96,6 +100,9 @@ function isWriteToken(w: string): boolean {
 function isAppendToken(w: string): boolean {
   return editDistance(w.toUpperCase(), 'APPEND') <= 1;
 }
+function isDeleteToken(w: string): boolean {
+  return editDistance(w.toUpperCase(), 'DELETE') <= 1;
+}
 
 function isSourceToken(w: string): boolean {
   return editDistance(w.toUpperCase(), 'SOURCE') <= 1;
@@ -136,6 +143,10 @@ export type ParsedReply =
   /** F4½ shared-file write (contents room-public); alongside-style.
    *  append = [APPEND: name] — add to the end instead of replacing. */
   | { kind: 'write'; name: string; content: string; append?: boolean; spoken?: string; preamble?: string }
+  /** [DELETE: name] — remove a shared file. Only where tools.fileDelete is
+   *  on; every condition before the project task keeps a filesystem that
+   *  can only grow. */
+  | { kind: 'delete'; name: string; spoken?: string; preamble?: string }
   /** F4½ python run; alongside-style. saveTo = [RUN > name] (or >> to
    *  append): the run's output is also saved to that shared file. */
   | { kind: 'run'; code: string; saveTo?: { name: string; append: boolean }; spoken?: string; preamble?: string }
@@ -153,8 +164,8 @@ export type ParsedReply =
 /** Reply kinds that are an ACTION rather than an utterance — the ones the
  *  F4¾ turn loop can iterate on. Everything else (a message, a journal
  *  entry, a pass, an empty reply) ends the turn where it stands. */
-export type ToolAction = Extract<ParsedReply, { kind: 'search' | 'write' | 'run' | 'source' | 'config' }>;
-const TOOL_KINDS = new Set<ParsedReply['kind']>(['search', 'write', 'run', 'source', 'config']);
+export type ToolAction = Extract<ParsedReply, { kind: 'search' | 'write' | 'delete' | 'run' | 'source' | 'config' }>;
+const TOOL_KINDS = new Set<ParsedReply['kind']>(['search', 'write', 'delete', 'run', 'source', 'config']);
 export function isToolAction(p: ParsedReply): p is ToolAction {
   return TOOL_KINDS.has(p.kind);
 }
@@ -194,6 +205,7 @@ function lineStartSentinel(reply: string, s?: SearchConfig, t?: ToolsConfig, c?:
       if (tok) {
         if (
           (t?.files && (isWriteToken(tok) || isAppendToken(tok))) ||
+          (t?.files && t?.fileDelete && isDeleteToken(tok)) ||
           (t?.python && isRunToken(tok)) ||
           (t?.sourceCode && isSourceToken(tok)) ||
           (t?.configurable && isConfigToken(tok)) ||
@@ -408,6 +420,13 @@ function parseAnchored(
         return spoken ? { kind: 'write', name, content, ...append, spoken } : { kind: 'write', name, content, ...append };
       }
       return { kind: 'write', name, content: w[3].trim(), ...append };
+    }
+  }
+  if (t?.files && t?.fileDelete) {
+    const d = reply.match(DELETE_RE);
+    if (d && isDeleteToken(d[1])) {
+      const spoken = d[3].trim();
+      return { kind: 'delete', name: d[2].trim(), ...(spoken ? { spoken } : {}) };
     }
   }
   if (t?.python) {

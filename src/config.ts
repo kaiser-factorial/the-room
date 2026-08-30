@@ -88,6 +88,15 @@ export const config: RoomConfig = {
     // 2026-08-29 ran with, so it stays the default; task rooms raise it to
     // the write cap so the room can read its own artifact.
     fileViewChars: 2_000,
+    // The flat 20-file drawer every condition has run with. A project room
+    // raises it and turns on folders and deletion — all three off here, so
+    // no existing condition silently changes shape.
+    maxFiles: 20,
+    directories: false,
+    fileDelete: false,
+    // 0 = no cap on the shared-file block as a whole, which is what every
+    // session so far ran with. A room with many files sets one.
+    fileViewTotalChars: 0,
     budget: 'per-seat',
     // F4¾: 1 = the original economics (one action per turn, its result
     // delivered next turn). The 'agentic' condition raises it — see

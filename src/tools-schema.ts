@@ -41,7 +41,7 @@ const fn = (
 
 /** The tool names the room can offer. Kept as a const so the parser-side
  *  mapping and the tests can't drift from the declarations. */
-export const TOOL_NAMES = ['search_web', 'write_file', 'run_python', 'read_source', 'set_config'] as const;
+export const TOOL_NAMES = ['search_web', 'write_file', 'delete_file', 'run_python', 'read_source', 'set_config'] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 export function toolDefs(config: RoomConfig): ToolDef[] {
@@ -56,17 +56,32 @@ export function toolDefs(config: RoomConfig): ToolDef[] {
     ));
   }
   if (t.files) {
+    // The limits come from the CONFIG, not from a sentence written once.
+    // They were hardcoded at "20 files, 16000 characters" — so a native
+    // task room with a 60,000-character ceiling was told 16,000 by its own
+    // tool definitions while its prose said 60,000. A seat that believes
+    // the schema plans smaller than it needs to and never finds out why.
     defs.push(fn(
       'write_file',
       'Create, overwrite, or extend a file in the room\'s shared filesystem. ' +
-        'Names may use letters, digits, dots, underscores and hyphens (max 64 characters). ' +
-        'At most 20 files, 16000 characters each.',
+        (t.directories
+          ? 'Names may use letters, digits, dots, underscores and hyphens, and may include folders (e.g. "src/parser.py"), up to 4 levels deep. '
+          : 'Names may use letters, digits, dots, underscores and hyphens (max 64 characters). ') +
+        `At most ${t.maxFiles} files, ${t.maxFileChars} characters each.`,
       {
-        name: { type: 'string', description: 'File name, e.g. "notes.md".' },
+        name: { type: 'string', description: t.directories ? 'File name, e.g. "notes.md" or "src/parser.py".' : 'File name, e.g. "notes.md".' },
         content: { type: 'string', description: 'The text to write.' },
         append: { type: 'boolean', description: 'Add to the end of the file instead of replacing it. Default false.' },
       },
       ['name', 'content'],
+    ));
+  }
+  if (t.files && t.fileDelete) {
+    defs.push(fn(
+      'delete_file',
+      'Remove a file from the room\'s shared filesystem. It is gone for everyone and no copy is kept.',
+      { name: { type: 'string', description: 'The file to remove.' } },
+      ['name'],
     ));
   }
   if (t.python) {
@@ -150,6 +165,10 @@ export function actionFromToolCall(call: ToolCall, config: RoomConfig): ToolActi
       if (!name) return missing('a `name`', 'the file name, e.g. "notes.md"');
       if (content === undefined) return missing('`content`', 'the text to write');
       return { kind: 'write', name, content, ...(args.append === true ? { append: true as const } : {}) };
+    }
+    case 'delete_file': {
+      const name = str(args.name);
+      return name ? { kind: 'delete', name } : missing('a `name`', 'the file to remove');
     }
     case 'run_python': {
       const code = str(args.code);

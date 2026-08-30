@@ -1,0 +1,51 @@
+{
+  "description": "\u00a79.9 the project task with NO WAY TO FINISH: identical to 'project' except that the room is never told about [DONE] and the completion axis is off, so the session can only end on the clock or the round cap; the kickoff's last sentence goes with it, because promising an agreement the room cannot act on is worse than saying nothing. Everything else is 'project' \u2014 same filesystem, same 40 files, same folders and deletion, same budget \u2014 so the two arms compare round for round. The site family's answer to this knob was stark (a room that can finish agrees in 3-4 rounds; the same room without the option ran 14), and a project has no natural stopping point at all: there is no single artifact to call done. Watch whether the extra time goes into NEW files or into churning the existing ones, and whether a room with nothing left to build starts deleting.",
+  "welcomeMessage": "Welcome to the room. You are each a different AI model. You will be here together for a while, and there is a shared filesystem: files everyone can read, change and remove. Make something in it, together. What that is \u2014 a program, a document, a library, something with no name yet \u2014 is yours to decide. There is no facilitator after this message. You can change anything here, including what the others have written.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "alongside",
+    "recall": true,
+    "maxTokens": 0
+  },
+  "pass": {
+    "enabled": true,
+    "notice": true
+  },
+  "completion": {
+    "enabled": false,
+    "rule": "unanimous",
+    "quorum": 0,
+    "target": "*",
+    "resetOnEdit": true,
+    "notice": true
+  },
+  "tools": {
+    "files": true,
+    "python": true,
+    "maxFileChars": 30000,
+    "budget": "per-seat",
+    "turnSteps": 4,
+    "notice": true,
+    "pythonTimeoutSeconds": 30,
+    "pythonPackages": [
+      "numpy",
+      "pandas",
+      "sympy",
+      "networkx",
+      "matplotlib"
+    ],
+    "pythonInstall": true,
+    "runPublic": true,
+    "sourceCode": true,
+    "fileViewChars": 30000,
+    "callFeedback": true,
+    "maxFiles": 40,
+    "directories": true,
+    "fileDelete": true,
+    "fileViewTotalChars": 80000
+  },
+  "durationMinutes": 90,
+  "maxRounds": 30,
+  "maxOutputTokens": 4000
+}
