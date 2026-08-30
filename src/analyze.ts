@@ -47,6 +47,9 @@ interface Action {
    *  write. Every version is in the event stream, which is what makes
    *  authorship recoverable after the fact (fileWork). */
   name?: string; content?: string; binary?: boolean;
+  /** The file was REMOVED (tools.fileDelete). `content` is what it held
+   *  when it went, so the lines it took away stay attributable. */
+  deleted?: boolean;
 }
 interface JournalEntry { round: number; agentId: string; text: string }
 
@@ -147,7 +150,7 @@ export function loadSession(dir: string): Session {
       actions.push({
         round: e.round, agentId: e.agentId, kind: e.kind, step: e.step,
         denied: 'denied' in e ? e.denied : undefined, via: e.via,
-        ...(e.kind === 'file' ? { name: e.name, content: e.content, binary: e.encoding === 'base64' } : {}),
+        ...(e.kind === 'file' ? { name: e.name, content: e.content, binary: e.encoding === 'base64', ...(e.deleted ? { deleted: true } : {}) } : {}),
       });
     }
     if (e.kind === 'message' || e.kind === 'system' || e.kind === 'journal') prevTs = new Date(e.ts).getTime();
@@ -522,6 +525,7 @@ export function fileWork(actions: Action[], agents: string[]): Record<string, un
   );
   const zero = () => Object.fromEntries(agents.map((a) => [a, 0])) as Record<string, number>;
   const created = zero(), rewrote = zero(), rewroteSelf = zero(), rewroteOthers = zero();
+  const deleted = zero(), deletedOthers = zero();
   const linesAdded = zero(), linesRemoved = zero(), surviving = zero();
   // Who removes whose work — "refactored[remover][author]". The territory
   // question in one table: an agent that only ever deletes its own lines is
@@ -537,9 +541,19 @@ export function fileWork(actions: Action[], agents: string[]): Record<string, un
     const origin = new Map<string, string>(); // line -> agent it came from
     for (let i = 0; i < versions.length; i++) {
       const v = versions[i];
-      const cur = textLines(v.content);
+      // A DELETION is the version that is empty. The event carries the old
+      // contents (so the removal is legible in the transcript), but counting
+      // those as written would make a deletion look like a rewrite that
+      // changed nothing — every line it took away would go unattributed.
+      const cur = v.deleted ? [] : textLines(v.content);
       const pc = counted(prev), cc = counted(cur);
-      if (i === 0) created[v.agentId] = (created[v.agentId] ?? 0) + 1;
+      if (v.deleted) {
+        deleted[v.agentId] = (deleted[v.agentId] ?? 0) + 1;
+        // Whose file was it? The seat that last wrote it, which is the
+        // claim a deletion actually makes.
+        const owner = i > 0 ? versions[i - 1].agentId : v.agentId;
+        if (owner !== v.agentId) deletedOthers[v.agentId] = (deletedOthers[v.agentId] ?? 0) + 1;
+      } else if (i === 0) created[v.agentId] = (created[v.agentId] ?? 0) + 1;
       else {
         rewrote[v.agentId] = (rewrote[v.agentId] ?? 0) + 1;
         if (versions[i - 1].agentId === v.agentId) rewroteSelf[v.agentId] = (rewroteSelf[v.agentId] ?? 0) + 1;
@@ -590,6 +604,10 @@ export function fileWork(actions: Action[], agents: string[]): Record<string, un
       agents.map((a) => [a, {
         created: created[a], rewrote: rewrote[a],
         rewroteSelf: rewroteSelf[a], rewroteOthers: rewroteOthers[a],
+        // §9.9: removals, and how many of them took out a file whose last
+        // author was someone else. Only meaningful where the condition
+        // allows deletion at all; zero everywhere else.
+        deleted: deleted[a], deletedOthers: deletedOthers[a],
         linesAdded: linesAdded[a], linesRemoved: linesRemoved[a],
         survivingLines: surviving[a],
         // The share of the finished artifact that is this agent's. Null

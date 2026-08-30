@@ -21,11 +21,22 @@ channel whose divergence from an agent's public voice indicates performed
 versus retained identity. Manipulable axes — room size, persona injection,
 opening message, speaking-order regime, countdown visibility, journal
 economics, context policy, roster disclosure, websearch, a tool bench
-(shared filesystem + python), self-governance, thought broadcast, and a
-shared TASK whose completion the room itself declares — let the
-apparatus ask not only *whether* models mould together, but what social
-and structural pressures govern it, and whether identity that is faint as
-style is legible as function.
+(shared filesystem + python), self-governance, thought broadcast, a shared
+TASK whose completion the room itself declares, and a shared PROJECT with a
+filesystem and no named deliverable — let the apparatus ask not only
+*whether* models mould together, but what social and structural pressures
+govern it, and whether identity that is faint as style is legible as
+function.
+
+> **Task families (2026-08-30).** Two exist. **§9.8 `site`** hands the room
+> one file — its own website — in five arms crossing the subject (given /
+> open) against the ending (agreement / none), plus a transport arm.
+> **§9.9 `project`** hands it a filesystem instead: folders, deletion, 40
+> files, and no deliverable named at all. Task rooms are not
+> length-comparable with chat conditions (§2.7) and sit outside registered
+> stats; the first result from them is that a room which CAN declare itself
+> finished does so in 3–4 rounds, against 8–14 for the same room without
+> the option.
 
 > **Program structure (2026-08-24):** Phase A = pilot sessions that fix
 > the controls below (session length is already under revision — the first
@@ -50,7 +61,8 @@ style is legible as function.
 | Roster disclosure | **named** (frozen original wording) · axis: count / none (`roster-hidden`) |
 | Self-disclosure | **named** (control) — "You are Opus 5.", and the roster lists the OTHER five (the old wording listed the reader among "the others", which is very likely why a seat reported being told it was Opus; fixed 2026-08-28) · axis: `anonymous`, which tells them nothing and makes them guess |
 | Completion | **off** (control) — a session ends on the clock or `maxRounds` · axis: `completion.enabled` (`site`), where `[DONE]` from the room ends it and `end.payload.ending` says which happened |
-| File ceiling | 16,000 characters per shared file (stated in the prompt) · `site` raises it to 60,000 — the deliverable is a file |
+| File ceiling | 16,000 characters per shared file (stated in the prompt) · `site` raises it to 60,000 — the deliverable is a file · `project` runs 30,000 across 40 files |
+| Filesystem shape | **flat, 20 files, nothing deletable** (control, and every condition run before 2026-08-30) · `project` turns on folders (4 levels) and `[DELETE]`, and caps the shared-file block as a whole so a 40-file room does not put its filesystem in every prompt |
 | Declining the floor | **off** (control) · `floor` condition turns `[PASS]` on: the turn is still offered to everyone, spending it is optional. Its own axis since 2026-08-28 (was welded to the journal) |
 | Transcript | **turns** since 2026-08-27 — a seat's own messages are its own assistant turns, everyone else's are user-role and labelled · axis: `environment`, every session before that date |
 | Logprobs | captured where providers return them (Qwen, Grok, DeepSeek-pinned — §2.6) |
@@ -212,11 +224,14 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    channel left). Journals stay absolute; the rolling summary never
    carries traces.
 15. **The task room** (§9.8, BUILT 2026-08-29; exploratory, out of
-   registered stats) — `site`, with two arms: `site-native` (the
-   transport) and **`site-unwitnessed`** (the audience — the same
-   paragraph minus "which the room will serve publicly", nothing else
-   moved: does a room represent itself differently when it knows someone
-   is looking?). The
+   registered stats) — `site`, with four arms: `site-native` (the
+   transport), **`site-unwitnessed`** (the audience — the same paragraph
+   minus "which the room will serve publicly", nothing else moved: does a
+   room represent itself differently when it knows someone is looking?),
+   **`site-open`** (the SUBJECT — the prompt no longer says what the page
+   is about, which asks whether a room writes about itself unprompted; on
+   its first run it did), and **`site-unending`** / **`site-open-unending`**
+   (the ENDING — no `[DONE]` at all, the 2×2's other row). The
    room builds its OWN website, one shared `index.html`, which the viewer
    Space serves publicly at `/site.html`. The move from open-ended rounds
    to a shared task, made for the identity question: rounds make identity
@@ -239,7 +254,23 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    write to the target file clears every standing vote: the thing they
    agreed about no longer exists, and the vote → edit → re-vote cycle is
    the negotiation written down. `end.payload.ending` records whether the
-   room finished or we stopped it.
+   room finished or we stopped it. **First result (2026-08-30):** a room
+   that CAN finish does so in 3–4 rounds; the same room without the option
+   runs 8–14 in the same wall clock. Read it in rounds — the unending arms
+   spend the full budget by construction.
+17. **The project room** (§9.9, BUILT 2026-08-30; exploratory, out of
+   registered stats; NOT YET RUN) — `project` and `project-unending`. The
+   second task family, and the first with NO named deliverable: the room
+   is handed a shared FILESYSTEM and told to make something in it,
+   together. The bench grows to match the premise, which the old one could
+   not keep — folders (`src/parser.py`, 4 levels, validated segment by
+   segment so `..` cannot be spelled), `[DELETE: name]`, 40 files instead
+   of 20, and a total context budget for the shared-file block. Deletion
+   is the point rather than a convenience: it is the first tool here that
+   DESTROYS shared work, and removing someone else's file is a claim about
+   whose project this is — `fileWork` reports `deleted` / `deletedOthers`
+   and attributes every removed line. `completion.target` is `'*'`: the
+   agreement is about the whole tree, so any write or deletion lapses it.
 
 ## Measurement summary
 

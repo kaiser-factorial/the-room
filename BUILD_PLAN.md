@@ -250,9 +250,15 @@ mitigations: per-turn timeout degrading to "said nothing", optional
 reduced turn frequency (a `turnEvery: 2` seat parameter), pre-warm call
 before session start.
 
-**F6. Involved admin: experiment dashboard (Corina, 2026-08-24).** The
-dot-modal stays for quick actions, but admin grows a real surface for
-keeping track of the research program:
+**F6. Involved admin: experiment dashboard (Corina, 2026-08-24).**
+**PARTLY BUILT 2026-08-30** — the panel was rebuilt into tabs (`run` /
+`runs` / `say`) and the `runs` tab delivers the per-session and
+per-condition rollup below, from `room_events` directly: sessions grouped
+by arm, run counts, actual vs. budgeted minutes, rounds, ending, seats, and
+links back into the feed (and the site page for arms that made one), behind
+a task/chat filter. What remains of F6 is the METRICS half — headline
+numbers per condition, which needs F2's output (a `room_metrics` table).
+The original spec:
 
 - **Per-session summary cards**: condition name, roster, duration,
   rounds/messages/journal counts, silence + truncation rates,

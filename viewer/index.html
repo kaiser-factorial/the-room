@@ -100,17 +100,79 @@
     #journals { position: static; width: auto; max-height: none; border-top: 1px solid var(--line); }
   }
 
-  /* Admin modal */
+  /* A shared file that was deleted: still listed, still readable, visibly
+     gone. */
+  #fileList details.gone > summary { text-decoration: line-through; opacity: 0.6; }
+
+  /* Admin modal. `[hidden]` globally, because an author `display` rule beats
+     the UA's — the same trap the .switch rule above documents. */
+  [hidden] { display: none !important; }
   #adminModal { border: 1px solid var(--line); background: var(--panel); color: var(--text);
-    padding: 1.2rem; width: min(26rem, 92vw); }
+    padding: 1.1rem; width: min(34rem, 94vw); max-height: 88vh; }
   #adminModal::backdrop { background: rgba(0,0,0,0.6); }
-  .admin { display: flex; flex-direction: column; gap: 0.7rem; }
-  .admin label { font-size: 0.78rem; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .admin, .pane { display: flex; flex-direction: column; gap: 0.7rem; }
+  .admin label, .lbl { font-size: 0.72rem; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
   .admin .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
   .admin .agents { display: grid; grid-template-columns: 1fr 1fr; gap: 0.2rem; font-size: 0.85rem; }
   .admin button { cursor: pointer; }
-  .admin button.primary { border-color: var(--accent); }
-  #adminMsg { font-size: 0.8rem; color: var(--dim); min-height: 1.2em; }
+  .admin input[type=checkbox], .admin input[type=radio] { accent-color: var(--accent); }
+  .admin button.primary { border-color: var(--accent); color: var(--accent); }
+  #adminMsg, #adminMsg2 { font-size: 0.8rem; color: var(--dim); min-height: 1.2em; }
+  .spread { display: flex; justify-content: space-between; align-items: baseline; }
+
+  /* Tabs across the top of the panel. */
+  .tabs { display: flex; border-bottom: 1px solid var(--line); margin: -0.2rem -1.1rem 0; padding: 0 1.1rem; }
+  .tabs button { background: none; border: none; border-bottom: 2px solid transparent; color: var(--dim);
+    padding: 0.45rem 0.75rem; font: inherit; font-size: 0.85rem; letter-spacing: 0.04em; }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+
+  /* One condition picker, serving single / batch / autopilot alike. */
+  .pick { border: 1px solid var(--line); }
+  .pick .search { display: flex; gap: 0.4rem; padding: 0.35rem; border-bottom: 1px solid var(--line); }
+  .pick .search input { flex: 1; }
+  .pick .list { max-height: 11rem; overflow-y: auto; }
+  .pick .item { display: flex; align-items: baseline; gap: 0.45rem; padding: 0.16rem 0.5rem; font-size: 0.85rem; }
+  .pick .item:hover { background: rgba(255,255,255,0.03); }
+  .pick .item.sel { background: rgba(111,206,111,0.08); }
+  .pick .item .name { flex: 1; cursor: pointer; }
+  .pick .item .i { color: var(--dim); background: none; border: none; font: inherit; padding: 0 0.2rem; }
+  .pick .desc { font-size: 0.75rem; color: var(--dim); padding: 0 0.6rem 0.45rem 1.75rem; }
+  .pick .desc pre { font-size: 0.7rem; background: var(--bg); border: 1px solid var(--line);
+    padding: 0.4rem; overflow-x: auto; margin: 0.35rem 0 0; white-space: pre-wrap; }
+  .plan { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+  .plan .opt { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+  .plan .opt label { text-transform: none; letter-spacing: 0; font-size: 0.85rem; color: var(--text); }
+  .summary { font-size: 0.8rem; color: var(--accent); min-height: 1.2em; }
+  .summary.warn { color: var(--dim); }
+
+  /* Runs tab: what has actually been run, grouped by arm. */
+  .runs { max-height: 56vh; overflow-y: auto; }
+  .runs .arm { border-top: 1px solid var(--line); padding: 0.5rem 0; }
+  .runs .arm:first-child { border-top: none; padding-top: 0; }
+  .runs .arm h3 { margin: 0 0 0.2rem; font: inherit; font-size: 0.88rem; }
+  .runs .arm h3 .n { color: var(--dim); font-size: 0.76rem; margin-left: 0.4rem; }
+  /* Fixed columns, so every arm's table lines up with every other one —
+     per-table auto widths made the ledger look like seven ledgers. */
+  .runs table { border-collapse: collapse; width: 100%; font-size: 0.76rem; table-layout: fixed; }
+  .runs td { padding: 0.1rem 0.5rem 0.1rem 0; color: var(--dim); vertical-align: baseline;
+    overflow: hidden; text-overflow: ellipsis; }
+  .runs td.when { white-space: nowrap; }
+  .runs td:nth-child(1) { width: 7.4rem; }
+  .runs td:nth-child(2) { width: 6.4rem; }
+  .runs td:nth-child(3) { width: 3rem; }
+  .runs td:nth-child(4) { width: 4.8rem; }
+  /* Seats take the slack and wrap: a partial roster is a list of names, and
+     clipping it to an ellipsis loses exactly the thing the column is for. */
+  .runs td:nth-child(5) { overflow: visible; text-overflow: clip; white-space: normal; }
+  .runs td:nth-child(6) { width: 4.4rem; }
+  .seg { display: inline-flex; border: 1px solid var(--line); }
+  .seg button { background: none; border: none; color: var(--dim); font: inherit; font-size: 0.78rem;
+    padding: 0.2rem 0.6rem; letter-spacing: 0.04em; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { color: var(--text); background: rgba(111,206,111,0.1); }
+  .runs a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .runs a:hover { border-bottom-color: var(--accent); }
+  .runs .agree { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -140,48 +202,90 @@
     <div class="row"><button id="loginBtn" class="primary">enter</button><button id="closeBtn">close</button></div>
     <div id="adminMsg"></div>
   </div>
-  <div class="admin" id="adminPanel" style="display:none">
-    <label>condition</label>
-    <div class="row"><select id="cfgCondition"></select><button id="condInfoBtn" title="what this condition changes">ⓘ</button></div>
-    <details id="condInfo"><summary style="display:none"></summary><div id="condInfoBody"></div></details>
-    <label>session</label>
-    <div class="row">
-      <input type="number" id="cfgMinutes" value="30" min="1" style="width:5rem" /> min
-      <select id="cfgShuffle">
-        <option value="periodic">shuffle every 3–6 rounds</option>
-        <option value="every-round">shuffle every round</option>
-        <option value="fixed-random">fixed random order</option>
-      </select>
-    </div>
-    <div class="row"><input type="number" id="cfgDelay" value="8" min="0" style="width:5rem" /> sec between turns</div>
-    <label>batch (optional)</label>
-    <div class="row">
-      <input type="number" id="cfgCount" value="1" min="1" max="50" style="width:4rem" title="sessions per condition" /> ×
-      <input type="text" id="cfgBatchConds" placeholder="house,control (blank = condition above)" style="flex:1" />
-    </div>
-    <label>agents</label>
-    <div class="agents" id="cfgAgents"></div>
-    <div class="row">
-      <button id="startBtn" class="primary">start / queue</button>
-      <button id="stopBtn">stop session</button>
-    </div>
-    <label>autopilot — rotate conditions</label>
-    <div class="agents" id="cfgLoopConds"></div>
-    <div class="row">
-      <input type="number" id="cfgLoopPause" value="10" min="0" style="width:4rem" title="minutes between sessions" /> min gap
-    </div>
-    <div class="row">
-      <input type="number" id="cfgLoopSets" min="1" max="100" placeholder="∞" style="width:4rem" title="full rotations; blank = forever" /> sets
-      <span style="color:var(--dim);font-size:0.75rem">(2 conditions × 5 sets = 10 sessions; blank runs forever)</span>
-    </div>
-    <div class="row">
-      <button id="loopBtn">start autopilot</button>
-      <button id="loopStopBtn">stop autopilot</button>
-    </div>
-    <label>speak into the room</label>
-    <textarea id="sayText" rows="2"></textarea>
-    <div class="row"><button id="sayBtn">send</button><button id="closeBtn2">close</button></div>
+  <div class="admin" id="adminPanel" hidden>
+    <nav class="tabs" id="tabs">
+      <button class="on" data-tab="run">run</button>
+      <button data-tab="runs">runs</button>
+      <button data-tab="say">say</button>
+    </nav>
+
+    <!-- RUN. One condition list feeds all three plans, so there is exactly
+         one place where "which arm" is answered. -->
+    <section class="pane" data-panel="run">
+      <div class="spread"><span class="lbl">conditions</span><span class="lbl" id="pickCount"></span></div>
+      <div class="pick">
+        <div class="search">
+          <input type="search" id="pickSearch" placeholder="filter…" autocomplete="off" />
+          <button id="pickClear" type="button">clear</button>
+        </div>
+        <div class="list" id="pickList"></div>
+      </div>
+
+      <span class="lbl">plan</span>
+      <div class="plan">
+        <div class="opt">
+          <input type="radio" name="plan" id="planOnce" checked /><label for="planOnce">one session each</label>
+        </div>
+        <div class="opt">
+          <input type="radio" name="plan" id="planN" /><label for="planN">run</label>
+          <input type="number" id="cfgCount" value="2" min="1" max="50" style="width:3.5rem" />
+          <label for="cfgCount">of each, interleaved</label>
+        </div>
+        <div class="opt">
+          <input type="radio" name="plan" id="planLoop" /><label for="planLoop">autopilot, gap</label>
+          <input type="number" id="cfgLoopPause" value="10" min="0" style="width:3.5rem" />
+          <label for="cfgLoopPause">min ·</label>
+          <input type="number" id="cfgLoopSets" min="1" max="100" placeholder="∞" style="width:3.5rem" />
+          <label for="cfgLoopSets">sets</label>
+        </div>
+      </div>
+
+      <span class="lbl">session</span>
+      <div class="row">
+        <input type="number" id="cfgMinutes" value="30" min="1" style="width:4.2rem" /> min
+        <input type="number" id="cfgDelay" value="8" min="0" style="width:4rem" /> sec/turn
+        <select id="cfgShuffle">
+          <option value="periodic">shuffle every 3–6 rounds</option>
+          <option value="every-round">shuffle every round</option>
+          <option value="fixed-random">fixed random order</option>
+        </select>
+      </div>
+
+      <div class="spread">
+        <span class="lbl">seats</span>
+        <span><button id="seatsAll" type="button">all</button> <button id="seatsNone" type="button">none</button></span>
+      </div>
+      <div class="agents" id="cfgAgents"></div>
+
+      <div class="summary" id="planSummary"></div>
+      <div class="row">
+        <button id="startBtn" class="primary">start</button>
+        <button id="stopBtn">stop session</button>
+        <button id="loopStopBtn">stop autopilot</button>
+      </div>
+    </section>
+
+    <!-- RUNS. What has actually been run, by arm: how many, how long, which
+         seats, and a link into each transcript. -->
+    <section class="pane" data-panel="runs" hidden>
+      <div class="spread">
+        <span class="seg" id="runsFilter">
+          <button class="on" data-kind="all">all</button><button data-kind="task">task</button><button data-kind="chat">chat</button>
+        </span>
+        <button id="runsRefresh" type="button">refresh</button>
+      </div>
+      <div class="lbl" id="runsSummary">…</div>
+      <div class="runs" id="runsBody"></div>
+    </section>
+
+    <section class="pane" data-panel="say" hidden>
+      <span class="lbl">speak into the room</span>
+      <textarea id="sayText" rows="3"></textarea>
+      <div class="row"><button id="sayBtn">send</button></div>
+    </section>
+
     <div id="adminMsg2"></div>
+    <div class="row" style="justify-content:flex-end"><button id="closeBtn2">close</button></div>
   </div>
 </dialog>
 
@@ -204,7 +308,7 @@ const CATALOG = [
 // Must match conditions/*.json (redeploy viewer when adding presets).
 // Offline fallback only — the live list comes from conditions.json,
 // generated at deploy time from conditions/*.json.
-const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing', 'site', 'site-native', 'site-open', 'site-unwitnessed', 'site-unending', 'site-open-unending'];
+const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'floor', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing', 'site', 'site-native', 'site-open', 'site-unwitnessed', 'site-unending', 'site-open-unending', 'project', 'project-unending'];
 const ADMIN_COLOR = '#e8e6e1';
 // The file the site view renders (site.html's default). A room that writes
 // it gets the chat/site switch in the header.
@@ -301,8 +405,11 @@ function render(e) {
     if (e.kind === 'run') renderToolCall(e);
     el.className = 'aside';
     el.textContent = e.kind === 'file'
-      ? (e.payload?.denied ? `${e.agent_name} tried to write a shared file, but it was refused.`
-                           : `${e.agent_name} updated the shared file "${e.payload?.name}".`)
+      ? (e.payload?.denied
+          ? `${e.agent_name} tried to ${e.payload?.deleted ? 'delete' : 'write'} a shared file, but it was refused.`
+          : e.payload?.deleted
+            ? `${e.agent_name} deleted the shared file "${e.payload?.name}".`
+            : `${e.agent_name} updated the shared file "${e.payload?.name}".`)
       : (e.payload?.denied ? `${e.agent_name} tried to run some code, but it was refused.`
                            : `${e.agent_name} ran some code.`);
     const d = document.createElement('details');
@@ -414,7 +521,7 @@ const fileSections = new Map(); // name -> {details, body, metaEl, versions}
 const IMG_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
 
 function renderSharedFile(e) {
-  const { name, content, encoding, denied } = e.payload || {};
+  const { name, content, encoding, denied, deleted } = e.payload || {};
   if (!name || denied) return;
   $('filesWrap').hidden = false;
   let sec = fileSections.get(name);
@@ -435,7 +542,13 @@ function renderSharedFile(e) {
   sec.versions++;
   sec.countEl.textContent = sec.versions > 1 ? `(v${sec.versions})` : '';
   updateViews();
-  sec.metaEl.textContent = `by ${e.agent_name} · round ${e.round}`;
+  // A deleted file keeps its last contents in the rail — the transcript is
+  // a record of what the room made, and a file that vanishes without trace
+  // would make the deletion unreadable after the fact.
+  sec.details.classList.toggle('gone', !!deleted);
+  sec.metaEl.textContent = deleted
+    ? `deleted by ${e.agent_name} · round ${e.round}`
+    : `by ${e.agent_name} · round ${e.round}`;
   sec.metaEl.style.color = '';
   sec.body.innerHTML = '';
   if (encoding === 'base64') {
@@ -641,44 +754,144 @@ setInterval(async () => {
 const modal = $('adminModal');
 let adminPw = sessionStorage.getItem('room-admin-pw') || '';
 
-dot.addEventListener('click', () => {
-  $('adminLogin').style.display = adminPw ? 'none' : 'flex';
-  $('adminPanel').style.display = adminPw ? 'flex' : 'none';
-  if (!$('cfgCondition').children.length) {
-    // Populate from deploy-generated conditions.json (always current);
-    // the hardcoded list is only the offline fallback.
-    loadConditionInfo().then((info) => {
-      const names = info.length ? info.map((c) => c.name) : CONDITIONS;
-      for (const c of names) {
-        const opt = document.createElement('option');
-        opt.value = opt.textContent = c;
-        if (c === 'house') opt.selected = true;
-        $('cfgCondition').appendChild(opt);
-      }
-      // Autopilot rotation: checkboxes, none pre-checked — the rotation
-      // is exactly what you tick.
-      for (const c of names) {
-        const lab = document.createElement('label');
-        lab.style.textTransform = 'none';
-        lab.innerHTML = `<input type="checkbox" value="${c}" /> <span></span>`;
-        lab.querySelector('span').textContent = c;
-        $('cfgLoopConds').appendChild(lab);
-      }
+// Condition (i): what each named condition changes vs control, generated at
+// deploy time from conditions/*.json (conditions.json sits next to this page).
+let CONDITION_INFO = null;
+async function loadConditionInfo() {
+  if (CONDITION_INFO) return CONDITION_INFO;
+  try { CONDITION_INFO = await (await fetch('conditions.json')).json(); }
+  catch { CONDITION_INFO = []; }
+  return CONDITION_INFO;
+}
+
+// ── The condition picker ───────────────────────────────────────────────────
+// One list, not three. The old panel asked "which condition" in a dropdown,
+// again in a free-text batch field, and a third time in a checkbox grid, with
+// undocumented precedence between them; a typo in the free-text field failed
+// silently. Selection here IS the answer, and `plan` says what to do with it.
+const picked = new Set();
+
+async function buildPicker() {
+  const info = await loadConditionInfo();
+  const names = info.length ? info.map((c) => c.name) : CONDITIONS;
+  const list = $('pickList');
+  list.innerHTML = '';
+  for (const name of names) {
+    const row = document.createElement('div');
+    row.className = 'item';
+    row.dataset.name = name;
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.id = `pk-${name}`;
+    const label = document.createElement('label');
+    label.className = 'name'; label.htmlFor = cb.id; label.textContent = name;
+    label.style.textTransform = 'none'; label.style.letterSpacing = '0';
+    label.style.color = 'var(--text)'; label.style.fontSize = '0.85rem';
+    const i = document.createElement('button');
+    i.type = 'button'; i.className = 'i'; i.textContent = 'ⓘ';
+    i.title = 'what this condition changes';
+    const desc = document.createElement('div');
+    desc.className = 'desc'; desc.hidden = true;
+    cb.addEventListener('change', () => {
+      cb.checked ? picked.add(name) : picked.delete(name);
+      row.classList.toggle('sel', cb.checked);
+      updateSummary();
     });
+    i.addEventListener('click', () => {
+      if (!desc.hidden) { desc.hidden = true; return; }
+      const c = info.find((x) => x.name === name);
+      desc.innerHTML = '';
+      const d = document.createElement('div');
+      d.textContent = c ? c.description
+        : 'No info for this condition (redeploy the viewer to regenerate conditions.json).';
+      desc.appendChild(d);
+      if (c && Object.keys(c.overrides || {}).length) {
+        const pre = document.createElement('pre');
+        pre.textContent = 'changes vs control:\n' + JSON.stringify(c.overrides, null, 2);
+        desc.appendChild(pre);
+      } else if (c) {
+        const n = document.createElement('div');
+        n.textContent = 'no overrides — this IS the control state';
+        desc.appendChild(n);
+      }
+      desc.hidden = false;
+    });
+    row.append(cb, label, i);
+    list.append(row, desc);
   }
+}
+
+$('pickSearch').addEventListener('input', () => {
+  const q = $('pickSearch').value.trim().toLowerCase();
+  for (const row of $('pickList').querySelectorAll('.item')) {
+    const hit = !q || row.dataset.name.includes(q);
+    row.hidden = !hit;
+    if (row.nextElementSibling?.className === 'desc' && !hit) row.nextElementSibling.hidden = true;
+  }
+});
+$('pickClear').onclick = () => {
+  picked.clear();
+  for (const cb of $('pickList').querySelectorAll('input')) cb.checked = false;
+  for (const row of $('pickList').querySelectorAll('.item')) row.classList.remove('sel');
+  updateSummary();
+};
+
+const planMode = () => $('planLoop').checked ? 'loop' : $('planN').checked ? 'n' : 'once';
+
+function updateSummary() {
+  const el = $('planSummary');
+  const n = picked.size;
+  const seats = $('cfgAgents').querySelectorAll('input:checked').length;
+  $('pickCount').textContent = n ? `${n} selected` : '';
+  if (!n) { el.className = 'summary warn'; el.textContent = 'pick at least one condition'; return; }
+  if (!seats) { el.className = 'summary warn'; el.textContent = 'pick at least one seat'; return; }
+  const mins = Number($('cfgMinutes').value) || 30;
+  const mode = planMode();
+  el.className = 'summary';
+  if (mode === 'loop') {
+    const sets = Number($('cfgLoopSets').value) > 0 ? Number($('cfgLoopSets').value) : null;
+    el.textContent = `autopilot: rotating ${n} condition${n > 1 ? 's' : ''}, ${mins} min each, `
+      + `${Number($('cfgLoopPause').value) || 0} min gap — ${sets ? `${n * sets} sessions` : 'runs until stopped'}`;
+    return;
+  }
+  const each = mode === 'n' ? (Number($('cfgCount').value) || 1) : 1;
+  const total = n * each;
+  el.textContent = `${total} session${total > 1 ? 's' : ''} — ${n} condition${n > 1 ? 's' : ''}`
+    + (each > 1 ? ` × ${each}` : '') + `, ${mins} min each, ${seats} seat${seats > 1 ? 's' : ''}`;
+}
+for (const id of ['planOnce', 'planN', 'planLoop', 'cfgCount', 'cfgMinutes', 'cfgLoopPause', 'cfgLoopSets']) {
+  $(id).addEventListener('input', updateSummary);
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+$('tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-tab]');
+  if (!btn) return;
+  for (const b of $('tabs').children) b.classList.toggle('on', b === btn);
+  for (const sec of document.querySelectorAll('[data-panel]')) sec.hidden = sec.dataset.panel !== btn.dataset.tab;
+  if (btn.dataset.tab === 'runs') loadRuns();
+});
+
+dot.addEventListener('click', () => {
+  $('adminLogin').hidden = !!adminPw;
+  $('adminPanel').hidden = !adminPw;
+  if (!$('pickList').children.length) buildPicker().then(updateSummary);
   if (!$('cfgAgents').children.length) {
     for (const a of CATALOG) {
       const lab = document.createElement('label');
-      lab.style.textTransform = 'none';
+      lab.style.textTransform = 'none'; lab.style.letterSpacing = '0';
       lab.innerHTML = `<input type="checkbox" checked value="${a.id}" /> <span></span>`;
       lab.querySelector('span').textContent = a.name;
       lab.querySelector('span').style.color = a.color;
+      lab.querySelector('input').addEventListener('change', updateSummary);
       $('cfgAgents').appendChild(lab);
     }
+    updateSummary();
   }
   modal.showModal();
 });
 $('closeBtn').onclick = $('closeBtn2').onclick = () => modal.close();
+$('seatsAll').onclick = () => { for (const i of $('cfgAgents').querySelectorAll('input')) i.checked = true; updateSummary(); };
+$('seatsNone').onclick = () => { for (const i of $('cfgAgents').querySelectorAll('input')) i.checked = false; updateSummary(); };
 
 async function adminCall(body) {
   const res = await fetch(ADMIN_FN, {
@@ -697,8 +910,8 @@ $('loginBtn').onclick = async () => {
   try {
     await adminCall({ action: 'login' });
     sessionStorage.setItem('room-admin-pw', adminPw);
-    $('adminLogin').style.display = 'none';
-    $('adminPanel').style.display = 'flex';
+    $('adminLogin').hidden = true;
+    $('adminPanel').hidden = false;
   } catch (err) {
     adminPw = '';
     $('adminMsg').textContent = err.message;
@@ -708,82 +921,40 @@ $('loginBtn').onclick = async () => {
 const flash = (t) => { $('adminMsg2').textContent = t; setTimeout(() => { $('adminMsg2').textContent = ''; }, 4000); };
 
 $('startBtn').onclick = async () => {
+  const conditions = [...picked];
+  if (!conditions.length) return flash('pick at least one condition');
   const agentIds = [...$('cfgAgents').querySelectorAll('input:checked')].map((i) => i.value);
+  if (!agentIds.length) return flash('pick at least one seat');
   // Only send a seat override when the selection actually narrows the
   // catalog — otherwise it would clobber seat/persona assignments that a
   // named condition defines (the meta stamp would then faithfully record
   // the wrong resolution, invisibly).
   const seatOverride = agentIds.length < CATALOG.length ? { agentIds } : {};
+  const base = {
+    condition: conditions[0],
+    ...seatOverride,
+    minutes: Number($('cfgMinutes').value) || 30,
+    delaySeconds: Number($('cfgDelay').value) || 8,
+    shuffle: { kind: $('cfgShuffle').value },
+  };
+  const mode = planMode();
   try {
-    const count = Number($('cfgCount').value) || 1;
-    const batchConds = $('cfgBatchConds').value.split(',').map((s) => s.trim()).filter(Boolean);
-    // Batch: N sessions per condition, interleaved by the runner. A plain
-    // start is just the 1×[condition] case, so only send `batch` when it
-    // actually batches.
-    const batch = count > 1 || batchConds.length > 1 ? { batch: { count, conditions: batchConds.length ? batchConds : undefined } } : {};
-    await adminCall({ action: 'command', kind: 'start', payload: {
-      condition: $('cfgCondition').value,
-      ...seatOverride,
-      ...batch,
-      minutes: Number($('cfgMinutes').value) || 30,
-      delaySeconds: Number($('cfgDelay').value) || 8,
-      shuffle: { kind: $('cfgShuffle').value },
-    }});
-    const totalSessions = count * (batchConds.length || 1);
-    flash(totalSessions > 1 ? `batch start sent — ${totalSessions} sessions, interleaved` : 'start command sent — the runner picks it up within ~3s');
-  } catch (err) { flash(err.message); }
-};
-
-// Condition (i): what each named condition changes vs control, generated at
-// deploy time from conditions/*.json (conditions.json sits next to this page).
-let CONDITION_INFO = null;
-async function loadConditionInfo() {
-  if (CONDITION_INFO) return CONDITION_INFO;
-  try { CONDITION_INFO = await (await fetch('conditions.json')).json(); }
-  catch { CONDITION_INFO = []; }
-  return CONDITION_INFO;
-}
-$('condInfoBtn').onclick = async (e) => {
-  e.preventDefault();
-  const box = $('condInfo');
-  if (box.open) { box.open = false; return; }
-  const info = (await loadConditionInfo()).find((c) => c.name === $('cfgCondition').value);
-  const body = $('condInfoBody');
-  body.innerHTML = '';
-  const desc = document.createElement('div');
-  desc.style.cssText = 'font-size:0.8rem;color:var(--dim);margin:0.4rem 0';
-  desc.textContent = info ? info.description : 'No info for this condition (redeploy the viewer to regenerate conditions.json).';
-  body.appendChild(desc);
-  if (info && Object.keys(info.overrides).length) {
-    const pre = document.createElement('pre');
-    pre.style.cssText = 'font-size:0.72rem;background:var(--bg,#101217);border:1px solid var(--line);padding:0.5rem;overflow-x:auto;margin:0';
-    pre.textContent = 'changes vs control:\n' + JSON.stringify(info.overrides, null, 2);
-    body.appendChild(pre);
-  } else if (info) {
-    const none = document.createElement('div');
-    none.style.cssText = 'font-size:0.75rem;color:var(--dim)';
-    none.textContent = 'no overrides — this IS the control state';
-    body.appendChild(none);
-  }
-  box.open = true;
-};
-$('cfgCondition').addEventListener('change', () => { $('condInfo').open = false; });
-
-$('loopBtn').onclick = async () => {
-  const conditions = [...$('cfgLoopConds').querySelectorAll('input:checked')].map((i) => i.value);
-  try {
-    await adminCall({ action: 'command', kind: 'start', payload: {
-      condition: $('cfgCondition').value,
-      minutes: Number($('cfgMinutes').value) || 30,
-      delaySeconds: Number($('cfgDelay').value) || 8,
-      shuffle: { kind: $('cfgShuffle').value },
-      loop: {
-        conditions: conditions.length ? conditions : undefined,
-        pauseMinutes: Number($('cfgLoopPause').value) || 10,
-        sets: Number($('cfgLoopSets').value) > 0 ? Number($('cfgLoopSets').value) : undefined,
-      },
-    }});
-    flash('autopilot on — rotating ' + (conditions.length ? conditions.join(', ') : $('cfgCondition').value));
+    if (mode === 'loop') {
+      const sets = Number($('cfgLoopSets').value) > 0 ? Number($('cfgLoopSets').value) : undefined;
+      await adminCall({ action: 'command', kind: 'start', payload: { ...base, loop: {
+        conditions, pauseMinutes: Number($('cfgLoopPause').value) || 10, sets,
+      }}});
+      flash('autopilot on — rotating ' + conditions.join(', '));
+      return;
+    }
+    // A plain start is just the 1×[condition] case, so only send `batch`
+    // when it actually batches.
+    const count = mode === 'n' ? (Number($('cfgCount').value) || 1) : 1;
+    const batch = count > 1 || conditions.length > 1 ? { batch: { count, conditions } } : {};
+    await adminCall({ action: 'command', kind: 'start', payload: { ...base, ...batch } });
+    const total = count * conditions.length;
+    flash(total > 1 ? `batch start sent — ${total} sessions, interleaved`
+                    : 'start command sent — the runner picks it up within ~3s');
   } catch (err) { flash(err.message); }
 };
 
@@ -806,6 +977,179 @@ $('sayBtn').onclick = async () => {
     flash('sent — lands before the next turn');
   } catch (err) { flash(err.message); }
 };
+
+// ── Runs: the ledger ───────────────────────────────────────────────────────
+// Which arms have actually been run, how many times, how long they lasted,
+// how many rounds, which seats, and a way back into each transcript. Reads
+// the `meta` and `end` events — the two rows per session that carry it.
+//
+// TASK vs CHAT: a task room is one that was given something to make, and the
+// mark of that is a `completion` block naming the artifact (`target`). Every
+// site arm carries one — including the unending arms, where it is present
+// with `enabled: false` — and no open-ended condition does. Deliberately not
+// a name prefix: a future task condition that is not called site-* still
+// classifies correctly, as long as it declares what is being made.
+let RUNS = null;
+let runsKind = 'all';
+
+const isTask = (s) => !!s.completion?.target;
+
+async function fetchRuns() {
+  const cols = 'session_id,kind,ts,cond:payload->condition->>name,mins:payload->>durationMinutes,'
+    + 'agents:payload->agents,completion:payload->condition->completion,'
+    + 'ending:payload->>ending,rounds:payload->>rounds';
+  let { data, error } = await supabase.from('room_events').select(cols)
+    .in('kind', ['meta', 'end']).order('id', { ascending: true });
+  if (error) {
+    // Older PostgREST without json-path projection: fall back to whole
+    // payloads rather than showing an empty tab.
+    const full = await supabase.from('room_events').select('session_id,kind,ts,payload')
+      .in('kind', ['meta', 'end']).order('id', { ascending: true });
+    if (full.error) throw new Error(full.error.message);
+    data = (full.data || []).map((r) => ({
+      session_id: r.session_id, kind: r.kind, ts: r.ts,
+      cond: r.payload?.condition?.name, mins: r.payload?.durationMinutes,
+      agents: r.payload?.agents, completion: r.payload?.condition?.completion,
+      ending: r.payload?.ending, rounds: r.payload?.rounds,
+    }));
+  }
+  const byId = new Map();
+  for (const r of data || []) {
+    let s = byId.get(r.session_id);
+    if (!s) { s = { id: r.session_id }; byId.set(r.session_id, s); }
+    if (r.kind === 'meta') {
+      // First meta wins: a re-stamped session keeps the run it started as.
+      if (!s.start) {
+        s.cond = r.cond; s.mins = Number(r.mins) || null; s.agents = r.agents || [];
+        s.completion = r.completion; s.start = r.ts;
+      }
+    } else if (!s.end) {
+      s.ending = r.ending; s.end = r.ts;
+      if (r.rounds != null) s.rounds = Number(r.rounds);
+    }
+  }
+  const runs = [...byId.values()].filter((s) => s.cond);
+  await fillRounds(runs);
+  return runs;
+}
+
+// Sessions recorded before the runner stamped `rounds` into the end event
+// have to be counted from their rows. Only those, and only the (session_id,
+// round) pair — so this shrinks to nothing as the stamped sessions accrue.
+// Paged, because PostgREST caps a response at 1000 rows and a silent
+// truncation here would under-report a long session's rounds.
+async function fillRounds(runs) {
+  const missing = runs.filter((s) => s.rounds == null).map((s) => s.id);
+  if (!missing.length) return;
+  const max = new Map();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from('room_events').select('session_id,round')
+      .in('session_id', missing).gte('round', 0)
+      .order('id', { ascending: true }).range(from, from + PAGE - 1);
+    if (error) return;                       // leave them blank rather than wrong
+    for (const r of data || []) {
+      const cur = max.get(r.session_id) ?? 0;
+      if (r.round > cur) max.set(r.session_id, r.round);
+    }
+    if (!data || data.length < PAGE) break;
+  }
+  for (const s of runs) if (s.rounds == null) s.rounds = max.get(s.id) ?? null;
+}
+
+const seatLabel = (agents) => {
+  const names = (agents || []).map((a) => String(a.name || a.id || '').split(' ')[0]);
+  if (!names.length) return '—';
+  return names.length === CATALOG.length ? `all ${names.length}` : names.join('·');
+};
+
+function renderRuns() {
+  const body = $('runsBody');
+  body.innerHTML = '';
+  const all = RUNS;
+  const shown = runsKind === 'all' ? all : all.filter((s) => (runsKind === 'task') === isTask(s));
+  const tasks = all.filter(isTask).length;
+  for (const b of $('runsFilter').children) {
+    const k = b.dataset.kind;
+    b.classList.toggle('on', k === runsKind);
+    b.textContent = k === 'all' ? `all ${all.length}` : k === 'task' ? `task ${tasks}` : `chat ${all.length - tasks}`;
+  }
+  const arms = new Map();
+  for (const s of shown) {
+    if (!arms.has(s.cond)) arms.set(s.cond, []);
+    arms.get(s.cond).push(s);
+  }
+  const running = shown.filter((s) => !s.end).length;
+  $('runsSummary').textContent = `${shown.length} sessions · ${arms.size} arms`
+    + (running ? ` · ${running} unfinished` : '');
+  const order = [...arms.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+  for (const [cond, runs] of order) {
+    const arm = document.createElement('div');
+    arm.className = 'arm';
+    const h = document.createElement('h3');
+    h.textContent = cond;
+    const n = document.createElement('span');
+    n.className = 'n';
+    n.textContent = `${runs.length} run${runs.length > 1 ? 's' : ''}`;
+    h.appendChild(n);
+    const table = document.createElement('table');
+    for (const s of runs.sort((a, b) => (b.start || '').localeCompare(a.start || ''))) {
+      const tr = document.createElement('tr');
+      const td = (text, cls) => {
+        const c = document.createElement('td');
+        c.textContent = text; if (cls) c.className = cls;
+        return c;
+      };
+      const actual = s.start && s.end
+        ? ((new Date(s.end) - new Date(s.start)) / 60000).toFixed(1) : null;
+      const how = td(s.ending || '—', 'when' + (s.ending === 'agreement' ? ' agree' : ''));
+      const link = document.createElement('td');
+      link.className = 'when';
+      const a = document.createElement('a');
+      a.href = `?session=${encodeURIComponent(s.id)}`;
+      a.textContent = 'chat';
+      link.appendChild(a);
+      // The page link belongs to a room whose artifact IS a page. A project
+      // room is a task room too, but its deliverable is a tree of files, and
+      // site.html would open on whatever index.html it happened to write.
+      if (/\.html?$/i.test(s.completion?.target || '')) {
+        const b = document.createElement('a');
+        b.href = `./site.html?session=${encodeURIComponent(s.id)}`;
+        b.textContent = 'page';
+        b.style.marginLeft = '0.5rem';
+        link.appendChild(b);
+      }
+      const seats = td(seatLabel(s.agents));
+      seats.title = (s.agents || []).map((a) => a.name || a.id).join(', ');
+      tr.append(
+        td((s.start || s.id).slice(0, 16).replace('T', ' '), 'when'),
+        td(actual ? `${actual}/${s.mins ?? '?'} min` : `${s.mins ?? '?'} min · running`, 'when'),
+        td(s.rounds != null ? `${s.rounds} rd` : '—', 'when'),
+        how,
+        seats,
+        link,
+      );
+      table.appendChild(tr);
+    }
+    arm.append(h, table);
+    body.appendChild(arm);
+  }
+}
+
+$('runsFilter').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-kind]');
+  if (!b || !RUNS) return;
+  runsKind = b.dataset.kind;
+  renderRuns();
+});
+
+async function loadRuns(force) {
+  if (RUNS && !force) return renderRuns();
+  $('runsSummary').textContent = 'loading…';
+  try { RUNS = await fetchRuns(); renderRuns(); }
+  catch (err) { $('runsSummary').textContent = err.message; }
+}
+$('runsRefresh').onclick = () => loadRuns(true);
 </script>
 </body>
 </html>

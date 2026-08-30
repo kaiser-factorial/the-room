@@ -54,24 +54,38 @@ const { parentPort, workerData } = require('node:worker_threads');
   const before = new Map();
   for (const [name, b64] of Object.entries(workerData.files ?? {})) {
     try {
+      // A name may carry folders (tools.directories); make them before the
+      // write, or the file silently fails to mount.
+      const slash = name.lastIndexOf('/');
+      if (slash > 0) py.FS.mkdirTree('/home/pyodide/shared/' + name.slice(0, slash));
       py.FS.writeFile('/home/pyodide/shared/' + name, Buffer.from(b64, 'base64'));
       before.set(name, b64);
     } catch {}
   }
   parentPort.postMessage({ type: 'ready' });
+  // RECURSIVE: a room with folders can save shared/src/parser.py, and a
+  // flat readdir would have walked straight past it — the file would exist
+  // inside the sandbox, vanish with the interpreter, and never reach the
+  // room. Depth-capped so a runaway mkdir loop cannot hang the collect.
   const collectChanged = () => {
     const changed = [];
-    try {
-      for (const name of py.FS.readdir('/home/pyodide/shared')) {
-        if (name === '.' || name === '..') continue;
+    const walk = (rel, depth) => {
+      if (depth > 6) return;
+      const dir = '/home/pyodide/shared' + (rel ? '/' + rel : '');
+      let entries = [];
+      try { entries = py.FS.readdir(dir); } catch { return; }
+      for (const entry of entries) {
+        if (entry === '.' || entry === '..') continue;
+        const name = rel ? rel + '/' + entry : entry;
         try {
-          const stat = py.FS.stat('/home/pyodide/shared/' + name);
-          if (py.FS.isDir(stat.mode)) continue;
-          const b64 = Buffer.from(py.FS.readFile('/home/pyodide/shared/' + name)).toString('base64');
+          const stat = py.FS.stat(dir + '/' + entry);
+          if (py.FS.isDir(stat.mode)) { walk(name, depth + 1); continue; }
+          const b64 = Buffer.from(py.FS.readFile(dir + '/' + entry)).toString('base64');
           if (before.get(name) !== b64) changed.push({ name, dataBase64: b64 });
         } catch {}
       }
-    } catch {}
+    };
+    walk('', 0);
     return changed;
   };
   try {

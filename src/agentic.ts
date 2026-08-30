@@ -79,6 +79,10 @@ export type RefusalCode =
   | 'binary_append'
   | 'file_too_large'
   | 'too_many_files'
+  /** [DELETE] naming a file the room does not hold. `available` lists what
+   *  it does hold — a legal enumeration, since every shared file is
+   *  already in the caller's prompt. */
+  | 'no_such_file'
   | 'bad_config_key'
   | 'bad_config_value'
   /** Native transport: the arguments weren't usable (not JSON, or a

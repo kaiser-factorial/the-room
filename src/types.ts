@@ -77,7 +77,10 @@ export interface CompletionConfig {
   rule: 'unanimous' | 'quorum';
   quorum: number;
   /** The artifact the agreement is about — a shared file name. Writing to
-   *  it clears the standing votes when `resetOnEdit`. Empty = the room has
+   *  it clears the standing votes when `resetOnEdit`. `'*'` = ANY shared
+   *  file, which is what a project-shaped task wants: the agreement is
+   *  about the whole tree, so any edit to it lapses the agreement.
+   *  Empty = the room has
    *  no named deliverable and only withdrawals lower a vote. */
   target: string;
   /** true = a write to `target` withdraws every standing vote. */
@@ -150,6 +153,31 @@ export interface ToolsConfig {
    *  real and deliberate — the artifact is in every seat's prompt every
    *  turn, which for a 60k page is ~15k tokens a call. */
   fileViewChars: number;
+  /** How many shared files the room may hold at once. 20 is the
+   *  note-passing default; a room told to build a PROJECT needs a repo's
+   *  worth. The room is told the number, like the size ceiling. */
+  maxFiles: number;
+  /** Allow `/` in shared file names — `src/parser.py`, `docs/README.md`.
+   *  Off everywhere before the project task: every condition run so far
+   *  had a FLAT namespace, and quietly giving an old condition folders
+   *  would change it. Names are still validated segment by segment, so
+   *  `..`, absolute paths and empty segments can never appear; depth and
+   *  total length are capped in session.ts. */
+  directories: boolean;
+  /** Allow `[DELETE: name]`. Off everywhere before the project task, for
+   *  the same reason directories are: no condition run so far could
+   *  remove a file, and a room that can is a different room. It is also
+   *  the sharpest territory signal the bench has — deleting someone
+   *  else's file is a claim about whose work the project is. */
+  fileDelete: boolean;
+  /** Total characters of shared-file CONTENT any one prompt may carry,
+   *  across all files (0 = no cap, which is every condition before the
+   *  project task). `fileViewChars` caps one file; this caps the block.
+   *  Without it a room with a 40-file budget and a 60k per-file view can
+   *  put a megabyte of its own filesystem into every seat's context every
+   *  turn. Past the budget the render still LISTS every file with its
+   *  size — a seat always knows what exists, and can read the rest. */
+  fileViewTotalChars: number;
   /** Pyodide python sandbox. */
   python: boolean;
   /** 'per-seat' = each seat may act on its own turn (up to `turnSteps`
@@ -464,7 +492,11 @@ export type RoomEvent =
    *  (inaudible; the writer learns privately). encoding 'base64' marks a
    *  BINARY file (python-written, e.g. a matplotlib PNG): the viewer
    *  renders it, agents see it listed by name/size only. */
-  | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; encoding?: 'base64'; denied?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
+  /** `deleted: true` = the file was REMOVED, and `content` is the last
+   *  contents it had. Keeping the body on the removal event is deliberate:
+   *  the transcript stays a complete record of the artifact, and
+   *  `fileWork` can still attribute the lines that a deletion took out. */
+  | { kind: 'file'; ts: string; round: number; agentId: string; agentName: string; name: string; content: string; encoding?: 'base64'; denied?: boolean; deleted?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** F4½ python run. Default: `code`/`output` are caller-private
    *  (journal-class) — never rendered into any context except the
    *  caller's private block. `public: true` (tools.runPublic, stamped at
@@ -488,5 +520,8 @@ export type RoomEvent =
    *  ending = WHY the session stopped (§9.8). Absent on every session
    *  before the completion axis existed, where the answer was always the
    *  clock or the round cap. 'agreement' is the one that says the room
-   *  decided; the others say the apparatus did. */
-  | { kind: 'end'; ts: string; round: number; payload: { adminTouched: boolean; traceSeats?: string[]; ending?: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile' } };
+   *  decided; the others say the apparatus did.
+   *  rounds = how many rounds actually opened, so a ledger can report it
+   *  without scanning the session. Absent on sessions recorded before
+   *  2026-08-30, where it has to be counted from the rows. */
+  | { kind: 'end'; ts: string; round: number; payload: { adminTouched: boolean; rounds?: number; traceSeats?: string[]; ending?: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile' } };

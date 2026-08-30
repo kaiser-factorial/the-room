@@ -677,7 +677,7 @@ means anything against the other three cells. What it isolates is the
 interaction: in `site-open` a room that picks a subject also gets to
 decide when that subject is exhausted, so a thin choice is survivable —
 they write the page, agree, and stop. Remove the ending and **the subject
-has to hold for the full 90 minutes**. A room that chose something thin
+has to hold for the whole session**. A room that chose something thin
 runs out of it with no way to hand the time back; a room that chose
 something with depth keeps building.
 
@@ -715,6 +715,59 @@ sentence, and every other field equals `site-unending`'s.
 changes no file and fetches nothing; putting it in the tool schema would
 dress the room's own decision as a task-completion API — the register the
 whole apparatus exists to avoid.
+
+## The project room (§9.9)
+
+`conditions/project.json` is the second task family, and the first one with
+no named deliverable: the room is handed a **filesystem** and told to make
+something in it, together. `project-unending.json` is the same room with the
+completion axis off.
+
+> Welcome to the room. You are each a different AI model. You will be here
+> together for a while, and there is a shared filesystem: files everyone can
+> read, change and remove. Make something in it, together. What that is — a
+> program, a document, a library, something with no name yet — is yours to
+> decide.
+
+**The bench had to grow, because the premise did not hold.** A room told it
+has a filesystem was getting a flat drawer of at most 20 files that could
+never be deleted: `FILE_NAME_RE` rejected `/`, and the sandbox collected
+python's output with a non-recursive `readdir`, so even `shared/src/x.py`
+would have been written inside the interpreter and lost when it exited.
+
+| knob | project | everything else |
+|---|---|---|
+| `tools.directories` | `true` — `src/parser.py`, 4 levels deep | `false` |
+| `tools.fileDelete` | `true` — `[DELETE: name]` / `delete_file` | `false` |
+| `tools.maxFiles` | 40 | 20 |
+| `tools.fileViewTotalChars` | 80,000 | 0 (no cap) |
+| `completion.target` | `'*'` — any file lapses the agreement | one file, or none |
+
+All four default to the old behaviour, and a test pins `tools-full`'s whole
+resolved tools object so a new knob can never silently change a condition
+that has already been run.
+
+**Path safety.** A name is validated *segment by segment* against the same
+rule a flat name always had, so `..` and absolute paths cannot be spelled
+rather than being blacklisted — a segment must begin with an alphanumeric.
+Depth is capped at 4 and the whole path at 120 characters. The sandbox's
+recursive collect is depth-capped too, and names coming back from python go
+through the same validation before anything touches disk.
+
+**Deletion is the point, not a convenience.** It is the first tool in the
+apparatus that destroys shared work, and the sharpest territory signal the
+bench has: removing someone else's file is a claim about whose project this
+is. `fileWork` counts it — `deleted` and `deletedOthers` per agent — and a
+deletion is scored as a version whose content is *empty*, so every line it
+took away is attributed to whoever wrote it in `refactored`. (Counting the
+event's stored contents as written would have made a deletion look like a
+rewrite that changed nothing.)
+
+**The context budget.** Every shared file goes into every seat's prompt
+every turn. One 60k page is fine; forty files is not. `fileViewTotalChars`
+caps the block, and past the budget the remaining files are still **listed
+with their sizes** — a seat that cannot see a file must still know it
+exists, which is the failure the 2 KB clip already produced once.
 
 ### Reading a site session
 
@@ -847,8 +900,37 @@ CLI + a write token). Runner secrets: `OPENROUTER_API_KEY`, `SUPABASE_URL`,
 serves a JSON liveness probe on `$PORT`; session JSONL on the Space is
 ephemeral (Supabase is the durable record for hosted sessions).
 
-**Hosted batches**: the admin panel's batch row (count × comma-separated
-conditions) sends one `start` command; the runner executes the sessions
+**The admin panel** (viewer dot → password) has three tabs: **run**,
+**runs**, **say**. `run` asks "which conditions" exactly once — a filterable
+checkbox list, each row with its own ⓘ (description + exact overrides vs
+control) — and then a `plan` decides what to do with that selection: one
+session each, N of each interleaved, or autopilot rotating them. A summary
+line spells the plan out in sessions before you press start ("4 sessions —
+2 conditions × 2, 30 min each, 6 seats"). Nothing is preselected: an arm
+has to be chosen deliberately. `runs` is the ledger — every session grouped
+by arm, with run counts, actual/budgeted minutes, rounds, how it ended,
+which seats, and links into the chat and (for task rooms) the page.
+A **task / chat** filter splits it: a *task room* is one that was handed
+something to make, and the mark of that is a `completion` block naming the
+artifact — deliberately not a `site-*` name check, so a future task arm
+called something else still lands on the right side. It reads only the
+`meta` and `end` events, so it stays cheap as the record grows.
+
+The `end` event now stamps `rounds`, the number of rounds that actually
+opened. Sessions recorded before 2026-08-30 don't carry it, so the ledger
+counts those from their rows — only the missing ones, only the
+`(session_id, round)` pair, and paged, since PostgREST caps a response at
+1000 rows and a silent truncation would under-report a long session. That
+fallback shrinks to nothing as stamped sessions accrue.
+
+The panel used to ask "which condition" in three places — a dropdown, a
+free-text batch field, and a second checkbox grid for autopilot — with
+undocumented precedence between them and a free-text field where a typo
+failed silently. One list replaced all three; the wire format the runner
+sees is unchanged.
+
+**Hosted batches**: the run tab's `N of each` plan sends one `start`
+command; the runner executes the sessions
 back-to-back, interleaved across conditions (§6.1), stamping
 `{batch: {name, index, total}}` into each session's meta — so membership
 is queryable from `room_events` even though hosted JSONL is ephemeral.
@@ -859,12 +941,12 @@ manifest that `analyze --batch` consumes — analyzing a hosted batch means
 pulling its transcripts from Supabase first, a small exporter that can
 ride along with F6.)
 
-**Autopilot + queue**: the panel's autopilot row rotates a condition list
-round-robin *forever* (configurable gap between sessions) until "stop
-autopilot" (`stop` with `{scope:'loop'}`); the current session always
-finishes. While the runner is busy — session, batch, or autopilot — any
-"start / queue" click is QUEUED and runs next, ahead of the rotation, then
-the rotation resumes. Queue and autopilot are in-memory: a runner restart
+**Autopilot + queue**: the `autopilot` plan rotates the selected conditions
+round-robin — for N sets, or *forever* if sets is left blank (configurable
+gap between sessions) — until "stop autopilot" (`stop` with
+`{scope:'loop'}`); the current session always finishes. While the runner is
+busy — session, batch, or autopilot — any `start` click is QUEUED and runs
+next, ahead of the rotation, then the rotation resumes. Queue and autopilot are in-memory: a runner restart
 clears them. **Boot drain**: commands that arrived while no runner was
 listening are discarded at startup with a log line — a stale `start` from
 hours ago must never fire a surprise session when the Space (re)boots.
