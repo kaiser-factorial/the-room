@@ -391,22 +391,32 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **NEW 2026-08-30, NOT YET DEPLOYED — the project family (§9.9).**
-   `conditions/project.json` + `project-unending.json`: the room gets a
-   FILESYSTEM and no named deliverable. Needed a real bench change, because
-   "you have a shared filesystem" was not true — flat namespace, 20 files,
-   nothing deletable, and a non-recursive sandbox collect that would have
-   dropped `shared/src/x.py` on the floor. Now: `tools.directories` (4
-   levels, validated segment-by-segment so `..` cannot be spelled),
-   `tools.fileDelete` (`[DELETE: name]` + `delete_file`), `maxFiles: 40`,
-   `fileViewTotalChars: 80000` (past the budget files are LISTED, never
-   dropped), `completion.target: '*'` (any file lapses the agreement).
-   All four knobs default OFF, pinned by the `tools-full` preset test.
-   **Also fixed on the way**: the native `write_file` schema hardcoded
-   "20 files, 16000 characters each", so `site-native` had been telling
-   models a 16k ceiling while its prose promised 60k. Now read from config.
-   Needs a viewer AND runner deploy.
+0. **DEPLOYED 2026-08-30 (second pass) — the project family + the rebuilt
+   panel.** PR #23 merged (main `e708428`) → **viewer `62694c8`, runner
+   `8bf622e`**. Probe idle before (7708s) and again immediately before the
+   runner push (7798s); **restart confirmed 7798s → 11s**, numerically
+   against the pre-deploy reading. Verified after: viewer `conditions.json`
+   lists **29** including both project arms and `floor`; the runner's
+   `src/` and `conditions/` are `diff -rq` IDENTICAL to main; the deployed
+   `project.json` reads dirs=true, delete=true, 40 files, 80k view budget,
+   target `'*'`.
 
+   What is live now: **§9.9 `project` / `project-unending`** (a filesystem
+   instead of a file — folders 4 deep, `[DELETE: name]`, 40 files, a total
+   context budget, `completion.target: '*'`), and the **rebuilt admin
+   panel** (tabs `run` / `runs` / `say`; one condition list feeding a plan;
+   a runs ledger with rounds and a task/chat split). Neither project arm
+   has been RUN — that is the top of the queue.
+
+   Two bugs fixed on the way, both of which had already affected recorded
+   sessions: the native `write_file` schema hardcoded "20 files, 16000
+   characters each", so both `site-native` runs were told a 16k ceiling
+   against a 60k room; and `floor` was missing from the viewer's offline
+   condition list, so it could not be selected whenever `conditions.json`
+   failed to fetch. Both now pinned by tests.
+
+   **Still open** — `XAI_API_KEY` (reminder 1b), and the HF write token has
+   been pasted many times across sessions and wants rotating.
 
 0. **DEPLOYED 2026-08-30 — `site-open`, the fifth site arm.** PR #21 merged
    (main `683ff90`) → **viewer `1dd0f22`, runner `f14ea90`**. Probe idle
