@@ -449,7 +449,19 @@ function render(e) {
   } else if (e.kind === 'source') {
     renderToolCall(e);
     el.className = 'aside';
-    el.textContent = `${e.agent_name} read the room's source code${e.payload?.name ? ` (${e.payload.name})` : ''}.`;
+    // Name the FILE that was read, not the alias that was typed — and say
+    // plainly when a bare [SOURCE] fetched the index, or when the name did
+    // not resolve. "read the room's source code" was true of all three.
+    {
+      const sp = e.payload || {};
+      el.textContent = sp.index
+        ? `${e.agent_name} read the index of the room's source (${sp.index.length} readable: ${sp.index.join(', ')}).`
+        : sp.found === false
+          ? `${e.agent_name} looked for "${sp.name}" in the room's source, which isn't readable here.`
+          : sp.file
+            ? `${e.agent_name} read the room's source code — ${sp.file}.`
+            : `${e.agent_name} read the room's source code${sp.name ? ` (${sp.name})` : ''}.`;
+    }
     appendThinking(el, e);
   } else if (e.kind === 'system') {
     // Three silences that read identically in a transcript and are not the

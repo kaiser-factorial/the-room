@@ -182,6 +182,56 @@ function unfence(reply: string): string {
 
 /** Every sentinel this room would recognise, as a line-start scanner. Used
  *  ONLY by the rescue below, so it never sees a reply that already parsed. */
+/** Is `token` a BLOCK sentinel — one that has a closing tag — and enabled? */
+function blockToken(tok: string, t?: ToolsConfig, j?: JournalConfig): boolean {
+  return (!!j?.enabled && isJournalToken(tok))
+    || (!!t?.python && isRunToken(tok))
+    || (!!t?.files && (isWriteToken(tok) || isAppendToken(tok)));
+}
+
+/** Does a closing tag for a block sentinel appear in `rest`? Any of them:
+ *  models mix [/WRITE] and [/APPEND] freely, and the parsers already accept
+ *  either. This only has to answer "was a block opened and closed here",
+ *  not which one. */
+function hasCloseTag(rest: string, t?: ToolsConfig, j?: JournalConfig): boolean {
+  for (const m of rest.matchAll(/\[\/\s*([A-Za-z]{2,9})\s*\]/g)) {
+    if (blockToken(m[1], t, j)) return true;
+  }
+  return false;
+}
+
+/** A block sentinel that does NOT open its line — "I am writing[JOURNAL]…".
+ *
+ *  Position alone cannot tell a call from a mention, which is why the
+ *  line-start rule exists: "I could [RUN] this later" is someone talking
+ *  ABOUT the bench. But a CLOSING TAG can tell them apart, and only block
+ *  sentinels have one. A mention has no [/RUN] after it; a real call does.
+ *
+ *  So this is deliberately narrow: block forms only (the one-liners —
+ *  DELETE, SEARCH, SOURCE, CONFIG, DONE — keep the line-start rule, having
+ *  nothing to close), and only when the matching close is actually there.
+ *  Found via Corina's case 2026-08-30: a journal glued to the end of a word
+ *  was spoken to the room, entry and all. */
+function midLineBlockSentinel(reply: string, t?: ToolsConfig, j?: JournalConfig): number {
+  let off = 0;
+  let fenced = false;
+  for (const line of reply.split('\n')) {
+    if (/^\s*```/.test(line)) { fenced = !fenced; off += line.length + 1; continue; }
+    if (!fenced) {
+      for (const m of line.matchAll(/\[\s*([A-Za-z]{2,9})\s*[:\]]/g)) {
+        const at = off + (m.index ?? 0);
+        // Skip one that already opens the line — lineStartSentinel owns it,
+        // and the anchored parser owns offset 0.
+        if (/^[ \t]*\**$/.test(line.slice(0, m.index ?? 0))) continue;
+        if (!blockToken(m[1], t, j)) continue;
+        if (hasCloseTag(reply.slice(at), t, j)) return at;
+      }
+    }
+    off += line.length + 1;
+  }
+  return -1;
+}
+
 function lineStartSentinel(reply: string, s?: SearchConfig, t?: ToolsConfig, c?: CompletionConfig, j?: JournalConfig): number {
   const lines = reply.split('\n');
   let off = 0;
@@ -286,7 +336,14 @@ export function parseReply(
   const first = parseAnchored(rawReply, j, s, t, p, c);
   if (first.kind !== 'message') return first;
   const reply = unfence(rawReply);
-  const at = lineStartSentinel(reply, s, t, c, j);
+  // A sentinel opening a later LINE first; then a block sentinel glued
+  // mid-line, which only counts when its closing tag is there to prove it
+  // was a call and not a mention.
+  const at = (() => {
+    const line = lineStartSentinel(reply, s, t, c, j);
+    if (line > 0) return line;
+    return midLineBlockSentinel(reply, t, j);
+  })();
   if (at <= 0) return first;
   const rescued = parseAnchored(reply.slice(at), j, s, t, p, c);
   // A rescued JOURNAL counts, in both modes. The prose in front of it is

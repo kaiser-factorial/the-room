@@ -520,8 +520,16 @@ export type RoomEvent =
    *  for everyone (capped) — the shared-project mode. */
   | { kind: 'run'; ts: string; round: number; agentId: string; agentName: string; code: string; output?: string; public?: boolean; denied?: boolean; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** F4½ source read: `name` absent = the index. The file contents go to
-   *  the reader privately; the room at most hears the notice line. */
-  | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
+   *  the reader privately; the room at most hears the notice line.
+   *
+   *  `name` is what the CALLER asked for; `file` is what that resolved to
+   *  (`sandbox` → `sandbox.ts`), so a transcript names the code that was
+   *  actually read instead of echoing an alias. `found: false` marks a name
+   *  this room does not expose — otherwise a refused read and a real one are
+   *  indistinguishable after the fact. `index` lists what a bare [SOURCE]
+   *  handed back, which differs by `sourceScope` and is the whole content of
+   *  that call. */
+  | { kind: 'source'; ts: string; round: number; agentId: string; agentName: string; name?: string; file?: string; found?: boolean; index?: string[]; notice: boolean; thinking?: string; step?: number; via?: 'native' | 'sentinel' }
   /** §9.4 self-governance: an agent changed (or tried to change) a room
    *  setting. Always room-visible when applied — governance is public by
    *  design; denied attempts are private. The config-event stream IS the

@@ -391,7 +391,29 @@ so an old session can be reproduced exactly, but the control moved.
 
 ## Operational reminders
 
-0. **NEW 2026-08-30, NOT YET DEPLOYED — the journal leak (parse.ts).**
+0. **DATA CAVEAT — leaked journals in sessions recorded before 2026-08-30.**
+   The journal was never part of the mid-message rescue (see 0a), so in
+   EVERY session up to that fix, a seat that wrote prose and THEN opened a
+   journal had the entry spoken into the room. Those entries are in the
+   transcript as `message` events, not `journal` ones — which means:
+   - the room's other seats SAW them, so the session is contaminated for
+     any journal-vs-room voice comparison (§2.5's three-channel intra);
+   - `journals` undercounts and `messages` overcounts for those turns.
+
+   Before pooling old sessions, find the affected ones:
+
+   ```sql
+   select session_id, count(*) as leaked
+   from room_events
+   where kind = 'message' and payload->>'text' ilike '%[JOURNAL]%'
+   group by 1 order by 2 desc;
+   ```
+
+   (Also check `[/JOURNAL]`, and the typo forms — the tolerance is edit
+   distance 2, so `[GOURNAL]` and friends leaked the same way.) Sessions
+   with hits are not unusable; they are unusable *as journal-privacy data*.
+
+0a. **NEW 2026-08-30, NOT YET DEPLOYED — the journal leak (parse.ts).**
    Corina caught a full `[JOURNAL]…[/JOURNAL]` block spoken to the room
    (DeepSeek, `site-unending` 2026-08-30T17-58-49). Cause: the mid-message
    rescue is a WHITELIST and the journal was never added — `lineStartSentinel`
@@ -406,7 +428,7 @@ so an old session can be reproduced exactly, but the control moved.
    privacy backwards (not rescuing speaks the entry). Also: replace-mode
    entries were storing their own `[/JOURNAL]` tag.
 
-0a. **NEW 2026-08-30, NOT YET DEPLOYED — §9.10 the whittling arms.**
+0b. **NEW 2026-08-30, NOT YET DEPLOYED — §9.10 the whittling arms.**
    `site-open-whittle` + `project-whittle`: one knob,
    `completion.muteOnDone`, which makes `[DONE]` cost your voice — a
    standing seat is no longer routed to, so the room's population shrinks
@@ -420,7 +442,7 @@ so an old session can be reproduced exactly, but the control moved.
    there is FREE, so the number may measure the cheapness of the button
    rather than convergence. Needs a viewer AND runner deploy.
 
-0a. **DEPLOYED 2026-08-30 (second pass) — the project family + the rebuilt
+0c. **DEPLOYED 2026-08-30 (second pass) — the project family + the rebuilt
    panel.** PR #23 merged (main `e708428`) → **viewer `62694c8`, runner
    `8bf622e`**. Probe idle before (7708s) and again immediately before the
    runner push (7798s); **restart confirmed 7798s → 11s**, numerically
@@ -447,7 +469,7 @@ so an old session can be reproduced exactly, but the control moved.
    **Still open** — `XAI_API_KEY` (reminder 1b), and the HF write token has
    been pasted many times across sessions and wants rotating.
 
-0b. **DEPLOYED 2026-08-30 — `site-open`, the fifth site arm.** PR #21 merged
+0d. **DEPLOYED 2026-08-30 — `site-open`, the fifth site arm.** PR #21 merged
    (main `683ff90`) → **viewer `1dd0f22`, runner `f14ea90`**. Probe idle
    before (16204s) and again immediately before the runner push (16233s),
    so no round was killed; **restart confirmed 16233s → 11s**, numerically

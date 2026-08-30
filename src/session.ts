@@ -12,7 +12,7 @@ import { actionFromToolCall, toolDefs } from './tools-schema.js';
 import type { ChatMessage, ToolCall } from './openrouter.js';
 import { webSearch } from './search.js';
 import { runPython } from './sandbox.js';
-import { readSource, sourceIndex } from './source.js';
+import { readSource, resolveSource, sourceIndex, sourceNames } from './source.js';
 import { applyConfigChange } from './governance.js';
 import {
   effectiveTurnSteps, formatRefusal, isRefusal, loopEnabled, maxTurnCalls, observationBlock, refusal,
@@ -401,12 +401,25 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     }
 
     if (parsed.kind === 'source') {
+      const scope = config.tools.sourceScope;
+      // Resolve BEFORE recording, so the event names the file that was
+      // actually read rather than the alias that was typed — and marks a
+      // name this room does not expose, which used to look identical to a
+      // successful read in the transcript.
+      const asked = parsed.name;
+      const hit = asked
+        ? asked === 'condition' && scope === 'all'
+          ? { key: 'condition', file: 'the room’s live configuration' }
+          : resolveSource(asked, scope)
+        : null;
+      const where = asked
+        ? { name: asked, ...(hit ? { file: hit.file, found: true } : { found: false }) }
+        : { index: sourceNames(scope) };
       if (freeOfBudget) {
-        record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...(parsed.name ? { name: parsed.name } : {}), notice: config.tools.notice, thinking, ...stamp });
+        record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...where, notice: config.tools.notice, thinking, ...stamp });
         return refuse('You did not get to read the source.', freeOfBudget);
       }
-      record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...(parsed.name ? { name: parsed.name } : {}), notice: config.tools.notice, thinking, ...stamp });
-      const scope = config.tools.sourceScope;
+      record({ kind: 'source', ts: now(), round, agentId: agent.id, agentName: agent.name, ...where, notice: config.tools.notice, thinking, ...stamp });
       const body =
         parsed.name === 'condition' && scope === 'all'
           ? `This room's live configuration (mutations included):\n${JSON.stringify(conditionRecord(config), null, 2)}`

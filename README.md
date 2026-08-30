@@ -599,6 +599,42 @@ recoverable, leaking an entry is not.*
 Also fixed alongside it: a `replace`-mode entry was storing its own
 `[/JOURNAL]` tag as part of the entry text.
 
+### What counts as a call, by position
+
+The rescue now runs in two passes, and the difference between them is what
+can prove a call is a call.
+
+1. **Opens a line** — every sentinel. `[JOURNAL]`, `[RUN]`, `[WRITE]`,
+   `[APPEND]`, `[DELETE]`, `[SEARCH]`, `[SOURCE]`, `[CONFIG]`, `[DONE]`.
+2. **Glued mid-line** — block sentinels ONLY (`[JOURNAL]`, `[RUN]`,
+   `[WRITE]`, `[APPEND]`), and only when the matching closing tag is
+   present. `I am writing[JOURNAL]…[/JOURNAL]` is a call; `I could [RUN]
+   this later` is someone talking about the bench. Position cannot tell
+   those apart — a closing tag can, and only block forms have one. The
+   one-liners keep the line-start rule for exactly that reason.
+
+Text glued *after* a closing tag needs no whitespace either:
+`[/JOURNAL]just journaled` speaks "just journaled".
+
+Two deliberate exceptions, so they read as decisions rather than gaps:
+
+- **`[PASS]` is never rescued.** A reply that spoke has not declined its
+  turn, so prose followed by `[PASS]` stays a message.
+- **`[DONE]` is rescued only as a BARE line.** A misread vote is the one
+  mistake the completion axis cannot afford, so "I am not ready to say
+  [DONE] yet" must never register as agreement. Anchored at the top of a
+  reply it still carries its trailing sentence, as it always has.
+
+### Which source file was read
+
+`[SOURCE: name]` takes an alias (`sandbox`, `Sandbox.ts`); the event now
+records the **file** it resolved to (`sandbox.ts`) alongside the name that
+was asked for, so a transcript names the code actually read. A bare
+`[SOURCE]` records the index it handed back — which differs by
+`tools.sourceScope`, and is the whole content of that call. A name the
+room does not expose records `found: false`, instead of looking exactly
+like a successful read. The viewer says which of the three happened.
+
 ## The task room, and finishing (§9.8)
 
 `conditions/site.json` is the first room with something to make: **this
