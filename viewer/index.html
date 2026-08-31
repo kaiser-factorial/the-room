@@ -183,6 +183,7 @@
   .admin button.primary { border-color: var(--accent); color: var(--accent); }
   #adminMsg, #adminMsg2 { font-size: 0.8rem; color: var(--dim); min-height: 1.2em; }
   .spread { display: flex; justify-content: space-between; align-items: baseline; }
+  #runsGallery { font-size: 0.75rem; color: var(--dim); margin-right: 0.6rem; }
 
   /* Tabs across the top of the panel. */
   .tabs { display: flex; border-bottom: 1px solid var(--line); margin: -0.2rem -1.1rem 0; padding: 0 1.1rem; }
@@ -245,7 +246,7 @@
   <select id="sessions"></select>
   <span id="clock"></span>
   <span class="switch" id="views" hidden>
-    <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a>
+    <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a><a id="toMade" href="./made.html">made</a>
   </span>
   <input id="find" type="search" placeholder="find in transcript…" autocomplete="off" />
   <span id="findCount"></span>
@@ -345,7 +346,10 @@
         <span class="seg" id="runsFilter">
           <button class="on" data-kind="all">all</button><button data-kind="task">task</button><button data-kind="chat">chat</button>
         </span>
-        <button id="runsRefresh" type="button">refresh</button>
+        <span>
+          <a href="./made.html" target="_blank" rel="noopener" id="runsGallery">everything made ↗</a>
+          <button id="runsRefresh" type="button">refresh</button>
+        </span>
       </div>
       <div class="lbl" id="runsSummary">…</div>
       <div class="runs" id="runsBody"></div>
@@ -384,8 +388,12 @@ const CATALOG = [
 const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'floor', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing', 'site', 'site-native', 'site-open', 'site-unwitnessed', 'site-unending', 'site-open-unending', 'project', 'project-unending', 'site-open-whittle', 'project-whittle'];
 const ADMIN_COLOR = '#e8e6e1';
 // The file the site view renders (site.html's default). A room that writes
-// it gets the chat/site switch in the header.
+// it gets the site half of the switch in the header.
 const SITE_FILE = 'index.html';
+// Whether THIS session wrote a file or ran any code — what the `made` view
+// needs, and a wider test than "wrote a page": a project room that never
+// makes an index.html still has a workspace worth opening.
+let madeSomething = false;
 
 const supabase = createClient(SUPABASE_URL, ANON_KEY);
 const $ = (id) => document.getElementById(id);
@@ -476,6 +484,9 @@ function render(e) {
     // the journals rail keeps the entries); runs feed the tool-calls rail.
     if (e.kind === 'file') renderSharedFile(e);
     if (e.kind === 'run') renderToolCall(e);
+    // A refused write made nothing; a refused run still shows in the
+    // workspace as an attempt, which is why only the file case is gated.
+    if (e.kind === 'run' || !e.payload?.denied) { madeSomething = true; updateViews(); }
     el.className = 'aside';
     el.textContent = e.kind === 'file'
       ? (e.payload?.denied
@@ -1091,6 +1102,7 @@ async function showSession(sessionId) {
   feed.innerHTML = ''; journalList.innerHTML = ''; journalSections.clear(); $('cond').textContent = '';
   clearRounds(); unseen = 0; paintPill(); toolRun = null; clearSearch();
   fileList.innerHTML = ''; fileSections.clear(); $('filesWrap').hidden = true;
+  madeSomething = false; $('views').hidden = true;
   toolList.innerHTML = ''; toolSections.clear(); $('toolsWrap').hidden = true;
   seenJournalIds.clear(); seenEventSeqs.clear();
   meta = null; ended = false; clock.textContent = '';
@@ -1156,14 +1168,21 @@ let pinned = new URLSearchParams(location.search).get('session');
 // live room?" is decided against.
 let newestSession = null;
 
-/** The switch appears only once THIS session has written the page; a room
- *  that built nothing has no second view, and offering one would be a
- *  broken promise. Called as file events arrive, so it turns on mid-session
- *  the moment a room first writes index.html. */
+/** The switch appears only once THIS session has MADE something; a room that
+ *  built nothing has no second view, and offering one would be a broken
+ *  promise. Called as file and run events arrive, so it turns on mid-session
+ *  the moment a room first writes or runs anything.
+ *
+ *  The two halves are separate promises: `made` covers any file or code run,
+ *  `site` needs a page to serve, so a project room gets the workspace with
+ *  the site view greyed out rather than a link to an empty frame. */
 function updateViews() {
-  const has = fileSections.has(SITE_FILE);
-  $('views').hidden = !has;
-  $('toSite').href = `./site.html?session=${encodeURIComponent(currentSession ?? '')}`;
+  const q = encodeURIComponent(currentSession ?? '');
+  const hasPage = fileSections.has(SITE_FILE);
+  $('views').hidden = !(hasPage || madeSomething);
+  $('toSite').classList.toggle('off', !hasPage);
+  $('toSite').href = `./site.html?session=${q}`;
+  $('toMade').href = `./made.html?session=${q}`;
 }
 
 $('sessions').onchange = (e) => { pinned = null; showSession(e.target.value); };
@@ -1547,6 +1566,15 @@ function renderRuns() {
         b.style.marginLeft = '0.5rem';
         link.appendChild(b);
       }
+      // Every run gets a way into what it made — the files version by
+      // version and the output of everything it ran. A project room's
+      // deliverable is a tree, so `page` was the only link it could never
+      // have, and the ledger left it with nothing but `chat`.
+      const m = document.createElement('a');
+      m.href = `./made.html?session=${encodeURIComponent(s.id)}`;
+      m.textContent = 'made';
+      m.style.marginLeft = '0.5rem';
+      link.appendChild(m);
       const seats = td(seatLabel(s.agents));
       seats.title = (s.agents || []).map((a) => a.name || a.id).join(', ');
       tr.append(

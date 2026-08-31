@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>the room — what the rooms made</title>
+<style>
+  :root { --bg: #0e0e11; --panel: #17171c; --text: #e8e6e1; --dim: #8a8794;
+          --line: #26262e; --accent: #6fce6f; --warn: #b8563e; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 "Iowan Old Style", Georgia, serif;
+    display: flex; flex-direction: column;
+  }
+  /* An author `display` rule beats the UA's [hidden] rule outright, so a
+     `hidden` element with any display of its own stops hiding. Every other
+     page here learned that the hard way; this one starts with the fix. */
+  [hidden] { display: none !important; }
+
+  header {
+    position: sticky; top: 0; z-index: 6; background: var(--bg);
+    border-bottom: 1px solid var(--line); padding: 0.6rem 1.1rem;
+    display: flex; gap: 0.9rem; align-items: center; flex-wrap: wrap;
+    font-size: 0.8rem; color: var(--dim);
+  }
+  header b { color: var(--text); font-weight: normal; letter-spacing: 0.12em; }
+  a { color: var(--dim); }
+  /* The same control as the transcript and site views — three ways to look
+     at one session, so it reads as views of a room rather than three pages
+     that happen to be related. */
+  .switch { display: inline-flex; border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
+  .switch a { padding: 0.2rem 0.6rem; font-size: 0.75rem; color: var(--dim);
+              text-decoration: none; background: var(--panel); }
+  .switch a.on { color: var(--text); background: var(--line); }
+  .switch a.off { opacity: 0.3; pointer-events: none; }
+  button, select {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    padding: 0.2rem 0.5rem; font: inherit; font-size: 0.75rem; cursor: pointer;
+  }
+  /* Dim, but still legible: a file with one version disables BOTH arrows at
+     once, and at --line they read as two broken empty boxes. */
+  button[disabled] { color: color-mix(in srgb, var(--dim) 45%, transparent); cursor: default; }
+  .chips { display: inline-flex; gap: 0.3rem; }
+  .chips button.on { color: var(--text); background: var(--line); }
+  #status { margin-left: auto; }
+  #live { color: var(--accent); }
+
+  /* ── the gallery ──────────────────────────────────────────────────────── */
+  #gallery { padding: 1.1rem; max-width: 82rem; margin: 0 auto; width: 100%; }
+  #galleryHead { display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap;
+                 margin-bottom: 1rem; font-size: 0.8rem; color: var(--dim); }
+  #cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); }
+  .card { border: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; }
+  .card h3 { margin: 0; padding: 0.55rem 0.7rem 0.2rem; font-size: 0.9rem; font-weight: normal; }
+  .card h3 .when { color: var(--dim); font-size: 0.75rem; margin-left: 0.4rem; }
+  .card .facts { padding: 0 0.7rem 0.45rem; font-size: 0.72rem; color: var(--dim); }
+  .card .seats { padding: 0 0.7rem 0.5rem; font-size: 0.72rem; color: var(--dim); }
+  .card .links { margin-top: auto; padding: 0.5rem 0.7rem; border-top: 1px solid var(--line);
+                 display: flex; gap: 0.4rem; align-items: center; }
+  .card .links a { font-size: 0.75rem; text-decoration: none; border: 1px solid var(--line);
+                   padding: 0.15rem 0.5rem; background: var(--bg); }
+  .card .links a:hover { color: var(--text); }
+  /* The thumbnail is the room's own page, at arm's length: scaled down, not
+     interactive, and sandboxed exactly as the full view sandboxes it. */
+  .thumb { position: relative; height: 11rem; overflow: hidden; background: #fff;
+           border-bottom: 1px solid var(--line); }
+  .thumb iframe { position: absolute; top: 0; left: 0; width: 1280px; height: 900px;
+                  border: 0; transform-origin: top left; }
+  .thumb .veil { position: absolute; inset: 0; }  /* swallows clicks; the links below navigate */
+  .thumb .none { position: absolute; inset: 0; display: flex; align-items: center;
+                 justify-content: center; background: var(--bg); color: var(--dim); font-size: 0.75rem; }
+  /* A room with no page still made something: show it as a manifest. */
+  .manifest { height: 11rem; overflow: hidden; padding: 0.55rem 0.7rem;
+              border-bottom: 1px solid var(--line); background: var(--bg);
+              font: 0.72rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--dim); }
+  .manifest div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .manifest .n { color: var(--text); }
+  .tag { font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase;
+         border: 1px solid var(--line); padding: 0 0.3em; color: var(--dim); }
+  .tag.livetag { color: var(--accent); border-color: var(--accent); }
+
+  /* ── one room's workspace ─────────────────────────────────────────────── */
+  #work { flex: 1; min-height: 0; display: flex; }
+  #tree { width: 17rem; flex: none; border-right: 1px solid var(--line);
+          overflow-y: auto; padding: 0.6rem 0; background: var(--panel); }
+  #tree h2 { margin: 0.6rem 0.8rem 0.3rem; font-size: 0.68rem; letter-spacing: 0.1em;
+             text-transform: uppercase; color: var(--dim); font-weight: normal; }
+  .entry { display: block; width: 100%; text-align: left; border: 0; background: none;
+           padding: 0.3rem 0.8rem; font: inherit; font-size: 0.8rem; color: var(--text);
+           cursor: pointer; overflow: hidden; text-overflow: ellipsis; }
+  .entry:hover { background: var(--line); }
+  .entry.on { background: var(--line); }
+  .entry .sub { color: var(--dim); font-size: 0.72rem; margin-left: 0.35rem; }
+  .entry.gone { color: var(--dim); text-decoration: line-through; }
+  .entry .dir { color: var(--dim); }
+  #pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  #paneHead { border-bottom: 1px solid var(--line); padding: 0.5rem 0.9rem;
+              display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;
+              font-size: 0.78rem; color: var(--dim); }
+  #paneBody { flex: 1; min-height: 0; overflow-y: auto; }
+  #scrub { width: 9rem; accent-color: var(--accent); cursor: pointer; }
+  #vcount { font-variant-numeric: tabular-nums; min-width: 4.6em; text-align: center; }
+  pre.code { margin: 0; padding: 0.9rem 1.1rem; white-space: pre-wrap; word-break: break-word;
+             font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+  .empty { margin: auto; padding: 3rem 1rem; text-align: center; color: var(--dim); font-size: 0.85rem; }
+
+  /* diff */
+  .diff { margin: 0; font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .diff .row { display: flex; padding: 0 1.1rem; white-space: pre-wrap; word-break: break-word; }
+  .diff .row .mark { flex: none; width: 1.2em; color: var(--dim); user-select: none; }
+  .diff .add { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .diff .add .mark { color: var(--accent); }
+  .diff .del { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .diff .del .mark { color: var(--warn); }
+  .diff .ctx { color: var(--dim); }
+  .diff .fold { color: var(--dim); font-style: italic; padding: 0.15rem 1.1rem 0.15rem 2.3rem; }
+  .tally .plus { color: var(--accent); } .tally .minus { color: var(--warn); }
+
+  /* code runs */
+  .run { border-bottom: 1px solid var(--line); padding: 0.8rem 1.1rem; }
+  .run .who { font-size: 0.78rem; color: var(--dim); display: flex; gap: 0.5rem;
+              align-items: center; flex-wrap: wrap; margin-bottom: 0.45rem; }
+  .run .who b { font-weight: normal; }
+  .run details { margin-bottom: 0.5rem; }
+  .run summary { cursor: pointer; color: var(--dim); font-size: 0.75rem; font-style: italic;
+                 list-style: none; }
+  .run summary::-webkit-details-marker { display: none; }
+  .run summary::before { content: "› "; }
+  .run details[open] summary::before { content: "⌄ "; }
+  .run pre { margin: 0.4rem 0 0; padding: 0.6rem 0.8rem; background: var(--panel);
+             border-left: 1px solid var(--line); white-space: pre-wrap; word-break: break-word;
+             font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .run pre.out { color: var(--text); border-left-color: var(--accent); }
+  .run.refused pre.out { border-left-color: var(--warn); color: var(--dim); }
+  img.artifact { max-width: 100%; display: block; margin: 1rem 1.1rem; border: 1px solid var(--line); }
+</style>
+</head>
+<body>
+
+<header>
+  <b>THE ROOM</b>
+  <a id="toGallery" href="./made.html" hidden>← everything made</a>
+  <span id="title"></span>
+  <span class="chips" id="kinds" hidden>
+    <button data-kind="all" class="on">all</button><button data-kind="site">sites</button><button data-kind="work">workspaces</button>
+  </span>
+  <select id="arm" hidden></select>
+  <span class="switch" id="views" hidden>
+    <a id="toChat" href="./index.html">chat</a><a id="toSite" href="./site.html">site</a><a class="on" href="#">made</a>
+  </span>
+  <span id="status"><span id="live"></span></span>
+</header>
+
+<div id="gallery" hidden>
+  <div id="galleryHead"><span id="gallerySummary">reading the mirror…</span></div>
+  <div id="cards"></div>
+</div>
+
+<div id="work" hidden>
+  <aside id="tree"></aside>
+  <main id="pane">
+    <div id="paneHead" hidden></div>
+    <div id="paneBody"><div class="empty">Pick something on the left.</div></div>
+  </main>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// Same project + anon key as the other two views: room_events is public-read.
+const SUPABASE_URL = 'https://wfrxfhpiuxofmfdjpuvv.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcnhmaHBpdXhvZm1mZGpwdXZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMDk0NzIsImV4cCI6MjA5ODc4NTQ3Mn0.cpBDy6DUtj_m9esL4bGCjTp7V0m-sCuG5cxHxZ5iZg0';
+const supabase = createClient(SUPABASE_URL, ANON_KEY);
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+};
+
+// PostgREST caps a response at 1000 rows and truncates SILENTLY, so every
+// full-table scan on this page pages. Under-reporting what a room made would
+// be indistinguishable from the room not having made it.
+const PAGE = 1000;
+async function scan(build) {
+  const out = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().order('id', { ascending: true }).range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    out.push(...(data || []));
+    if (!data || data.length < PAGE) return out;
+  }
+}
+
+const fmtDate = (ts) => new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const fmtTime = (ts) => new Date(ts).toLocaleString();
+const isHtml = (name) => /\.html?$/i.test(name || '');
+const dirOf = (name) => {
+  const i = String(name).lastIndexOf('/');
+  return i < 0 ? '' : name.slice(0, i + 1);
+};
+const baseOf = (name) => String(name).slice(dirOf(name).length);
+
+// ── What each room made ─────────────────────────────────────────────────────
+// One pass over the file and run rows — METADATA ONLY. A single session's
+// file payloads run to 1.7 MB in the mirror today, so nothing here selects
+// `payload`; contents are fetched one row at a time, by id, when something
+// actually needs to be on screen.
+async function loadMade() {
+  const rows = await scan(() => supabase.from('room_events')
+    .select('id,session_id,kind,ts,round,agent_name,name:payload->>name,enc:payload->>encoding,'
+      + 'denied:payload->>denied,deleted:payload->>deleted')
+    .in('kind', ['file', 'run']));
+  const by = new Map();
+  for (const r of rows) {
+    let s = by.get(r.session_id);
+    if (!s) { s = { id: r.session_id, files: new Map(), runs: 0, versions: 0, last: null, page: null }; by.set(r.session_id, s); }
+    if (r.ts > (s.last || '')) s.last = r.ts;
+    if (r.kind === 'run') { s.runs++; continue; }
+    if (r.denied) continue;                      // a refused write made nothing
+    const name = r.name || '(unnamed)';
+    let f = s.files.get(name);
+    if (!f) { f = { name, versions: [], deleted: false }; s.files.set(name, f); }
+    f.versions.push(r);
+    f.deleted = !!r.deleted;                     // rows arrive oldest-first: last wins
+    s.versions++;
+  }
+  for (const s of by.values()) s.page = newestPage(s.files);
+  return by;
+}
+
+/** The page the gallery shows a picture of, and links to.
+ *
+ *  index.html wins outright when the room wrote one: it is the file the site
+ *  view serves by default, and rooms write OTHER pages beside it — seven in
+ *  the mirror today also wrote a `snapshot.html`, which "newest html file"
+ *  would have picked over the actual page.
+ *
+ *  Computed from the finished map rather than as rows arrive, because a room
+ *  that DELETES its page has no page, and taking the last write in order
+ *  would have kept showing the dead one. */
+function newestPage(files) {
+  const living = (f) => isHtml(f.name) && !f.deleted && f.versions.length;
+  const last = (f) => f.versions[f.versions.length - 1];
+  const index = files.get('index.html');
+  if (index && living(index)) return last(index);
+  let best = null;
+  for (const f of files.values()) {
+    if (!living(f)) continue;
+    if (!best || last(f).ts > best.ts) best = last(f);
+  }
+  return best;
+}
+
+// Condition, seats, rounds and ending — the two rows per session that carry
+// them. Same shape the admin panel's runs ledger reads.
+async function loadSessions() {
+  const cols = 'session_id,kind,ts,cond:payload->condition->>name,mins:payload->>durationMinutes,'
+    + 'agents:payload->agents,ending:payload->>ending,rounds:payload->>rounds';
+  let rows;
+  try {
+    rows = await scan(() => supabase.from('room_events').select(cols).in('kind', ['meta', 'end']));
+  } catch {
+    // Older PostgREST without json-path projection: whole payloads rather
+    // than an empty gallery.
+    const full = await scan(() => supabase.from('room_events')
+      .select('session_id,kind,ts,payload').in('kind', ['meta', 'end']));
+    rows = full.map((r) => ({
+      session_id: r.session_id, kind: r.kind, ts: r.ts,
+      cond: r.payload?.condition?.name, mins: r.payload?.durationMinutes,
+      agents: r.payload?.agents, ending: r.payload?.ending, rounds: r.payload?.rounds,
+    }));
+  }
+  const by = new Map();
+  for (const r of rows) {
+    let s = by.get(r.session_id);
+    if (!s) { s = { id: r.session_id }; by.set(r.session_id, s); }
+    if (r.kind === 'meta') {
+      // First meta wins: a re-stamped session keeps the run it started as.
+      if (!s.start) { s.cond = r.cond; s.mins = Number(r.mins) || null; s.agents = r.agents || []; s.start = r.ts; }
+    } else if (!s.end) {
+      s.end = r.ts; s.ending = r.ending;
+      if (r.rounds != null) s.rounds = Number(r.rounds);
+    }
+  }
+  return by;
+}
+
+// Sessions recorded before the runner stamped `rounds` into its end event —
+// 44 of the 60 finished runs in the mirror — have to be counted from their
+// rows. The admin panel's ledger does the same scan, and a card that said
+// nothing where the ledger says "8 rounds" is exactly the kind of two-places
+// disagreement this apparatus keeps getting bitten by. Runs AFTER the first
+// paint: the cards are the point, the round count is a detail that can
+// arrive a second late.
+async function fillRounds(runs) {
+  const missing = runs.filter((s) => s.rounds == null && s.end).map((s) => s.id);
+  if (!missing.length) return false;
+  const max = new Map();
+  try {
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase.from('room_events').select('session_id,round')
+        .in('session_id', missing).gte('round', 0)
+        .order('id', { ascending: true }).range(from, from + PAGE - 1);
+      if (error) return false;                   // leave them blank rather than wrong
+      for (const r of data || []) {
+        if (r.round > (max.get(r.session_id) ?? 0)) max.set(r.session_id, r.round);
+      }
+      if (!data || data.length < PAGE) break;
+    }
+  } catch { return false; }
+  let filled = false;
+  for (const s of runs) {
+    if (s.rounds == null && max.has(s.id)) { s.rounds = max.get(s.id); filled = true; }
+  }
+  return filled;
+}
+
+/** One file version's payload, fetched once and kept. */
+const contentCache = new Map();
+async function payloadOf(id) {
+  if (contentCache.has(id)) return contentCache.get(id);
+  const { data, error } = await supabase.from('room_events').select('payload').eq('id', id).maybeSingle();
+  if (error || !data) return null;
+  contentCache.set(id, data.payload);
+  return data.payload;
+}
+const textOf = (p) => (p?.encoding === 'base64' ? null : (p?.content ?? ''));
+
+const IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+                     gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
+
+// ── The gallery ─────────────────────────────────────────────────────────────
+let MADE = null, SESSIONS = null;
+let kindFilter = 'all', armFilter = '';
+
+const seatsOf = (s) => (s.agents || []).map((a) => String(a.name || a.id || '').split(' ')[0]);
+const madeKind = (m) => (m.page ? 'site' : 'work');
+
+function galleryList() {
+  const list = [];
+  for (const [id, m] of MADE) {
+    const s = SESSIONS.get(id) || { id };
+    if (!s.cond) continue;                       // a session with no meta is not a run
+    list.push({ ...s, made: m, kind: madeKind(m) });
+  }
+  list.sort((a, b) => (b.start || b.made.last || '').localeCompare(a.start || a.made.last || ''));
+  return list;
+}
+
+function renderGallery() {
+  const all = galleryList();
+  const arms = [...new Set(all.map((r) => r.cond))].sort();
+  if ($('arm').options.length !== arms.length + 1) {
+    $('arm').innerHTML = '';
+    $('arm').append(new Option('every arm', ''));
+    for (const a of arms) $('arm').append(new Option(a, a));
+    $('arm').value = armFilter;
+  }
+  const shown = all.filter((r) => (kindFilter === 'all' || r.kind === kindFilter)
+    && (!armFilter || r.cond === armFilter));
+  const sites = all.filter((r) => r.kind === 'site').length;
+  for (const b of $('kinds').children) {
+    b.classList.toggle('on', b.dataset.kind === kindFilter);
+    b.textContent = b.dataset.kind === 'all' ? `all ${all.length}`
+      : b.dataset.kind === 'site' ? `sites ${sites}` : `workspaces ${all.length - sites}`;
+  }
+  const files = shown.reduce((n, r) => n + r.made.files.size, 0);
+  const runs = shown.reduce((n, r) => n + r.made.runs, 0);
+  $('gallerySummary').textContent =
+    `${shown.length} room${shown.length === 1 ? '' : 's'} that made something · ${files} files · ${runs} code runs`;
+
+  const cards = $('cards');
+  cards.innerHTML = '';
+  for (const r of shown) cards.appendChild(cardFor(r));
+  if (!shown.length) cards.appendChild(el('div', 'empty', 'Nothing under this filter yet.'));
+}
+
+function cardFor(r) {
+  const card = el('div', 'card');
+  const live = !r.end;
+
+  if (r.made.page) {
+    const thumb = el('div', 'thumb');
+    thumb.appendChild(el('div', 'none', 'loading the page…'));
+    thumb.appendChild(el('div', 'veil'));
+    card.appendChild(thumb);
+    watchThumb(thumb, r.made.page);
+  } else {
+    const man = el('div', 'manifest');
+    const names = [...r.made.files.keys()].sort();
+    for (const n of names.slice(0, 7)) {
+      const f = r.made.files.get(n);
+      const line = el('div');
+      const nm = el('span', 'n', n);
+      // A file the room deleted is still part of what it made; showing it as
+      // present would misread the workspace.
+      if (f.deleted) { nm.style.textDecoration = 'line-through'; nm.style.color = 'var(--dim)'; }
+      line.append(nm, ` · v${f.versions.length}`);
+      man.appendChild(line);
+    }
+    if (names.length > 7) man.appendChild(el('div', null, `+${names.length - 7} more`));
+    if (!names.length) man.appendChild(el('div', null, `no files — ${r.made.runs} code runs`));
+    card.appendChild(man);
+  }
+
+  const h = el('h3', null, r.cond);
+  h.appendChild(el('span', 'when', fmtDate(r.start || r.made.last)));
+  if (live) { const t = el('span', 'tag livetag', 'live'); t.style.marginLeft = '0.4rem'; h.appendChild(t); }
+  card.appendChild(h);
+
+  const facts = [];
+  if (r.rounds != null) facts.push(`${r.rounds} rounds`);
+  if (r.mins) facts.push(`${r.mins} min`);
+  if (r.ending) facts.push(r.ending);
+  facts.push(`${r.made.files.size} file${r.made.files.size === 1 ? '' : 's'} · ${r.made.versions} versions`);
+  if (r.made.runs) facts.push(`${r.made.runs} code runs`);
+  card.appendChild(el('div', 'facts', facts.join(' · ')));
+  card.appendChild(el('div', 'seats', seatsOf(r).join(' · ') || '—'));
+
+  const links = el('div', 'links');
+  const link = (text, href) => { const a = el('a', null, text); a.href = href; return a; };
+  const q = encodeURIComponent(r.id);
+  if (r.made.page) links.appendChild(link('site', `./site.html?session=${q}`
+    + (r.made.page.name === 'index.html' ? '' : `&file=${encodeURIComponent(r.made.page.name)}`)));
+  links.appendChild(link('files', `./made.html?session=${q}`));
+  links.appendChild(link('chat', `./index.html?session=${q}`));
+  card.appendChild(links);
+  return card;
+}
+
+// Thumbnails paint only when they scroll into view: 30-odd rooms' pages is
+// megabytes of HTML nobody has looked at yet.
+const thumbObserver = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    thumbObserver.unobserve(e.target);
+    void paintThumb(e.target);
+  }
+}, { rootMargin: '200px' });
+
+function watchThumb(node, row) { node._row = row; thumbObserver.observe(node); }
+
+async function paintThumb(node) {
+  const p = await payloadOf(node._row.id);
+  const html = p ? (p.encoding === 'base64' ? '' : (p.content || '')) : '';
+  node.innerHTML = '';
+  if (!html) { node.appendChild(el('div', 'none', 'nothing to show')); node.appendChild(el('div', 'veil')); return; }
+  const frame = document.createElement('iframe');
+  // Exactly the sandbox the full view uses, minus the interactive grants a
+  // picture has no use for: no allow-same-origin, so the room's scripts run
+  // in an opaque origin and cannot reach this page or its Supabase session.
+  frame.setAttribute('sandbox', 'allow-scripts');
+  frame.setAttribute('loading', 'lazy');
+  frame.title = 'the page this room built';
+  frame.srcdoc = html;
+  node.appendChild(frame);
+  node.appendChild(el('div', 'veil'));
+  const fit = () => { frame.style.transform = `scale(${node.clientWidth / 1280})`; };
+  fit();
+  new ResizeObserver(fit).observe(node);
+}
+
+// ── One room's workspace ────────────────────────────────────────────────────
+let session = null;      // the session on screen, or null for the gallery
+let work = null;         // { files: Map, runs: [] } for that session
+let sel = null;          // { type: 'file', name } | { type: 'runs' }
+let at = 0;              // which version of the selected file
+let mode = 'content';    // 'content' | 'changes'
+let channel = null;
+let renderSeq = 0;
+
+const colorOf = (id) => (SESSIONS?.get(session)?.agents || []).find((a) => a.id === id)?.color || 'var(--text)';
+
+/** The site half of the switch, recomputed from what the room has written so
+ *  far — so a room that writes its first page mid-view lights it up, and one
+ *  that deletes its page loses it. */
+function siteLink() {
+  const page = newestPage(work.files);
+  $('toSite').href = page
+    ? `./site.html?session=${encodeURIComponent(session)}${page.name === 'index.html' ? '' : `&file=${encodeURIComponent(page.name)}`}`
+    : '#';
+  $('toSite').classList.toggle('off', !page);
+}
+
+async function openSession(id, want) {
+  session = id;
+  work = { files: MADE.get(id)?.files ?? new Map(), runs: [] };
+  const s = SESSIONS.get(id);
+  $('title').textContent = s ? `${s.cond} · ${fmtDate(s.start)}` : id;
+  $('toChat').href = `./index.html?session=${encodeURIComponent(id)}`;
+  const page = MADE.get(id)?.page;
+  siteLink();
+  $('views').hidden = false;
+  $('toGallery').hidden = false;
+  $('kinds').hidden = true; $('arm').hidden = true;
+  $('gallery').hidden = true; $('work').hidden = false;
+
+  if (MADE.get(id)?.runs) work.runs = await loadRunRows(id);
+  // A file the URL names wins; otherwise the page if there is one, else the
+  // file the room touched LAST — what it was working on — else the code
+  // runs. (Alphabetical opened a project room on chart.png, which tells you
+  // nothing about what the room was doing.)
+  sel = want?.file && work.files.has(want.file) ? { type: 'file', name: want.file }
+    : want?.view === 'runs' && work.runs.length ? { type: 'runs' }
+    : page ? { type: 'file', name: page.name }
+    : work.files.size ? { type: 'file', name: lastTouched(work.files) }
+    : work.runs.length ? { type: 'runs' } : null;
+  const f = sel?.type === 'file' ? work.files.get(sel.name) : null;
+  const v = Number(want?.v);
+  at = f ? (Number.isInteger(v) && v >= 1 && v <= f.versions.length ? v - 1 : f.versions.length - 1) : 0;
+  drawTree();
+  await drawPane();
+  await watch(id);
+}
+
+/** Which file a workspace opens on: the one the room touched last, preferring
+ *  ones you can actually read. Landing on "X deleted this file", or on a png
+ *  with no text and no diff, tells you less about what the room was doing
+ *  than landing alphabetically did — and alphabetically was the first thing
+ *  this tried. */
+function lastTouched(files) {
+  const pick = (ok) => {
+    let best = null, when = '';
+    for (const f of files.values()) {
+      if (!ok(f)) continue;
+      const last = f.versions[f.versions.length - 1];
+      if (last.ts > when) { when = last.ts; best = f.name; }
+    }
+    return best;
+  };
+  const readable = (f) => !f.versions[f.versions.length - 1].enc;
+  return pick((f) => !f.deleted && readable(f)) ?? pick((f) => !f.deleted) ?? pick(() => true);
+}
+
+/** Every code run in this session, with code and output. Output is capped at
+ *  4k by the sandbox and the code is one message long, so unlike the files
+ *  these come down whole — the outputs are the point of the view. */
+async function loadRunRows(id) {
+  return await scan(() => supabase.from('room_events')
+    .select('id,ts,round,agent_id,agent_name,payload').eq('kind', 'run').eq('session_id', id));
+}
+
+function drawTree() {
+  const tree = $('tree');
+  tree.innerHTML = '';
+  if (work.runs.length) {
+    tree.appendChild(el('h2', null, 'code'));
+    const b = el('button', 'entry' + (sel?.type === 'runs' ? ' on' : ''));
+    b.append('code runs', el('span', 'sub', String(work.runs.length)));
+    b.onclick = () => { sel = { type: 'runs' }; drawTree(); void drawPane(); };
+    tree.appendChild(b);
+  }
+  const names = [...work.files.keys()].sort();
+  if (names.length) {
+    tree.appendChild(el('h2', null, `files · ${names.length}`));
+    let lastDir = null;
+    for (const name of names) {
+      const f = work.files.get(name);
+      const d = dirOf(name);
+      if (d !== lastDir) { lastDir = d; if (d) tree.appendChild(el('h2', null, d)); }
+      const b = el('button', 'entry' + (sel?.type === 'file' && sel.name === name ? ' on' : '') + (f.deleted ? ' gone' : ''));
+      b.append(d ? baseOf(name) : name, el('span', 'sub', `v${f.versions.length}`));
+      b.title = name + (f.deleted ? ' — deleted' : '');
+      b.onclick = () => {
+        sel = { type: 'file', name };
+        at = work.files.get(name).versions.length - 1;
+        mode = 'content';
+        drawTree(); void drawPane();
+      };
+      tree.appendChild(b);
+    }
+  }
+  if (!names.length && !work.runs.length) tree.appendChild(el('div', 'empty', 'This room made nothing.'));
+}
+
+async function drawPane() {
+  const head = $('paneHead'), body = $('paneBody');
+  const mine = ++renderSeq;
+  head.innerHTML = ''; head.hidden = false;
+  if (!sel) {
+    head.hidden = true;
+    body.innerHTML = '';
+    body.appendChild(el('div', 'empty', 'This room wrote no files and ran no code.'));
+    return;
+  }
+  if (sel.type === 'runs') { drawRuns(); stamp(); return; }
+
+  const f = work.files.get(sel.name);
+  const row = f.versions[at];
+  head.appendChild(el('span', null, sel.name));
+  const count = el('span', null, `v${at + 1} / ${f.versions.length}`); count.id = 'vcount';
+  // A file written once has nothing to scrub through; the controls would be
+  // three permanently dead widgets.
+  if (f.versions.length > 1) {
+    const nav = el('span');
+    const prev = el('button', null, '‹'); prev.disabled = at === 0;
+    const next = el('button', null, '›'); next.disabled = at === f.versions.length - 1;
+    const scrub = document.createElement('input');
+    scrub.type = 'range'; scrub.id = 'scrub'; scrub.min = '1';
+    scrub.max = String(f.versions.length); scrub.value = String(at + 1);
+    prev.onclick = () => { at = Math.max(0, at - 1); void drawPane(); };
+    next.onclick = () => { at = Math.min(f.versions.length - 1, at + 1); void drawPane(); };
+    scrub.oninput = (e) => { at = Number(e.target.value) - 1; void drawPane(); };
+    nav.append(prev, scrub, next, ' ', count);
+    head.appendChild(nav);
+  } else {
+    head.appendChild(count);
+  }
+
+  const who = el('span');
+  const name = el('b', null, row.agent_name || '—');
+  name.style.color = colorOf(row.agent_id);
+  name.style.fontWeight = 'normal';
+  who.append(name, ` · round ${row.round} · ${fmtTime(row.ts)}`);
+  head.appendChild(who);
+
+  // The two questions a version answers: what does it say, and what changed.
+  const chips = el('span', 'chips');
+  for (const m of ['content', 'changes']) {
+    const b = el('button', mode === m ? 'on' : null, m);
+    b.disabled = m === 'changes' && at === 0;
+    b.onclick = () => { mode = m; void drawPane(); };
+    chips.appendChild(b);
+  }
+  head.appendChild(chips);
+  if (isHtml(sel.name)) {
+    const a = el('a', null, 'open as a page ↗');
+    a.href = `./site.html?session=${encodeURIComponent(session)}&v=${at + 1}`
+      + (sel.name === 'index.html' ? '' : `&file=${encodeURIComponent(sel.name)}`);
+    a.style.fontSize = '0.75rem';
+    head.appendChild(a);
+  }
+  stamp();
+
+  body.innerHTML = '';
+  if (row.deleted) {
+    body.appendChild(el('div', 'empty', `${row.agent_name} deleted this file in round ${row.round}.`));
+    return;
+  }
+  const p = await payloadOf(row.id);
+  if (mine !== renderSeq) return;                // a fast scrub resolved out of order
+  if (!p) { body.appendChild(el('div', 'empty', 'That version could not be read back.')); return; }
+
+  if (p.encoding === 'base64') {
+    const ext = String(sel.name).split('.').pop().toLowerCase();
+    const mime = IMAGE_MIME[ext];
+    if (mime) {
+      const img = el('img', 'artifact');
+      img.src = `data:${mime};base64,${p.content || ''}`;
+      img.alt = sel.name;
+      body.appendChild(img);
+    } else {
+      body.appendChild(el('div', 'empty', `(binary file, ${Math.round((p.content || '').length * 3 / 4 / 1024)} KB)`));
+    }
+    return;
+  }
+  if (mode === 'changes') {
+    const before = f.versions[at - 1];
+    const prevP = before?.deleted ? { content: '' } : await payloadOf(before.id);
+    if (mine !== renderSeq) return;
+    body.appendChild(diffView(textOf(prevP) ?? '', textOf(p) ?? ''));
+    return;
+  }
+  body.appendChild(el('pre', 'code', p.content || '(empty)'));
+}
+
+/** The URL always says exactly what is on screen. */
+function stamp() {
+  const q = new URLSearchParams({ session });
+  if (sel?.type === 'runs') q.set('view', 'runs');
+  else if (sel?.type === 'file') { q.set('file', sel.name); q.set('v', String(at + 1)); }
+  history.replaceState(null, '', `?${q}`);
+}
+
+function drawRuns() {
+  const body = $('paneBody');
+  $('paneHead').append(el('span', null, `${work.runs.length} code runs`),
+    el('span', null, 'output first; the code is behind the chevron'));
+  body.innerHTML = '';
+  for (const r of work.runs) {
+    const p = r.payload || {};
+    const box = el('div', 'run' + (p.denied ? ' refused' : ''));
+    const who = el('div', 'who');
+    const name = el('b', null, r.agent_name || '—');
+    name.style.color = colorOf(r.agent_id);
+    // Spans, not bare text: the row is a flex box, and its `gap` does not
+    // apply to text nodes — "round 3" and the timestamp ran together into
+    // "round 38/30/2026".
+    who.append(name, el('span', null, `round ${r.round}`), el('span', null, fmtTime(r.ts)));
+    who.appendChild(el('span', 'tag', p.public ? 'the room saw this' : 'private to the caller'));
+    if (p.denied) who.appendChild(el('span', 'tag', 'refused'));
+    box.appendChild(who);
+
+    if (p.code) {
+      const d = document.createElement('details');
+      d.appendChild(el('summary', null, 'code'));
+      d.appendChild(el('pre', null, p.code));
+      box.appendChild(d);
+    }
+    box.appendChild(el('pre', 'out', p.denied ? '(refused — nothing ran)' : (p.output || '(no output)')));
+    body.appendChild(box);
+  }
+  if (!work.runs.length) body.appendChild(el('div', 'empty', 'This room ran no code.'));
+}
+
+// ── Diff ────────────────────────────────────────────────────────────────────
+// Common prefix and suffix come off first, which is nearly all of a typical
+// edit; only the disputed middle goes through LCS. Past the guard the honest
+// answer is a block replacement rather than a wrong-looking alignment.
+const LCS_CELLS = 1_000_000;
+
+function lineDiff(oldText, newText) {
+  const a = oldText.split('\n'), b = newText.split('\n');
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let ea = a.length, eb = b.length;
+  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
+  const ma = a.slice(s, ea), mb = b.slice(s, eb);
+  const rows = [];
+  for (let i = 0; i < s; i++) rows.push({ t: ' ', text: a[i] });
+  if (ma.length * mb.length > LCS_CELLS) {
+    for (const l of ma) rows.push({ t: '-', text: l });
+    for (const l of mb) rows.push({ t: '+', text: l });
+  } else {
+    const n = ma.length, m = mb.length;
+    const dp = new Uint32Array((n + 1) * (m + 1));
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        dp[i * (m + 1) + j] = ma[i] === mb[j]
+          ? dp[(i + 1) * (m + 1) + j + 1] + 1
+          : Math.max(dp[(i + 1) * (m + 1) + j], dp[i * (m + 1) + j + 1]);
+      }
+    }
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (ma[i] === mb[j]) { rows.push({ t: ' ', text: ma[i] }); i++; j++; }
+      else if (dp[(i + 1) * (m + 1) + j] >= dp[i * (m + 1) + j + 1]) { rows.push({ t: '-', text: ma[i] }); i++; }
+      else { rows.push({ t: '+', text: mb[j] }); j++; }
+    }
+    while (i < n) rows.push({ t: '-', text: ma[i++] });
+    while (j < m) rows.push({ t: '+', text: mb[j++] });
+  }
+  for (let i = eb; i < b.length; i++) rows.push({ t: ' ', text: b[i] });
+  return rows;
+}
+
+const CONTEXT = 3;
+
+function diffView(before, after) {
+  const rows = lineDiff(before, after);
+  const wrap = el('div', 'diff');
+  const plus = rows.filter((r) => r.t === '+').length;
+  const minus = rows.filter((r) => r.t === '-').length;
+  const tally = el('div', 'fold tally');
+  if (!plus && !minus) tally.textContent = 'nothing changed between these two versions';
+  else {
+    tally.append('this version ');
+    tally.appendChild(el('span', 'plus', `+${plus}`));
+    tally.append(' ');
+    tally.appendChild(el('span', 'minus', `−${minus}`));
+    tally.append(' lines');
+  }
+  wrap.appendChild(tally);
+
+  // Unchanged stretches collapse: a one-line edit in a 900-line page should
+  // not make you scroll 900 lines to find it.
+  const keep = new Array(rows.length).fill(false);
+  rows.forEach((r, i) => {
+    if (r.t === ' ') return;
+    for (let k = Math.max(0, i - CONTEXT); k <= Math.min(rows.length - 1, i + CONTEXT); k++) keep[k] = true;
+  });
+  let i = 0;
+  while (i < rows.length) {
+    if (keep[i]) {
+      const r = rows[i];
+      const line = el('div', 'row ' + (r.t === '+' ? 'add' : r.t === '-' ? 'del' : 'ctx'));
+      line.append(el('span', 'mark', r.t === ' ' ? '' : r.t), el('span', null, r.text));
+      wrap.appendChild(line);
+      i++;
+    } else {
+      let j = i;
+      while (j < rows.length && !keep[j]) j++;
+      wrap.appendChild(el('div', 'fold', `⋯ ${j - i} unchanged lines`));
+      i = j;
+    }
+  }
+  return wrap;
+}
+
+// ── Live ────────────────────────────────────────────────────────────────────
+// A room still working keeps writing. New versions land under the reader
+// rather than moving them: the counter grows, and the scrubber's right-hand
+// end is where the newest always is.
+async function watch(id) {
+  if (channel) { supabase.removeChannel(channel); channel = null; }
+  if (!id) return;
+  channel = supabase.channel(`made-${id}`)
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'room_events', filter: `session_id=eq.${id}` },
+      (p) => {
+        try {
+          const r = p.new;
+          if (r.kind === 'end') { $('live').textContent = ''; return; }
+          if (r.kind === 'run') {
+            work.runs.push({ id: r.id, ts: r.ts, round: r.round, agent_id: r.agent_id, agent_name: r.agent_name, payload: r.payload });
+            drawTree();
+            if (sel?.type === 'runs') void drawPane();
+            return;
+          }
+          if (r.kind !== 'file' || r.payload?.denied) return;
+          const name = r.payload?.name || '(unnamed)';
+          let f = work.files.get(name);
+          if (!f) { f = { name, versions: [], deleted: false }; work.files.set(name, f); }
+          if (f.versions.some((v) => v.id === r.id)) return;
+          contentCache.set(r.id, r.payload);
+          f.versions.push({ id: r.id, ts: r.ts, round: r.round, agent_name: r.agent_name,
+                            name, deleted: !!r.payload?.deleted, enc: r.payload?.encoding });
+          f.deleted = !!r.payload?.deleted;
+          const following = sel?.type === 'file' && sel.name === name && at === f.versions.length - 2;
+          if (following) at = f.versions.length - 1;
+          siteLink();
+          drawTree();
+          if (sel?.type === 'file' && sel.name === name) void drawPane();
+        } catch (err) { console.error('made:', err); }
+      })
+    .subscribe((s) => { $('live').textContent = s === 'SUBSCRIBED' ? 'live' : ''; });
+}
+
+// ── Routing ─────────────────────────────────────────────────────────────────
+async function route() {
+  const q = new URLSearchParams(location.search);
+  const want = q.get('session');
+  if (want) {
+    await openSession(want, { file: q.get('file'), v: q.get('v'), view: q.get('view') });
+  } else {
+    session = null; sel = null;
+    await watch(null);
+    $('live').textContent = '';
+    $('work').hidden = true; $('gallery').hidden = false;
+    $('views').hidden = true; $('toGallery').hidden = true;
+    $('kinds').hidden = false; $('arm').hidden = false;
+    $('title').textContent = '';
+    renderGallery();
+    void topUpRounds();
+  }
+}
+
+// Fired once, after the gallery is already on screen.
+let roundsFilled = false;
+async function topUpRounds() {
+  if (roundsFilled) return;
+  roundsFilled = true;
+  const made = [...MADE.keys()].map((id) => SESSIONS.get(id)).filter(Boolean);
+  if (await fillRounds(made) && !session) renderGallery();
+}
+
+// Cards navigate in-page: the gallery is a scan, and re-fetching the whole
+// mirror to go one room deeper (and again to come back) would undo that.
+addEventListener('click', (e) => {
+  const a = e.target.closest?.('a');
+  if (!a || a.target || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  const href = a.getAttribute('href') || '';
+  if (!href.startsWith('./made.html')) return;
+  e.preventDefault();
+  history.pushState(null, '', href.replace('./made.html', location.pathname));
+  void route();
+});
+addEventListener('popstate', () => { void route(); });
+
+for (const b of $('kinds').children) {
+  b.onclick = () => { kindFilter = b.dataset.kind; renderGallery(); };
+}
+$('arm').onchange = (e) => { armFilter = e.target.value; renderGallery(); };
+addEventListener('keydown', (e) => {
+  if (!session || sel?.type !== 'file') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  const f = work.files.get(sel.name);
+  if (e.key === 'ArrowLeft' && at > 0) { at--; void drawPane(); }
+  if (e.key === 'ArrowRight' && at < f.versions.length - 1) { at++; void drawPane(); }
+});
+
+try {
+  [MADE, SESSIONS] = await Promise.all([loadMade(), loadSessions()]);
+  await route();
+} catch (err) {
+  $('gallery').hidden = false;
+  $('gallerySummary').textContent = `could not read the mirror: ${err.message}`;
+}
+</script>
+</body>
+</html>

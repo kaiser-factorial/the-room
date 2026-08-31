@@ -64,7 +64,7 @@
   <span id="live"></span>
   <span style="margin-left:auto; display:flex; gap:0.6rem; align-items:center">
     <span class="switch">
-      <a id="toChat" href="./index.html">chat</a><a class="on" id="toSite" href="#">site</a>
+      <a id="toChat" href="./index.html">chat</a><a class="on" id="toSite" href="#">site</a><a id="toMade" href="./made.html">made</a>
     </span>
     <button id="hide">hide this bar</button>
   </span>
@@ -143,6 +143,7 @@ async function render() {
   // The switch hands this session back to the transcript view, so the two
   // are always looking at the same room.
   $('toChat').href = `./index.html?session=${encodeURIComponent(row.session_id)}`;
+  $('toMade').href = `./made.html?session=${encodeURIComponent(row.session_id)}&file=${encodeURIComponent(FILE)}`;
   // A version is a link: the URL always says exactly what is on screen.
   const q = new URLSearchParams({ session: row.session_id, v: String(at + 1) });
   if (FILE !== 'index.html') q.set('file', FILE);
@@ -222,6 +223,7 @@ async function show(sessionId, wantVersion) {
   $('sessions').value = sessionId;
   versions = await loadVersions(sessionId);
   $('toChat').href = `./index.html?session=${encodeURIComponent(sessionId)}`;
+  $('toMade').href = `./made.html?session=${encodeURIComponent(sessionId)}&file=${encodeURIComponent(FILE)}`;
   if (!versions.length) {
     $('wrap').innerHTML = '<div id="empty">This room has not written the page yet.</div>';
     $('versions').hidden = true;
