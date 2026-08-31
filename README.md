@@ -941,6 +941,34 @@ collapsed thinking trace — opens every disclosure on the way to it, because a
 count that says "1 of 36" while the reader can see nothing is worse than no
 search at all. Clearing the box closes exactly what the search opened.
 
+**The same box searches every run**, behind a `this room / all runs` switch.
+The question you actually have is usually "which room was it that talked
+about X" — you remember the phrase, not the date — and a search confined to
+the room already open cannot answer it. `all runs` asks the mirror instead
+and drops a results panel under the box: arm, date, round, seat, what the
+event was, and a snippet with the match highlighted. Clicking one opens that
+run and lands on the exact event, opening whatever it is buried inside; the
+query survives the jump, and coming back to the box brings the same results
+back rather than making you retype.
+
+It searches **everything a room leaves behind, not just what it said** —
+message and system text, journal entries, file contents, thinking traces,
+code, code output, and web-search queries and results. The worked example
+for the feature was "the room that discussed Hofstadter", and that word
+turned out to appear nowhere in any transcript: it lived only inside a file
+one room wrote. A search over speech alone would have failed the case it
+exists for.
+
+The result rows deliberately do **not** select `payload` — one file version
+runs to hundreds of KB, and a common word would pull every match's full
+contents. Rows whose match is inside a payload fetch their snippet
+individually, and only once scrolled into view.
+
+**The session picker names the arm**, not just the timestamp:
+`site-open · 2026-08-30 20:15`. It used to list bare ids, so telling a
+`site-open` run from a `project-whittle` one meant opening it. Same on the
+site view's picker; the gallery labels its cards the same way.
+
 **Tool runs from one turn collapse into one row.** A turn can spend four
 actions before it speaks, and one aside each floods the feed until the room's
 own conversation is a minority of its transcript. Consecutive tool asides

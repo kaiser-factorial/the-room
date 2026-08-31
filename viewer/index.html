@@ -119,6 +119,36 @@
   /* Mobile: stack the journals rail under the feed instead of hiding it. */
   #find { width: 12rem; font-size: 0.8rem; padding: 0.15rem 0.4rem; }
   #findCount { font-size: 0.75rem; color: var(--dim); min-width: 4.5rem; }
+  /* Cross-run results. A search that can only see the room you already have
+     open cannot answer "which room was it that talked about X" — which is
+     the question you actually have when you remember a phrase and not a
+     date. */
+  #hits {
+    position: fixed; top: 3.4rem; left: 50%; transform: translateX(-50%);
+    width: min(54rem, 94vw); max-height: 72vh; overflow-y: auto; z-index: 30;
+    background: var(--panel); border: 1px solid var(--line);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  }
+  #hits .note { padding: 0.6rem 0.9rem; font-size: 0.78rem; color: var(--dim); }
+  #hits button.hit {
+    display: block; width: 100%; text-align: left; background: none; border: 0;
+    border-top: 1px solid var(--line); padding: 0.55rem 0.9rem; font: inherit; cursor: pointer;
+  }
+  #hits button.hit:first-child { border-top: 0; }
+  #hits button.hit:hover { background: var(--line); }
+  #hits .where { font-size: 0.72rem; color: var(--dim); }
+  #hits .where b { font-weight: normal; }
+  #hits .snip {
+    font-size: 0.8rem; color: var(--text); margin-top: 0.2rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  #hits .snip mark { background: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--text); }
+  /* Where a cross-run result lands, for the second or two it takes to see it. */
+  .landed { animation: landed 2.2s ease-out; }
+  @keyframes landed {
+    0%, 60% { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+    100% { background: transparent; }
+  }
   /* A square whose round contains a search hit. */
   #rounds button.sq.hit { background: var(--accent); border-color: var(--accent); }
 
@@ -268,12 +298,17 @@
     <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a><a id="toMade" href="./made.html">made</a>
   </span>
   <input id="find" type="search" placeholder="find in transcript…" autocomplete="off" />
+  <span class="switch" id="scope" title="where to search">
+    <a href="#" class="on" data-scope="room">this room</a><a href="#" data-scope="all">all runs</a>
+  </span>
   <span id="findCount"></span>
   <span class="switch" id="zoom" title="text size">
     <a href="#" id="zoomOut" aria-label="Smaller text">−</a><a href="#" id="zoomIn" aria-label="Larger text">+</a>
   </span>
   <span id="statuswrap"><span id="cond"></span><span id="dot"></span><span id="status">connecting…</span></span>
 </header>
+
+<div id="hits" hidden></div>
 
 <nav id="rounds" aria-label="Jump to round" hidden></nav>
 <div id="roundFly" role="tooltip" hidden></div>
@@ -466,6 +501,9 @@ function render(e) {
     return;
   }
   const el = document.createElement('div');
+  // The row's own id, so a cross-run search result can land on the exact
+  // event it matched rather than just the right session.
+  if (e.id !== undefined) el.dataset.eventId = String(e.id);
   if (e.kind === 'message') {
     el.className = 'msg';
     el.innerHTML = `<div class="who"></div><div class="body"></div>`;
@@ -929,6 +967,7 @@ function clearSearch() {
   hitRounds.clear();
   closeAutoOpened();
   $('findCount').textContent = '';
+  $('hits').hidden = true;
   for (const el of feed.children) el.hidden = false;
 }
 
@@ -936,6 +975,15 @@ function runSearch() {
   query = $('find').value.trim().toLowerCase();
   hitRounds.clear();
   closeAutoOpened();
+  // Across all runs the feed is not the thing being filtered — the results
+  // panel is — so every row stays visible underneath it.
+  if (scope === 'all') {
+    for (const el of feed.children) el.hidden = false;
+    paintRail();
+    scheduleAllSearch();
+    return;
+  }
+  $('hits').hidden = true;
   if (!query) {
     for (const el of feed.children) el.hidden = false;
     $('findCount').textContent = '';
@@ -961,6 +1009,192 @@ function runSearch() {
   paintRail();
 }
 $('find').addEventListener('input', runSearch);
+
+// ── Searching every run ────────────────────────────────────────────────────
+// The same box, with a scope switch. "this room" filters the rendered feed;
+// "all runs" asks the mirror, because the phrase you remember is usually the
+// only thing you remember — not which room said it, or when.
+//
+// It searches everything a room leaves behind, not just what it SAID: the
+// worked example for this feature was "the room that discussed Hofstadter",
+// and that word turned out to live only inside a file the room wrote. A
+// search that covered speech alone would have failed the case it was built
+// for.
+const mk = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+};
+
+let scope = 'room';
+let allTimer = null;
+let allSeq = 0;
+
+const SOURCES = ['text', 'payload->>content', 'payload->>thinking', 'payload->>code',
+                 'payload->>output', 'payload->>query', 'payload->>results'];
+
+/** PostgREST splits an `or=(…)` list on commas, so a query containing one
+ *  has to be quoted — and then its own quotes and backslashes escaped. */
+const likeValue = (q) => `"*${q.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}*"`;
+
+const VERB = {
+  message: 'said', system: 'the room', journal: 'journal entry', file: 'wrote',
+  run: 'ran code', search: 'searched the web', source: 'read the source',
+  config: 'changed a setting',
+};
+
+function scheduleAllSearch() {
+  clearTimeout(allTimer);
+  const q = query;
+  if (q.length < 2) {
+    $('hits').hidden = true;
+    $('findCount').textContent = q ? 'keep typing…' : '';
+    return;
+  }
+  $('findCount').textContent = 'searching…';
+  allTimer = setTimeout(() => void allSearch(q), 350);
+}
+
+async function allSearch(q) {
+  const mine = ++allSeq;
+  const v = likeValue(q);
+  const [ev, jr] = await Promise.all([
+    supabase.from('room_events')
+      // Deliberately NOT `payload`: one file version runs to hundreds of KB
+      // and a search would pull every match's full contents. Snippets for
+      // payload hits are fetched per row, when the row is on screen.
+      .select('id,session_id,kind,round,agent_name,ts,text,name:payload->>name')
+      .or(SOURCES.map((s) => `${s}.ilike.${v}`).join(','))
+      .order('id', { ascending: false }).limit(80),
+    supabase.from('room_journals')
+      .select('id,session_id,round,agent_name,ts,text')
+      .ilike('text', `*${q}*`).order('id', { ascending: false }).limit(40),
+  ]);
+  if (mine !== allSeq || query !== q) return;    // a newer keystroke won
+  if (ev.error && jr.error) {
+    $('findCount').textContent = 'search failed';
+    renderHits(null, ev.error.message);
+    return;
+  }
+  const rows = [
+    ...(ev.data || []),
+    ...(jr.data || []).map((r) => ({ ...r, kind: 'journal', id: null })),
+  ].sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+  const sessions = new Set(rows.map((r) => r.session_id));
+  $('findCount').textContent = rows.length
+    ? `${rows.length} in ${sessions.size} run${sessions.size === 1 ? '' : 's'}` : '0 found';
+  renderHits(rows);
+}
+
+/** ±70 characters around the match, with the match marked. */
+function snippetOf(text, q) {
+  const i = (text || '').toLowerCase().indexOf(q);
+  if (i < 0) return null;
+  const from = Math.max(0, i - 70);
+  const frag = document.createDocumentFragment();
+  frag.append((from ? '…' : '') + text.slice(from, i));
+  const m = document.createElement('mark');
+  m.textContent = text.slice(i, i + q.length);
+  frag.append(m, text.slice(i + q.length, i + q.length + 70) + (text.length > i + q.length + 70 ? '…' : ''));
+  return frag;
+}
+
+// Payload snippets load only for rows scrolled into view — a result list can
+// name a dozen 60k files, and nobody reads all of them.
+const snipObserver = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    snipObserver.unobserve(e.target);
+    void fillSnippet(e.target);
+  }
+}, { rootMargin: '80px' });
+
+async function fillSnippet(node) {
+  const { data } = await supabase.from('room_events').select('payload').eq('id', node._id).maybeSingle();
+  const p = data?.payload;
+  if (!p) return;
+  for (const key of ['content', 'thinking', 'code', 'output', 'query', 'results']) {
+    const frag = typeof p[key] === 'string' ? snippetOf(p[key], node._q) : null;
+    if (frag) { node.textContent = ''; node.appendChild(frag); return; }
+  }
+}
+
+function renderHits(rows, err) {
+  const box = $('hits');
+  box.innerHTML = '';
+  box.hidden = false;
+  if (err) { box.appendChild(mk('div', 'note', err)); return; }
+  if (!rows.length) {
+    box.appendChild(mk('div', 'note', `Nothing in any run matches “${query}”.`));
+    return;
+  }
+  for (const r of rows) {
+    const b = document.createElement('button');
+    b.className = 'hit';
+    b.type = 'button';
+    const where = mk('div', 'where');
+    const arm = document.createElement('b');
+    arm.textContent = sessionLabel(r.session_id);
+    where.append(arm, ` · round ${r.round} · ${r.agent_name || 'the room'} · `
+      + `${VERB[r.kind] || r.kind}${r.kind === 'file' && r.name ? ` ${r.name}` : ''}`);
+    const snip = mk('div', 'snip');
+    const direct = snippetOf(r.text, query);
+    if (direct) snip.appendChild(direct);
+    else {
+      // The match is inside the payload we deliberately did not fetch.
+      snip.textContent = r.name ? `(in ${r.name})` : '(in this action)';
+      if (r.id != null) { snip._id = r.id; snip._q = query; snipObserver.observe(snip); }
+    }
+    b.append(where, snip);
+    b.onclick = () => void openHit(r);
+    box.appendChild(b);
+  }
+}
+
+/** Open the run a result came from, and land on the event itself. */
+async function openHit(r) {
+  // showSession() calls clearSearch(), which empties the box — so hold the
+  // query across the jump. Losing it would also leave revealMatch matching
+  // the empty string, which opens every disclosure on the page.
+  const q = $('find').value;
+  $('hits').hidden = true;
+  pinned = r.session_id;                          // don't get yanked to the live room
+  if (r.session_id !== currentSession) {
+    $('sessions').value = r.session_id;
+    await showSession(r.session_id);
+  }
+  $('find').value = q;
+  query = q.trim().toLowerCase();
+  const node = r.id != null && feed.querySelector(`[data-event-id="${r.id}"]`);
+  if (!node) { toBottom(false); return; }
+  revealMatch(node);
+  node.scrollIntoView({ block: 'start' });
+  node.classList.remove('landed');
+  void node.offsetWidth;                          // restart the animation
+  node.classList.add('landed');
+}
+
+for (const a of $('scope').children) {
+  a.onclick = (e) => {
+    e.preventDefault();
+    scope = a.dataset.scope;
+    for (const x of $('scope').children) x.classList.toggle('on', x === a);
+    $('find').placeholder = scope === 'all' ? 'find in every run…' : 'find in transcript…';
+    runSearch();
+  };
+}
+// The panel closes when you pick a result so you can read it; coming back to
+// the box brings the same results back rather than making you retype.
+$('find').addEventListener('focus', () => {
+  if (scope === 'all' && $('hits').children.length && query) $('hits').hidden = false;
+});
+// Clicking away closes the results, but not when the click is the search box.
+addEventListener('mousedown', (e) => {
+  if ($('hits').hidden) return;
+  if (e.target.closest('#hits') || e.target.closest('#find') || e.target.closest('#scope')) return;
+  $('hits').hidden = true;
+});
 
 // ── The round rail ─────────────────────────────────────────────────────────
 // One square per round, on the outer edge; hovering opens a flyout with one
@@ -1134,6 +1368,37 @@ async function loadSessions() {
   return (data || []).map((r) => r.session_id);
 }
 
+// Which arm each session ran. The picker used to list bare ids, so telling
+// a `site-open` run from a `project-whittle` one meant opening it. Read
+// from the `meta` row — the same place the ledger reads it.
+const ARMS = new Map();
+async function loadArms() {
+  // Never let a labelling nicety take the viewer down: if this fails for any
+  // reason the picker falls back to bare session ids, which is what it
+  // showed before. (Caught the hard way — a throw in here left the page with
+  // an empty session list and no transcript at all.)
+  try {
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase.from('room_events')
+        .select('session_id,cond:payload->condition->>name')
+        .eq('kind', 'meta').order('id', { ascending: true }).range(from, from + 999);
+      if (error) return;
+      for (const r of data || []) {
+        // First meta wins: a re-stamped session keeps the run it started as.
+        if (r.cond && !ARMS.has(r.session_id)) ARMS.set(r.session_id, r.cond);
+      }
+      if (!data || data.length < 1000) return;
+    }
+  } catch (err) { console.error('arm labels:', err); }
+}
+
+/** `2026-08-30T20-15-31` → `site-open · 2026-08-30 20:15`. */
+function sessionLabel(id) {
+  const when = `${id.slice(0, 10)} ${id.slice(11, 16).replace('-', ':')}`;
+  const arm = ARMS.get(id);
+  return arm ? `${arm} · ${when}` : id;
+}
+
 async function showSession(sessionId) {
   currentSession = sessionId;
   $('views').hidden = true;
@@ -1184,12 +1449,16 @@ async function showSession(sessionId) {
 
 async function refreshSessions(selectNewest) {
   const sessions = await loadSessions();
+  // A session with no arm yet is one whose `meta` landed after the last
+  // sweep — the live room, usually — so re-read rather than label it bare.
+  if (sessions.some((s) => !ARMS.has(s))) await loadArms();
   newestSession = sessions[0] ?? null;
   const sel = $('sessions');
   sel.innerHTML = '';
   for (const s of sessions) {
     const opt = document.createElement('option');
-    opt.value = opt.textContent = s;
+    opt.value = s;
+    opt.textContent = sessionLabel(s);
     sel.appendChild(opt);
   }
   if (!sessions.length) { setStatus('no sessions yet'); return; }
