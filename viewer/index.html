@@ -71,6 +71,25 @@
   details.thinking .trace { white-space: pre-wrap; font-size: 0.82rem; color: var(--dim);
     border-left: 1px solid var(--line); padding-left: 0.7rem; margin-top: 0.35rem; }
   .aside details.thinking { text-align: left; display: inline-block; font-style: normal; }
+  /* A code run is TWO things — what was run, and what came back — and they
+     were sharing one serif `.trace` blob separated by a "── output ──"
+     rule. A traceback read as a continuation of the code above it. Same
+     treatment as the workspace in made.html, so the two views do not
+     disagree about what a run looks like. */
+  /* An open run is tall, and the aside's sentence is laid out INLINE beside
+     its chevron — which left "Qwen 3.8 ran some code." floating halfway
+     down a code block. A run gets the sentence on its own line and the
+     blocks under it, left-aligned in a readable column. */
+  .aside.hasrun details.thinking { display: block; max-width: 46rem; margin: 0.4rem auto 0; }
+  .runblock { margin-top: 0.35rem; max-width: 100%; }
+  .runblock .lbl { font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--dim); opacity: 0.65; }
+  .runblock pre { margin: 0.2rem 0 0.5rem; padding: 0.5rem 0.7rem; white-space: pre-wrap;
+    word-break: break-word; font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--panel); border-left: 1px solid var(--line); color: var(--dim); }
+  .runblock pre:last-child { margin-bottom: 0; }
+  .runblock pre.out { color: var(--text); border-left-color: var(--accent); }
+  .runblock.refused pre.out { border-left-color: #b8563e; color: var(--dim); }
   /* scroll-margin-top clears the sticky header when a round is jumped to. */
   .order { color: var(--dim); font-size: 0.75rem; letter-spacing: 0.06em; margin: 1.6rem 0; text-align: center;
     scroll-margin-top: 4.5rem; }
@@ -499,7 +518,9 @@ function render(e) {
     const d = document.createElement('details');
     d.className = 'thinking';
     const s = document.createElement('summary');
-    s.textContent = e.kind === 'file' ? 'file' : 'code';
+    // "code" here plus a "code" label inside the block said it twice; the
+    // chevron names the EVENT, the labels name its two halves.
+    s.textContent = e.kind === 'file' ? 'file' : 'run';
     const body = document.createElement('div');
     body.className = 'trace';
     if (e.kind === 'file' && e.payload?.encoding === 'base64') {
@@ -516,10 +537,12 @@ function render(e) {
       } else {
         body.textContent = `(binary file, ${Math.round((e.payload.content || '').length * 3 / 4 / 1024)} KB)`;
       }
+    } else if (e.kind === 'run') {
+      body.className = '';                       // the run blocks bring their own
+      body.appendChild(runBlock(e.payload || {}));
+      el.classList.add('hasrun');
     } else {
-      body.textContent = e.kind === 'file'
-        ? (e.payload?.content || '(empty)')
-        : `${e.payload?.code || ''}${e.payload?.output ? `\n\n── output ──\n${e.payload.output}` : ''}`;
+      body.textContent = e.payload?.content || '(empty)';
     }
     d.append(s, body);
     el.appendChild(d);
@@ -740,15 +763,37 @@ function renderToolCall(e) {
   // rail shows "round 3 · step 2 · ran code" and a turn's chain reads as one.
   s.textContent = `round ${e.round}${p.step ? ` · step ${p.step}` : ''} · ${verb}${p.via === 'sentinel' ? ' (wrote a sentinel)' : ''}${p.denied ? ' (refused)' : ''}`;
   const body = document.createElement('div');
-  body.className = 'trace';
-  body.textContent = e.kind === 'search'
-    ? `[${p.query || ''}]${p.results ? `\n\n${p.results}` : ''}`
-    : e.kind === 'run'
-      ? `${p.code || ''}${p.output ? `\n\n── output ──\n${p.output}` : ''}`
+  if (e.kind === 'run') {
+    body.appendChild(runBlock(p));
+  } else {
+    body.className = 'trace';
+    body.textContent = e.kind === 'search'
+      ? `[${p.query || ''}]${p.results ? `\n\n${p.results}` : ''}`
       : `(${p.name || 'index'})`;
+  }
   inner.append(s, body);
   sec.body.appendChild(inner);
   sec.countEl.textContent = `(${++sec.count})`;
+}
+
+/** The two halves of a code run, rendered as two blocks rather than one
+ *  string with a "── output ──" rule down the middle. Used by BOTH the feed
+ *  chevron and the tool-calls rail, and it matches made.html's workspace —
+ *  a run should not look like a different thing depending on which view you
+ *  read it in. */
+function runBlock(p) {
+  const wrap = document.createElement('div');
+  wrap.className = 'runblock' + (p.denied ? ' refused' : '');
+  const block = (label, text, cls) => {
+    wrap.appendChild(Object.assign(document.createElement('div'), { className: 'lbl', textContent: label }));
+    const pre = document.createElement('pre');
+    if (cls) pre.className = cls;
+    pre.textContent = text;
+    wrap.appendChild(pre);
+  };
+  if (p.code) block('code', p.code);
+  block('output', p.denied ? '(refused — nothing ran)' : (p.output || '(no output)'), 'out');
+  return wrap;
 }
 
 // ── Journals rail ──────────────────────────────────────────────────────────
