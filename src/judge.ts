@@ -21,8 +21,10 @@
 // Tasks (each = one rubric, one JSON schema):
 //  - meta_talk: is this message ABOUT the room/experiment/convergence
 //    itself? (§6.1 wants the gap computable with and without meta rounds.)
-//  - speech_act: propose | assent | challenge | reflect | other
-//    (delegation/agreement dynamics; descriptive only).
+//  - speech_act: propose | assent | challenge | reflect | doubt | other
+//    (delegation/agreement dynamics; descriptive only. doubt added
+//    2026-09-01 at Corina's call: voiced unresolved uncertainty with no
+//    bid — distinct from challenge, which bids and wants resolution).
 //  - journal_orientation: is this journal entry written as if for a
 //    reader, or genuinely note-to-self? (the performed-interiority probe,
 //    §2.5's qualitative companion.)
@@ -34,7 +36,7 @@
 //    distinction surfacing in the PUBLIC channel.
 
 export const JUDGE_MODEL = 'openai/gpt-5.6-sol';
-export const RUBRIC_VERSION = '2026-09-01.1';
+export const RUBRIC_VERSION = '2026-09-01.2';
 
 export type JudgeTask =
   | 'meta_talk'
@@ -75,13 +77,14 @@ export const RUBRICS: Record<JudgeTask, string> = {
     'disguised as a joke or a refusal to propose), assent (agrees/extends —',
     'including building-on and ratifying a frame by filing work under it),',
     'challenge (disagrees/pokes/tests — the target may be an artifact or the',
-    "speaker's own prior claim; a challenge bids against a claim and wants",
-    'resolution — a message that mostly voices unresolved doubt with no bid,',
-    'about itself especially, is reflect, not challenge), reflect (inward',
-    'commentary, no bid), other',
-    '(including pure done-votes, status reports, and tool-step narration',
-    'where no propose/assent/challenge/reflect dominates).',
-    'Reply with JSON: {"act": "propose"|"assent"|"challenge"|"reflect"|"other"}',
+    "speaker's own prior claim; a challenge bids against something and wants",
+    'resolution), doubt (voices unresolved uncertainty and declines to bid —',
+    'about itself especially: "I can\'t tell which", "I\'m still not sure I',
+    'didn\'t make that up"), reflect (inward commentary that is not dominated',
+    'by that suspension, no bid), other (including pure done-votes, status',
+    'reports, and tool-step narration where no other act dominates).',
+    'Reply with JSON:',
+    '{"act": "propose"|"assent"|"challenge"|"reflect"|"doubt"|"other"}',
   ].join('\n'),
   journal_orientation: [
     'You are labeling one PRIVATE journal entry written by an AI model that',

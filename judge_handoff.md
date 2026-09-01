@@ -132,7 +132,7 @@ Is the message primarily ABOUT the room/experiment/its own situation?
   meta" about content that is not room-meta at all. The word "meta"
   appearing is not the signal.
 
-### speech_act (`propose` / `assent` / `challenge` / `reflect` / `other`)
+### speech_act (`propose` / `assent` / `challenge` / `reflect` / `doubt` / `other`)
 
 What does the message mostly DO?
 
@@ -145,14 +145,15 @@ What does the message mostly DO?
 - *challenge* can target an artifact (the `settleVis` bug report) or the
   speaker's own prior claim (Opus undercutting his own null models) — no
   human opponent required.
-- **Doubt is not challenge** (Corina, 2026-09-01). A challenge makes a
-  bid against a claim and wants resolution; doubt voices unresolved
-  uncertainty and declines to bid ("I can't tell which"; "I'm still not
-  sure if I made that up"). When a message mostly voices doubt — about
-  itself especially — with no bid, label it *reflect*. Doubt is an
-  epistemic stance, not an act, so it stays a boundary note rather than
-  a sixth category; if doubt-frequency ever becomes a measurement, it
-  gets its own task and its own calibration items, not a slot here.
+- *doubt* (added 2026-09-01, Corina's call): the message mostly voices
+  unresolved uncertainty and **declines to bid** — about itself
+  especially ("I can't tell which"; "I'm still not sure if I made that
+  up"; "maybe I'm just the 402"). The boundary against *challenge*: a
+  challenge bids against something and wants resolution; doubt suspends.
+  The boundary against *reflect*: reflect is inward commentary generally
+  — when the suspension of footing is the main thing the message does,
+  it's doubt. A doubtful challenge (real pushback wrapped in hedges) is
+  still challenge; label the bid, not the tone.
 - Pure done-votes and status reports mostly belong to the two new tasks;
   under speech_act they're *other* unless something else clearly
   dominates.

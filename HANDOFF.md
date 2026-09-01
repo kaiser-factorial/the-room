@@ -355,7 +355,7 @@ matrix; mean logprob where available. Batch mode adds the cross-session
 baseline + report.md with null bands. Embedding cache is model-scoped.
 
 **Judge** (`src/judge.ts`, SKETCHED): `openai/gpt-5.6-sol` (non-roster;
-Luna-in-extended-pool caveat), pinned rubric v2026-09-01.1, temp-0
+Luna-in-extended-pool caveat), pinned rubric v2026-09-01.2, temp-0
 double-run, calibration gate ≥0.8. **REMINDER: Corina's hand-labeling of
 `calibration/calibration-set.json` (83 items as of 2026-09-01; see
 `judge_handoff.md`) is deliberately deferred —
