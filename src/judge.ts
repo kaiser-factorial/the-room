@@ -21,10 +21,11 @@
 // Tasks (each = one rubric, one JSON schema):
 //  - meta_talk: is this message ABOUT the room/experiment/convergence
 //    itself? (§6.1 wants the gap computable with and without meta rounds.)
-//  - speech_act: propose | assent | challenge | reflect | doubt | other
-//    (delegation/agreement dynamics; descriptive only. doubt added
-//    2026-09-01 at Corina's call: voiced unresolved uncertainty with no
-//    bid — distinct from challenge, which bids and wants resolution).
+//  - speech_act: propose | assent | challenge | reflect | other, plus an
+//    orthogonal doubt flag (2026-09-01, Corina's call — settled tag-only
+//    after a round as a sixth act: doubt co-occurs with every act, so it
+//    rides as {doubt: true|false} on every speech_act label; a mostly-
+//    doubt message is act: reflect, doubt: true).
 //  - journal_orientation: is this journal entry written as if for a
 //    reader, or genuinely note-to-self? (the performed-interiority probe,
 //    §2.5's qualitative companion.)
@@ -36,7 +37,7 @@
 //    distinction surfacing in the PUBLIC channel.
 
 export const JUDGE_MODEL = 'openai/gpt-5.6-sol';
-export const RUBRIC_VERSION = '2026-09-01.2';
+export const RUBRIC_VERSION = '2026-09-01.4';
 
 export type JudgeTask =
   | 'meta_talk'
@@ -78,13 +79,16 @@ export const RUBRICS: Record<JudgeTask, string> = {
     'including building-on and ratifying a frame by filing work under it),',
     'challenge (disagrees/pokes/tests — the target may be an artifact or the',
     "speaker's own prior claim; a challenge bids against something and wants",
-    'resolution), doubt (voices unresolved uncertainty and declines to bid —',
-    'about itself especially: "I can\'t tell which", "I\'m still not sure I',
-    'didn\'t make that up"), reflect (inward commentary that is not dominated',
-    'by that suspension, no bid), other (including pure done-votes, status',
-    'reports, and tool-step narration where no other act dominates).',
-    'Reply with JSON:',
-    '{"act": "propose"|"assent"|"challenge"|"reflect"|"doubt"|"other"}',
+    'resolution), reflect (inward commentary, no bid), other (including pure',
+    'done-votes, status reports, and tool-step narration where no other act',
+    'dominates). Separately, set doubt=true if doubt — voiced unresolved',
+    'uncertainty that declines to bid, about itself especially ("I can\'t',
+    'tell which", "I\'m still not sure I didn\'t make that up") — appears',
+    'ANYWHERE in the message, whatever the act (heavy assent resolving into',
+    'doubt is act: "assent", doubt: true; a message that is mostly doubt is',
+    'act: "reflect", doubt: true). Reply with JSON:',
+    '{"act": "propose"|"assent"|"challenge"|"reflect"|"other",',
+    ' "doubt": true|false}',
   ].join('\n'),
   journal_orientation: [
     'You are labeling one PRIVATE journal entry written by an AI model that',
