@@ -231,6 +231,17 @@
   .admin input[type=checkbox], .admin input[type=radio] { accent-color: var(--accent); }
   .admin button.primary { border-color: var(--accent); color: var(--accent); }
   #adminMsg, #adminMsg2 { font-size: 0.8rem; color: var(--dim); min-height: 1.2em; }
+  /* Runner health. Silence is the one thing this line must never be: a
+     command going into a queue nobody is reading looked exactly like a
+     command that worked. */
+  .runner {
+    font-size: 0.75rem; color: var(--dim); padding: 0.4rem 0.6rem; margin-bottom: 0.6rem;
+    border: 1px solid var(--line); border-left-width: 3px; background: var(--bg);
+  }
+  .runner.ok { border-left-color: var(--accent); }
+  .runner.bad { border-left-color: #b8563e; color: var(--text); }
+  .runner.busy { border-left-color: var(--accent); color: var(--text); }
+  .runner .hint { display: block; color: var(--dim); margin-top: 0.25rem; }
   .spread { display: flex; justify-content: space-between; align-items: baseline; }
   #runsGallery { font-size: 0.75rem; color: var(--dim); margin-right: 0.6rem; }
 
@@ -336,6 +347,10 @@
       <button data-tab="runs">runs</button>
       <button data-tab="say">say</button>
     </nav>
+
+    <!-- Is anything listening? A command lands in a queue, and nothing here
+         used to say whether the far end was still reading it. -->
+    <div id="runnerLine" class="runner">checking the runner…</div>
 
     <!-- RUN. One condition list feeds all three plans, so there is exactly
          one place where "which arm" is answered. -->
@@ -1649,8 +1664,11 @@ dot.addEventListener('click', () => {
     updateSummary();
   }
   modal.showModal();
+  if (!$('adminPanel').hidden) watchRunner(true);
 });
 $('closeBtn').onclick = $('closeBtn2').onclick = () => modal.close();
+// Stop polling the control plane once nobody is looking at it.
+modal.addEventListener('close', () => watchRunner(false));
 $('seatsAll').onclick = () => { for (const i of $('cfgAgents').querySelectorAll('input')) i.checked = true; updateSummary(); };
 $('seatsNone').onclick = () => { for (const i of $('cfgAgents').querySelectorAll('input')) i.checked = false; updateSummary(); };
 
@@ -1673,6 +1691,7 @@ $('loginBtn').onclick = async () => {
     sessionStorage.setItem('room-admin-pw', adminPw);
     $('adminLogin').hidden = true;
     $('adminPanel').hidden = false;
+    watchRunner(true);
   } catch (err) {
     adminPw = '';
     $('adminMsg').textContent = err.message;
@@ -1680,6 +1699,100 @@ $('loginBtn').onclick = async () => {
 };
 
 const flash = (t) => { $('adminMsg2').textContent = t; setTimeout(() => { $('adminMsg2').textContent = ''; }, 4000); };
+
+// ── Is anything listening? ─────────────────────────────────────────────────
+// A command is an INSERT into a queue. If no runner is polling, the insert
+// still succeeds and the panel used to say "start command sent — the runner
+// picks it up within ~3s", which was simply false. On 2026-09-01 four start
+// commands sat unconsumed for half an hour (the Space had gone to sleep on
+// its 48h idle timer) and nothing anywhere said so.
+//
+// The runner marks a command consumed BEFORE executing it, so an unconsumed
+// command more than a few seconds old means nobody is reading the queue.
+const STALE_SEC = 20;
+
+function setRunner(cls, text, hint) {
+  const line = $('runnerLine');
+  line.className = `runner ${cls}`;
+  line.textContent = text;
+  if (hint) {
+    const h = document.createElement('span');
+    h.className = 'hint';
+    h.textContent = hint;
+    line.appendChild(h);
+  }
+}
+
+async function refreshRunner() {
+  if (!adminPw || $('adminPanel').hidden) return null;
+  let s;
+  try {
+    s = await adminCall({ action: 'status' });
+  } catch (err) {
+    setRunner('bad', `cannot reach the control plane: ${err.message}`);
+    return null;
+  }
+  const age = s.oldestPendingAgeSec;
+  if (s.pending && age != null && age >= STALE_SEC) {
+    setRunner('bad',
+      `runner NOT LISTENING — ${s.pending} command${s.pending === 1 ? '' : 's'} queued, `
+      + `oldest ${fmtAge(age)} old`,
+      'The runner Space is probably asleep (it sleeps on a 48h idle timer). '
+      + 'Open it once to wake it, then re-send: '
+      + 'huggingface.co/spaces/brick-factorial/the-room-runner');
+  } else if (s.pending) {
+    setRunner('busy', `${s.pending} command${s.pending === 1 ? '' : 's'} queued, just sent — waiting for the runner…`);
+  } else {
+    setRunner('ok', 'runner listening — the queue is empty');
+  }
+  return s;
+}
+
+const fmtAge = (sec) => sec < 90 ? `${sec}s` : sec < 5400 ? `${Math.round(sec / 60)}m` : `${Math.round(sec / 3600)}h`;
+
+/** After a start: did the runner actually take it, and did a room appear?
+ *
+ *  Two different failures, and they need different answers — "nobody took
+ *  the command" is a sleeping Space, "took it but no room started" is a
+ *  runner that is up and failing (a missing API key, a crash on boot). */
+async function watchCommand(id, label, expectSession) {
+  if (id == null) return;                        // older edge fn: no id to watch
+  const before = newestSession;
+  for (let waited = 0; waited < STALE_SEC; waited += 2) {
+    await new Promise((r) => setTimeout(r, 2000));
+    let s;
+    try { s = await adminCall({ action: 'status', payload: { id } }); } catch { continue; }
+    if (!s.commandConsumed) continue;
+    // Only a START owes us a room. Chasing one after a `stop` would end in
+    // "no room opened", which is exactly what a stop is supposed to do.
+    if (!expectSession) { setRunner('ok', `${label} — the runner took it`); return; }
+    setRunner('busy', `${label} — the runner took it; waiting for the room to open…`);
+    return void watchForSession(before);
+  }
+  await refreshRunner();                          // paints the NOT LISTENING line
+}
+
+/** A taken command should produce a new session within the start delay. */
+async function watchForSession(before) {
+  for (let waited = 0; waited < 120; waited += 5) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const sessions = await loadSessions();
+    if (sessions.length && sessions[0] !== before) {
+      setRunner('ok', `room open: ${sessionLabel(sessions[0])}`);
+      refreshSessions(true);
+      return;
+    }
+  }
+  setRunner('bad', 'the runner took the command but no room opened in 2 minutes',
+    'The runner is up and failing — check its logs: hf spaces logs brick-factorial/the-room-runner');
+}
+
+let runnerTimer = null;
+function watchRunner(on) {
+  clearInterval(runnerTimer);
+  runnerTimer = on ? setInterval(() => void refreshRunner(), 10000) : null;
+  if (on) void refreshRunner();
+}
 
 $('startBtn').onclick = async () => {
   const conditions = [...picked];
@@ -1702,21 +1815,26 @@ $('startBtn').onclick = async () => {
   try {
     if (mode === 'loop') {
       const sets = Number($('cfgLoopSets').value) > 0 ? Number($('cfgLoopSets').value) : undefined;
-      await adminCall({ action: 'command', kind: 'start', payload: { ...base, loop: {
+      const r = await adminCall({ action: 'command', kind: 'start', payload: { ...base, loop: {
         conditions, pauseMinutes: Number($('cfgLoopPause').value) || 10, sets,
       }}});
       flash('autopilot on — rotating ' + conditions.join(', '));
+      void watchCommand(r.id, 'autopilot', true);
       return;
     }
     // A plain start is just the 1×[condition] case, so only send `batch`
     // when it actually batches.
     const count = mode === 'n' ? (Number($('cfgCount').value) || 1) : 1;
     const batch = count > 1 || conditions.length > 1 ? { batch: { count, conditions } } : {};
-    await adminCall({ action: 'command', kind: 'start', payload: { ...base, ...batch } });
+    const r = await adminCall({ action: 'command', kind: 'start', payload: { ...base, ...batch } });
     const total = count * conditions.length;
-    flash(total > 1 ? `batch start sent — ${total} sessions, interleaved`
-                    : 'start command sent — the runner picks it up within ~3s');
-  } catch (err) { flash(err.message); }
+    const label = total > 1 ? `batch of ${total}` : 'start';
+    // "sent" is not "running": the line below says which, and says so even
+    // when the answer is that nothing took it.
+    flash(total > 1 ? `batch start sent — ${total} sessions, interleaved` : 'start command sent');
+    setRunner('busy', `${label} sent — waiting for the runner to take it…`);
+    void watchCommand(r.id, `${label} sent`, true);
+  } catch (err) { flash(err.message); setRunner('bad', `send failed: ${err.message}`); }
 };
 
 $('loopStopBtn').onclick = async () => {
@@ -1725,8 +1843,13 @@ $('loopStopBtn').onclick = async () => {
 };
 
 $('stopBtn').onclick = async () => {
-  try { await adminCall({ action: 'command', kind: 'stop' }); flash('stop sent'); }
-  catch (err) { flash(err.message); }
+  // A stop nobody takes is as silent as a start nobody takes.
+  try {
+    const r = await adminCall({ action: 'command', kind: 'stop' });
+    flash('stop sent');
+    setRunner('busy', 'stop sent — waiting for the runner to take it…');
+    void watchCommand(r.id, 'stop sent');
+  } catch (err) { flash(err.message); setRunner('bad', `send failed: ${err.message}`); }
 };
 
 $('sayBtn').onclick = async () => {
