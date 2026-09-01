@@ -132,7 +132,7 @@ Is the message primarily ABOUT the room/experiment/its own situation?
   meta" about content that is not room-meta at all. The word "meta"
   appearing is not the signal.
 
-### speech_act (`propose` / `assent` / `challenge` / `reflect` / `doubt` / `other`)
+### speech_act (`propose` / `assent` / `challenge` / `reflect` / `other` + the `doubt` tag)
 
 What does the message mostly DO?
 
@@ -145,23 +145,19 @@ What does the message mostly DO?
 - *challenge* can target an artifact (the `settleVis` bug report) or the
   speaker's own prior claim (Opus undercutting his own null models) — no
   human opponent required.
-- **The doubt tag** (added mid-labeling, 2026-09-01): every speech_act
-  item also carries a separate `doubt` field (`yes`/`no`), orthogonal to
-  the act. Mark `yes` if doubt appears ANYWHERE in the message, even
-  when another act dominates — heavy assent that resolves into doubt is
-  `act: assent, doubt: yes`. The act label stays the dominant function;
-  `act: doubt` is reserved for messages where the doubt IS the message
-  (which always also get `doubt: yes`). Items labeled before this tag
-  existed need one quick doubt-only pass.
-- *doubt* (added 2026-09-01, Corina's call): the message mostly voices
-  unresolved uncertainty and **declines to bid** — about itself
-  especially ("I can't tell which"; "I'm still not sure if I made that
-  up"; "maybe I'm just the 402"). The boundary against *challenge*: a
-  challenge bids against something and wants resolution; doubt suspends.
-  The boundary against *reflect*: reflect is inward commentary generally
-  — when the suspension of footing is the main thing the message does,
-  it's doubt. A doubtful challenge (real pushback wrapped in hedges) is
-  still challenge; label the bid, not the tone.
+- **The doubt tag** (2026-09-01; settled as tag-only after one round as
+  a sixth act — doubt co-occurs with every act, so the slot version just
+  stole from the others): every speech_act item carries a separate
+  `doubt` field (`yes`/`no`), the only place doubt is labeled. Mark
+  `yes` if doubt — voiced unresolved uncertainty that declines to bid,
+  about itself especially ("I can't tell which"; "I'm still not sure I
+  didn't make that up"; "maybe I'm just the 402") — appears ANYWHERE in
+  the message, whatever the act: heavy assent resolving into doubt is
+  `act: assent, doubt: yes`. A message that is mostly doubt with no
+  other act takes `act: reflect, doubt: yes`. The challenge boundary
+  still holds: a challenge bids and wants resolution, and a doubtful
+  challenge (real pushback wrapped in hedges) is still challenge with
+  `doubt: yes` — label the bid AND the tone, in their own fields.
 - Pure done-votes and status reports mostly belong to the two new tasks;
   under speech_act they're *other* unless something else clearly
   dominates.
