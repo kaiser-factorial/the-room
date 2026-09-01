@@ -419,25 +419,50 @@ so an old session can be reproduced exactly, but the control moved.
    distance 2, so `[GOURNAL]` and friends leaked the same way.) Sessions
    with hits are not unusable; they are unusable *as journal-privacy data*.
 
-0-. **BUILT, NOT YET DEPLOYED — `viewer/made.html`, everything the rooms
-   made.** Viewer-only (plus `deploy/deploy.sh`, which now copies it), so
-   deploying it does NOT restart the runner Space and is safe mid-room:
-   `./deploy/deploy.sh brick-factorial viewer`.
+0-. **DEPLOYED 2026-09-01 (fifth pass) — `made.html`, and the viewer's
+   reading tools.** PR #29 merged (main `437c44e`) → **viewer `0804b89`.
+   The runner was deliberately NOT redeployed** and still runs `f0a27f9`
+   — a static Space carries no build and no restart, so this was safe to
+   push mid-room. Verified after: `index.html`, `site.html` and
+   `made.html` all 200 and **byte-identical to the repo** apart from HF's
+   injected `window.huggingface` tag (2 diff lines each);
+   `conditions.json` lists **31**.
 
-   A gallery of every room that made something (thumbnail for a room that
-   wrote a page, file manifest for one that did not; arm, date, rounds,
-   duration, ending, seats), and per room a workspace: the file tree with
-   a version scrubber and a `changes` diff, and every code run with its
-   **output first**. The switch in all three headers is now
-   `chat / site / made`, and the admin ledger links `made` on every row —
-   which is the only way into a project room's output, since its
-   deliverable is a tree and `page` was the one link it could never have.
+   What went live:
+   - **`viewer/made.html`** — a gallery of every room that made something
+     (thumbnail for a room that wrote a page, file manifest for one that
+     did not; arm, date, rounds, duration, ending, seats), and per room a
+     workspace: the file tree with a version scrubber and a `changes`
+     diff, and every code run with its **output first**. The switch in
+     all three headers is now `chat / site / made`, and the admin ledger
+     links `made` on every row — the only way into a project room's
+     output, since its deliverable is a tree and `page` was the one link
+     it could never have.
+   - **Code runs render as code AND output**, in the feed and the tool
+     rail, instead of one serif blob split by a `── output ──` rule.
+   - **Search across every run**, behind a `this room / all runs` switch.
+     It covers file contents, journals, thinking traces, code and output
+     — not just speech. The case that forced that: "hofstadter" appears
+     in **no transcript at all**; it lives only inside a file a `project`
+     room wrote.
+   - **Arm names on the session pickers** (`site-open · 2026-08-30
+     20:15`), in the transcript and site views.
 
-   Read the README section for the rules that are load-bearing (paging,
+   Read the README sections for the rules that are load-bearing (paging,
    `index.html` beating `snapshot.html`, metadata-only scans). Verified in
-   Chromium against a stub and, separately, every query shape against the
-   REAL mirror — the browser cannot reach `esm.sh` from the build
-   container, which is why every viewer check here stubs that import.
+   Chromium against stubs and, separately, every query shape against the
+   REAL mirror.
+
+   **KNOWN DRIFT, deliberate:** main carries a `src/judge.ts` change from
+   PR #30 that the runner Space does not. It is analysis-only — nothing in
+   the session loop imports it — so it does not change how a room behaves.
+   Fold it into the next runner deploy, between rooms.
+
+   **The browser in this container cannot reach `esm.sh` or the HF static
+   host** (`ERR_CONNECTION_RESET` on both, while `curl` to the same URLs
+   returns 200). That is why every viewer check here stubs the Supabase
+   import and runs against a local server, and why deployed pages are
+   verified over `curl` rather than driven.
 
 0a. **DEPLOYED 2026-08-30 (fourth pass) — the viewer's reading tools.**
    PR #27 merged (main `41c90a0`) → **viewer `468be6d`. The runner was
