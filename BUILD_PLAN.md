@@ -332,10 +332,16 @@ Suite: 85.
 
 Open reminders:
 - **Judge calibration labeling (Corina, deliberately deferred)** —
-  `calibration/calibration-set.json` (50 items) awaits hand labels; the
+  `calibration/calibration-set.json` (83 items as of 2026-09-01; guide in
+  `judge_handoff.md`) awaits hand labels; the
   §2.7 judge (`openai/gpt-5.6-sol`, sketched in src/judge.ts) is
   unusable until labeled + agreement ≥0.8. Build-out (judgeItem/
-  judgeSession/calibration CLI) follows the labels.
+  judgeSession/calibration CLI) follows the labels. Two standing rules
+  vs the prompt-rewrite program (2026-09-01): never judge items inside
+  an interactive session that has rewrite context in it (stateless
+  per-item pipeline only), and the rewrite work must never touch rubric
+  text mid-validation — that is a rubricVersion bump + fresh
+  calibration run, never a quiet edit.
 - **Rotate the runner's OPENROUTER_API_KEY** — the temporary test key
   expires; `hf spaces secrets add brick-factorial/the-room-runner -s
   OPENROUTER_API_KEY=...`.

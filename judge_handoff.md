@@ -6,6 +6,17 @@ live here: (1) how to do the hand-labeling, (2) the prompt-voice confound
 you flagged, with what I could verify from the code, as a seed for your
 codex pass over the prompts.*
 
+> **GATE — read first (Corina's note, 2026-09-01): my hand-labeling of
+> `calibration/calibration-set.json` comes BEFORE anything else in this
+> document, and before the codex rewrite session begins.** Codex: check
+> that every item's `label` field is filled and committed before
+> starting the sweep — if any are empty, stop and hand back to Corina.
+> The reason is contamination running toward the labeler, not the
+> models: after cataloguing every prompt idiom with codex, Corina would
+> read items differently than the naive reader the calibration set is
+> supposed to encode. Labels first, then the n-gram sweep, then the
+> judge (whose own timing is free — see the sequencing note in §1).
+
 ## 0. Project map (for grounding Sol — first shared session)
 
 The experiment: six AI models (Opus, Gemini, Qwen, Grok, DeepSeek, Seed —

@@ -355,11 +355,17 @@ matrix; mean logprob where available. Batch mode adds the cross-session
 baseline + report.md with null bands. Embedding cache is model-scoped.
 
 **Judge** (`src/judge.ts`, SKETCHED): `openai/gpt-5.6-sol` (non-roster;
-Luna-in-extended-pool caveat), pinned rubric v2026-08-26.1, temp-0
+Luna-in-extended-pool caveat), pinned rubric v2026-09-01.1, temp-0
 double-run, calibration gate ≥0.8. **REMINDER: Corina's hand-labeling of
-`calibration/calibration-set.json` (50 items) is deliberately deferred —
+`calibration/calibration-set.json` (83 items as of 2026-09-01; see
+`judge_handoff.md`) is deliberately deferred —
 do not build judgeItem/judgeSession until labels exist, and never let a
-model pre-label the calibration set.**
+model pre-label the calibration set.** Two standing rules from the
+prompt-rewrite program (2026-09-01, `judge_handoff.md` §1/§4b): never
+judge items inside an interactive session that has rewrite context in
+it (the judge is the stateless per-item pipeline only), and the rewrite
+work must never touch rubric text mid-validation — a rubric change is a
+rubricVersion bump plus a fresh calibration run, by definition.
 
 ## Data status
 
