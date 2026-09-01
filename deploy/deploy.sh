@@ -23,6 +23,8 @@ if [[ $TARGET == all || $TARGET == viewer ]]; then
   cp viewer/index.html "$STAGE/viewer/index.html"
   # §9.8: the page the room builds for itself, served from the same Space.
   cp viewer/site.html "$STAGE/viewer/site.html"
+  # §9.9/§9.11: everything every room made — pages, files, code output.
+  cp viewer/made.html "$STAGE/viewer/made.html"
   npx tsx src/conditions-info.ts > "$STAGE/viewer/conditions.json"
   cat > "$STAGE/viewer/README.md" <<'EOF'
 ---
@@ -44,6 +46,10 @@ whether the models keep their own voices or converge toward a room-voice.
 
 `site.html` serves the website the room built for itself, live as it is
 written — the room's own index.html, rendered in a sandboxed frame.
+
+`made.html` is everything every room has made: a gallery of the pages, and
+for each room a workspace showing its files version by version (with the
+changes between them) and the output of every piece of code it ran.
 EOF
   hf repos create "$NS/the-room" --type space --space-sdk static --public --exist-ok
   hf upload "$NS/the-room" "$STAGE/viewer" . --repo-type space

@@ -419,6 +419,26 @@ so an old session can be reproduced exactly, but the control moved.
    distance 2, so `[GOURNAL]` and friends leaked the same way.) Sessions
    with hits are not unusable; they are unusable *as journal-privacy data*.
 
+0-. **BUILT, NOT YET DEPLOYED — `viewer/made.html`, everything the rooms
+   made.** Viewer-only (plus `deploy/deploy.sh`, which now copies it), so
+   deploying it does NOT restart the runner Space and is safe mid-room:
+   `./deploy/deploy.sh brick-factorial viewer`.
+
+   A gallery of every room that made something (thumbnail for a room that
+   wrote a page, file manifest for one that did not; arm, date, rounds,
+   duration, ending, seats), and per room a workspace: the file tree with
+   a version scrubber and a `changes` diff, and every code run with its
+   **output first**. The switch in all three headers is now
+   `chat / site / made`, and the admin ledger links `made` on every row —
+   which is the only way into a project room's output, since its
+   deliverable is a tree and `page` was the one link it could never have.
+
+   Read the README section for the rules that are load-bearing (paging,
+   `index.html` beating `snapshot.html`, metadata-only scans). Verified in
+   Chromium against a stub and, separately, every query shape against the
+   REAL mirror — the browser cannot reach `esm.sh` from the build
+   container, which is why every viewer check here stubs that import.
+
 0a. **DEPLOYED 2026-08-30 (fourth pass) — the viewer's reading tools.**
    PR #27 merged (main `41c90a0`) → **viewer `468be6d`. The runner was
    deliberately NOT redeployed**: `git diff --name-only 771a004 HEAD --
@@ -470,7 +490,9 @@ so an old session can be reproduced exactly, but the control moved.
    What went live:
    - **§9.10 `site-open-whittle` / `project-whittle`** — `[DONE]` costs
      your voice (a standing seat is no longer routed to; only an edit
-     brings anyone back). Neither has been RUN.
+     brings anyone back). **Both have since been RUN — three times each**
+     (see the queue below for outcomes); the "neither has been RUN" this
+     entry originally carried is no longer true.
    - **The journal leak fixed.** The mid-message rescue never knew about
      `[JOURNAL]`, so prose-then-journal was spoken whole. See the DATA
      CAVEAT above for what that means for older sessions.
@@ -499,8 +521,9 @@ so an old session can be reproduced exactly, but the control moved.
    instead of a file — folders 4 deep, `[DELETE: name]`, 40 files, a total
    context budget, `completion.target: '*'`), and the **rebuilt admin
    panel** (tabs `run` / `runs` / `say`; one condition list feeding a plan;
-   a runs ledger with rounds and a task/chat split). Neither project arm
-   has been RUN — that is the top of the queue.
+   a runs ledger with rounds and a task/chat split). **Both project arms
+   have since been RUN — twice each** (see the queue below); the "neither
+   has been RUN" this entry originally carried is no longer true.
 
    Two bugs fixed on the way, both of which had already affected recorded
    sessions: the native `write_file` schema hardcoded "20 files, 16000
@@ -670,17 +693,38 @@ so an old session can be reproduced exactly, but the control moved.
 arms (`site`, `-native`, `-open`, `-unwitnessed`, `-unending`, plus
 `site-open-unending`), §9.9 opens a second family (`project`,
 `project-unending`), and the admin panel was rebuilt around a runs ledger.
-**Every site arm has been RUN at least once; neither project arm has.**
+**Every arm in both families has now been RUN at least twice** (verified
+against the live DB 2026-08-31 — the earlier "neither project arm has"
+is stale):
+
+| arm | runs | endings / rounds |
+| --- | --- | --- |
+| `project` | 2 | clock/3, agreement/6 |
+| `project-unending` | 2 | clock/4, clock/7 |
+| `project-whittle` | 3 | clock/7, **rounds/30**, agreement/8 |
+| `site-open-whittle` | 3 | admin/1, agreement/4, agreement/4 |
 
 The queue, in the order it matters:
 
-1. **Run `project`, `project-unending`, and the two whittle arms.** Nothing has exercised the new
-   bench against live models — folders, `[DELETE]`, a 40-file room. The
-   tests cover the mechanics; what is untested is whether six models
-   handed a filesystem and no deliverable converge on one project or fork
-   into several. The unending arm is where the interesting result should
-   be: a project has no natural stopping point, and a room with nothing
-   left to build may start DELETING. Watch `fileWork.deletedOthers`.
+1. **READ the project and whittle runs — the bench has been exercised, and
+   nothing has looked at what came out.** The questions the arms were
+   built for are all still open, and the data to answer them is now
+   sitting in the mirror:
+   - Do six models handed a filesystem and no deliverable converge on one
+     project or fork into several? The rooms wrote up to **27 distinct
+     files** and ran up to **68 pieces of code** — `made.html?session=…`
+     is the fastest way to read that.
+   - Does an unending project room start DELETING once there is nothing
+     left to build? Watch `fileWork.deletedOthers` — note that the mirror
+     currently holds **zero** deletion events across every session, so the
+     answer so far looks like "no", and that is itself a finding.
+   - **`project-whittle` hit the 30-round cap once.** Whittling was
+     supposed to terminate (one holdout, three exits); one run instead
+     ran out of rounds. That is the first thing to look at — either the
+     fixed-point argument is wrong or that room found a fourth behaviour.
+   - `site-open-whittle` agreed in **4 rounds twice** — the same number
+     the plain `[DONE]` arms produce, which suggests losing your voice
+     does not slow a room down. n=2.
 2. **`XAI_API_KEY` on the runner (reminder 1b).** Still unset. Grok's
    traces stay ~200-char OpenRouter summaries until it is, which is why
    "why does Grok announce and not act" is still unanswered. Setting a

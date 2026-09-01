@@ -941,6 +941,34 @@ collapsed thinking trace — opens every disclosure on the way to it, because a
 count that says "1 of 36" while the reader can see nothing is worse than no
 search at all. Clearing the box closes exactly what the search opened.
 
+**The same box searches every run**, behind a `this room / all runs` switch.
+The question you actually have is usually "which room was it that talked
+about X" — you remember the phrase, not the date — and a search confined to
+the room already open cannot answer it. `all runs` asks the mirror instead
+and drops a results panel under the box: arm, date, round, seat, what the
+event was, and a snippet with the match highlighted. Clicking one opens that
+run and lands on the exact event, opening whatever it is buried inside; the
+query survives the jump, and coming back to the box brings the same results
+back rather than making you retype.
+
+It searches **everything a room leaves behind, not just what it said** —
+message and system text, journal entries, file contents, thinking traces,
+code, code output, and web-search queries and results. The worked example
+for the feature was "the room that discussed Hofstadter", and that word
+turned out to appear nowhere in any transcript: it lived only inside a file
+one room wrote. A search over speech alone would have failed the case it
+exists for.
+
+The result rows deliberately do **not** select `payload` — one file version
+runs to hundreds of KB, and a common word would pull every match's full
+contents. Rows whose match is inside a payload fetch their snippet
+individually, and only once scrolled into view.
+
+**The session picker names the arm**, not just the timestamp:
+`site-open · 2026-08-30 20:15`. It used to list bare ids, so telling a
+`site-open` run from a `project-whittle` one meant opening it. Same on the
+site view's picker; the gallery labels its cards the same way.
+
 **Tool runs from one turn collapse into one row.** A turn can spend four
 actions before it speaks, and one aside each floods the feed until the room's
 own conversation is a minority of its transcript. Consecutive tool asides
@@ -987,6 +1015,10 @@ Three ways, in order of how soon they work:
    `huggingface.co/spaces/...` page frames its `index.html` only, so the
    subdomain URL is the one that reaches a subpath). The viewer's header
    links to it as *the room's site*.
+
+`/made.html` on the same Space is the gallery of every room's output —
+pages, files version by version, and the output of every piece of code
+run — and `/made.html?session=<id>` is one room's workspace.
 
 The page opens on the newest room that has written one and on that room's
 newest version; the picker and the scrubber go anywhere else. `?session=`
@@ -1071,7 +1103,8 @@ attempts) is logged into message events for analysis.
 
 - **Viewer** (public): https://huggingface.co/spaces/brick-factorial/the-room
   — and `/site.html` on the same Space, which serves the page the room
-  built for itself (§9.8)
+  built for itself (§9.8), and `/made.html`, the gallery of everything
+  every room made (§9.11)
 - **Runner** (private Docker Space, cpu-basic):
   https://huggingface.co/spaces/brick-factorial/the-room-runner
 
@@ -1206,14 +1239,16 @@ under you without yanking you forward, with a `latest` button to rejoin the
 end. The URL always names what is on screen (`?session=…&v=3`), so a
 version is a link. `?file=` follows a different file.
 
-A **chat / site switch** sits in both headers and carries the session
-across: from a room's transcript to the page that room built, and back to
-the same room. It appears in the transcript view only once that session has
-actually written `index.html`, so a chat-only room is never offered a view
-that does not exist. `?session=` now opens a room in the transcript view
-too, and pins it — the poll that jumps to a newly started session stands
-down when the URL named one, since a `?session=` link is usually someone
-comparing a page with the conversation that produced it.
+A **chat / site / made switch** sits in all three headers and carries the
+session across: from a room's transcript to the page that room built to the
+workspace it built it in, and back to the same room. The switch appears in
+the transcript view once that session has made ANYTHING — a file or a code
+run — and its `site` half greys out unless the room actually wrote a page,
+so a project room gets its workspace without being offered a view that does
+not exist. `?session=` opens a room in the transcript view too, and pins
+it — the poll that jumps to a newly started session stands down when the
+URL named one, since a `?session=` link is usually someone comparing a page
+with the conversation that produced it.
 
 It fetches **metadata up front and pages on demand**: `versions` holds
 id/round/author/timestamp only, and each version's HTML is fetched by id
@@ -1234,6 +1269,64 @@ origin and cannot reach this page, its storage, or the viewer's Supabase
 session. The room gets a real browser; it does not get our credentials. The
 strip along the top is the only part of that page that is ours, and it
 stays visually separate for that reason.
+
+**`viewer/made.html` — everything every room made.** The site view answers
+"what did THIS room build"; this one answers "what has ever been built
+here", and covers the rooms whose deliverable is not a page at all.
+
+Two modes, one page, one URL scheme:
+
+- **The gallery** (no `?session=`). One card per room that made something,
+  newest first, filtered by `all / sites / workspaces` and by arm. A room
+  that wrote a page gets a live **thumbnail** of it; a room that did not
+  gets a **manifest** — its file names and version counts, with deleted
+  ones struck through. Each card carries the arm, the date, rounds,
+  duration, ending, seats, and what it made, plus links to `site`, `files`
+  and `chat` for that room.
+- **The workspace** (`?session=…`). A tree of every file the room wrote
+  (folders as headings, deleted files struck through, version counts) and,
+  above it, its **code runs**. Selecting a file gives the same scrubber the
+  site view has — `‹ ›`, arrow keys, `v3 / 7` with author and round — plus
+  a **`changes` toggle** that diffs that version against the one before it,
+  and an `open as a page ↗` link for an html file. Images written by python
+  (`encoding: base64`) render inline. Selecting `code runs` gives every
+  `[RUN]` in order: **output first**, the code behind a chevron, tagged
+  `the room saw this` or `private to the caller` from `payload.public`.
+
+The diff is prefix/suffix-trimmed with LCS on the disputed middle only, and
+past a million-cell guard it falls back to an honest block replacement
+rather than a wrong-looking alignment. Unchanged stretches collapse to
+`⋯ N unchanged lines`, so a one-line edit in a 900-line page is not 900
+lines away.
+
+It is subject to the same two constraints as the site view, for the same
+reasons: **metadata up front, payloads by id on demand** (a single session's
+file payloads run to 1.7 MB in the mirror, so nothing that scans selects
+`payload`, and gallery thumbnails paint only on scroll via an
+`IntersectionObserver`), and thumbnails are `sandbox="allow-scripts"`
+**without `allow-same-origin`**, via `srcdoc`, so a room's scripts cannot
+reach the page or its Supabase session.
+
+**Every full-table scan on this page pages**, because PostgREST caps a
+response at 1000 rows and truncates SILENTLY: the file-and-run scan already
+returns 1020 rows, and under-reporting what a room made would be
+indistinguishable from the room not having made it. Round counts come from
+the `end` event's `rounds` stamp where it exists and from a paged
+missing-only scan where it does not (44 of 60 finished runs predate the
+stamp) — the same fill the admin ledger runs, done **after** the first
+paint so the cards are not held up by a detail.
+
+Two rules worth keeping straight, both learned from real data: the page a
+room "has" is `index.html` when it wrote one — seven rooms in the mirror
+also wrote a `snapshot.html`, which "newest html file" would have picked
+over the actual page — and a workspace opens on the file the room touched
+LAST, skipping deletions and binaries, because alphabetical opened a
+project room on `chart.png`.
+
+The admin panel's runs ledger links `made` on every row (and `everything
+made ↗` above the table), which is the only way into a project room's
+output: its deliverable is a tree, so `page` was the one link it could
+never have.
 
 **§9.8 needed no migration, and the site pages ARE mirrored** (verified
 against the live DB 2026-08-29): every `[WRITE]` is a `file` event whose
