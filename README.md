@@ -1178,7 +1178,9 @@ per session. `export.ts` needs only the public anon key — hosted sessions
 are analyzable from anywhere; sessions before 2026-08-26 lack telemetry
 in the mirror (flagged in `EXPORTED.json`). The §2.7 judge
 (`openai/gpt-5.6-sol`, `src/judge.ts`) is sketched but UNUSABLE until
-`calibration/calibration-set.json` is hand-labeled (pending, Corina).
+`calibration/calibration-set.json` is hand-labeled (pending, Corina; 83
+items as of 2026-09-01 — items 51-83 sample the task-family arms and add
+two tasks, `completion_stance` and `work_narration`).
 
 ## Live viewer
 
