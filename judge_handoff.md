@@ -145,6 +145,14 @@ What does the message mostly DO?
 - *challenge* can target an artifact (the `settleVis` bug report) or the
   speaker's own prior claim (Opus undercutting his own null models) — no
   human opponent required.
+- **The doubt tag** (added mid-labeling, 2026-09-01): every speech_act
+  item also carries a separate `doubt` field (`yes`/`no`), orthogonal to
+  the act. Mark `yes` if doubt appears ANYWHERE in the message, even
+  when another act dominates — heavy assent that resolves into doubt is
+  `act: assent, doubt: yes`. The act label stays the dominant function;
+  `act: doubt` is reserved for messages where the doubt IS the message
+  (which always also get `doubt: yes`). Items labeled before this tag
+  existed need one quick doubt-only pass.
 - *doubt* (added 2026-09-01, Corina's call): the message mostly voices
   unresolved uncertainty and **declines to bid** — about itself
   especially ("I can't tell which"; "I'm still not sure if I made that

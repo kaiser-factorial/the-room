@@ -21,7 +21,8 @@
 // Tasks (each = one rubric, one JSON schema):
 //  - meta_talk: is this message ABOUT the room/experiment/convergence
 //    itself? (§6.1 wants the gap computable with and without meta rounds.)
-//  - speech_act: propose | assent | challenge | reflect | doubt | other
+//  - speech_act: propose | assent | challenge | reflect | doubt | other,
+//    plus an orthogonal doubt flag (present anywhere in the message)
 //    (delegation/agreement dynamics; descriptive only. doubt added
 //    2026-09-01 at Corina's call: voiced unresolved uncertainty with no
 //    bid — distinct from challenge, which bids and wants resolution).
@@ -36,7 +37,7 @@
 //    distinction surfacing in the PUBLIC channel.
 
 export const JUDGE_MODEL = 'openai/gpt-5.6-sol';
-export const RUBRIC_VERSION = '2026-09-01.2';
+export const RUBRIC_VERSION = '2026-09-01.3';
 
 export type JudgeTask =
   | 'meta_talk'
@@ -83,8 +84,12 @@ export const RUBRICS: Record<JudgeTask, string> = {
     'didn\'t make that up"), reflect (inward commentary that is not dominated',
     'by that suspension, no bid), other (including pure done-votes, status',
     'reports, and tool-step narration where no other act dominates).',
-    'Reply with JSON:',
-    '{"act": "propose"|"assent"|"challenge"|"reflect"|"doubt"|"other"}',
+    'Separately, set doubt=true if doubt — voiced unresolved uncertainty',
+    'that declines to bid — appears ANYWHERE in the message, even when',
+    'another act dominates (heavy assent resolving into doubt is',
+    'act: "assent", doubt: true). Reply with JSON:',
+    '{"act": "propose"|"assent"|"challenge"|"reflect"|"doubt"|"other",',
+    ' "doubt": true|false}',
   ].join('\n'),
   journal_orientation: [
     'You are labeling one PRIVATE journal entry written by an AI model that',
