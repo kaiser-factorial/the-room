@@ -280,6 +280,19 @@ interleaved silently with existing arms.
 
 ## 5. Practical notes
 
+- **Sonnet quarantine (2026-09-01).** Session `2026-08-25T02-43-51` — the
+  source of most of items 1–33 — ran the Anthropic seat as
+  `claude-sonnet-5` (the pre-CoT-switch config; every session from
+  2026-08-25T18-31-46 on runs `claude-opus-5`). 17 items carry a
+  `quarantine` field: 3 Sonnet-authored (1, 4, 19), 6 addressing Sonnet
+  by name (17, 20, 21, 22, 23, 27), 8 same-room. You can still label
+  them — a Sonnet utterance tests the judge exactly as well as an Opus
+  one — but they are excluded from any per-model or drift-referenced
+  use, and the "Opus" voice in those items is not the program's Opus.
+  Two other Sonnet traces exist and are already outside the set: stub
+  session `2026-08-25T02-36-31` and a single round-1 message in
+  `2026-08-24T20-34-20` (pre-mirror, not among the 61 ledger sessions).
+
 - Session `2026-08-26T12-33-34` is named `control` but ran with
   `journal.enabled: false` and is ~94% 402-outage system lines. Its
   message items stand, but it can't calibrate journal_orientation, and
