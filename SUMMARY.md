@@ -295,7 +295,9 @@ bootstrap CIs, and a length-CONTROLLED parallel gap (messages clipped to
 120 words, re-embedded) tests the §6.1 length confound per session.
 Non-roster judge (`openai/gpt-5.6-sol`) sketched in `src/judge.ts`;
 **calibration labeling by Corina pending — the judge is unusable until
-then** (`calibration/calibration-set.json`, 50 items). Direct-API upgrade
+then** (`calibration/calibration-set.json`, 83 items — expanded
+2026-09-01 from four post-task-family probe sessions; two new tasks,
+`completion_stance` and `work_narration`, cover task-room discourse). Direct-API upgrade
 path adds per-token surprisal (asymmetric matrix — §2.6 parked note).
 
 Confound controls in force: pinned temperature; logged provider /
