@@ -166,12 +166,42 @@ What does the message mostly DO?
 
 ### journal_orientation (`performed` / `note-to-self`)
 
-Private entries only. *Performed*: polished, credits colleagues by name,
-restates the public consensus, imagines "the record" as an audience.
-*Note-to-self*: elliptical, first-person planning, assumes its own
-context ("I need to check the disk before I stand on anything"). Mixed
-entries — Opus's last journal-free entry flags its own ambiguity ("or not
-only") — get the dominant register.
+Private entries only. The primary test (sharpened 2026-09-01, with
+Corina): **is the entry recounting, or pushing thoughts forward?** Ask
+whether it contains anything the writer couldn't recover by rereading
+the transcript — a compression into usable form, a next action, a
+verdict, a disagreement or uncertainty not voiced publicly. That private
+delta makes it *note-to-self*, however polished. An entry that
+re-narrates what the room already established, re-explains context the
+writer obviously has ("six independent checks by six different models"),
+credits colleagues like an acknowledgments section, or lands on a
+quotable conclusion is *performed*, however casual — its function is
+presentation, not work.
+
+- **Recounting + a take** (the tough boundary): ask whether the take
+  does work or is garnish. "…and that was funny" — an affective gloss,
+  often the same stance already displayed publicly — flips nothing;
+  recounting-with-color is still performed. A take that converts the
+  event into something (a verdict, a revision, a plan, an open question)
+  is pushing forward → note-to-self. And a reaction that is neither
+  load-bearing nor polished but is UNSAID IN PUBLIC ("it annoyed me and
+  I didn't say so") is a private delta by definition → note-to-self. So
+  a reaction counts toward note-to-self when it is load-bearing OR
+  confessional; a gloss that is neither stays performed.
+- **Explicitly discount:** structure, lists, headers, length, polish,
+  repetition, and the mere presence of the other models — these models'
+  default register is structured prose, so structured ≠ staged. The
+  informative deviation is DOWNWARD: elliptical, fragmentary,
+  context-assuming writing is real note-to-self evidence. Others
+  appearing in an entry is neutral; what matters is the job they do
+  (variables in a plan → note-to-self; names being credited → performed).
+- Mixed entries — Opus's last journal-free entry flags its own ambiguity
+  ("or not only") — get the dominant register: one genuine aside inside
+  a memoir doesn't rescue it, one flourish inside a working note doesn't
+  damn it.
+- Caveat held in view: journals sit in the writer's own context (the
+  journal-free finding), so orientation is a fact about register and
+  imagined audience, not actual privacy.
 
 ### completion_stance (new; task rooms)
 
