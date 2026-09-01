@@ -89,4 +89,11 @@ EOF
   echo "   https://huggingface.co/spaces/$NS/the-room-runner"
 fi
 
-echo "Done. Check build: hf spaces logs $NS/the-room-runner --build --follow"
+# The viewer is a static Space with no build to watch, and pointing at the
+# runner's logs after a viewer-only deploy reads as though the runner had
+# just been redeployed — which it deliberately was not.
+if [[ $TARGET == all || $TARGET == runner ]]; then
+  echo "Done. Check build: hf spaces logs $NS/the-room-runner --build --follow"
+else
+  echo "Done. Viewer only — the runner Space was not touched."
+fi
