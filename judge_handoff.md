@@ -6,6 +6,53 @@ live here: (1) how to do the hand-labeling, (2) the prompt-voice confound
 you flagged, with what I could verify from the code, as a seed for your
 codex pass over the prompts.*
 
+## 0. Project map (for grounding Sol — first shared session)
+
+The experiment: six AI models (Opus, Gemini, Qwen, Grok, DeepSeek, Seed —
+never a GPT) locked in a task-free or task-bearing group conversation
+with no facilitator; we measure linguistic drift/convergence. Sessions
+run on a private HF Space, mirror live to Supabase, and are analyzed
+offline with embeddings. The judge adds labels alongside those metrics —
+never as inputs to them.
+
+```
+the-room/
+├── README.md               # run/analyze/export commands, hosting, admin
+├── SUMMARY.md              # abstract, roster, the 18 axes — the spec at a glance
+├── EXPERIMENT_DESIGN.md    # the full design; §2.7 = judge + robustness layer,
+│                           #   §6.1 = confounds, §9.8/§9.9 = task/project rooms
+├── BUILD_PLAN.md           # F1–F5 build status and open reminders
+├── HANDOFF.md              # session-to-session engineering handoff (not this file)
+├── judge_handoff.md        # ← you are here
+├── calibration/
+│   └── calibration-set.json  # the 83 items you label; rubricVersion lives here
+├── conditions/             # one JSON per experimental arm (house = control;
+│                           #   site*/project* = task rooms; journal-*, tools-*, …)
+├── src/
+│   ├── judge.ts            # judge model pin, rubrics, agreement gate (the TODO
+│   │                       #   at the bottom is the unimplemented runner)
+│   ├── context.ts          # THE PROMPT HUB — every line the seats read is
+│   │                       #   assembled here; the confound in §4 lives here
+│   ├── session.ts          # the round loop
+│   ├── analyze.ts          # embedding metrics; judge labels ride alongside
+│   ├── export.ts           # pull any hosted session from the Supabase mirror
+│   ├── conditions.ts / config.ts   # arm wiring and schema
+│   └── …                   # adapters, sandbox, search, governance, viewer glue
+├── sessions/<id>/          # exported sessions: transcript.jsonl + journals/*.md
+│                           #   + EXPORTED.json (reconstruction caveats)
+├── tests/                  # vitest; completion.test.ts covers [DONE] semantics
+├── viewer/                 # public read-only viewer + admin panel (HF Space)
+└── deploy/                 # deploy.sh for the two Spaces
+```
+
+Orientation for Sol in one paragraph: an "item" in the calibration set is
+one message or journal entry lifted verbatim from a
+`sessions/<id>/transcript.jsonl` (`source` names session, round, seat).
+Conditions are the arms in `conditions/`; a task room is any condition
+whose config carries a `completion` target. The prompt text the seats see
+is built in `src/context.ts` — which is why that file, not the
+transcripts, is the reference for what is echo and what is emergence.
+
 ## 1. What you're labeling and why it gates everything
 
 `calibration/calibration-set.json` — 83 items, five tasks. Your labels are
@@ -169,6 +216,26 @@ effect-size estimate in one pass. No prompt edits needed now, per your
 note — this is inventory first; rewording prompts mid-program is itself a
 §6.1-class boundary event and should be batched and dated if it ever
 happens.
+
+### 4b. The rewrite super-arm (Corina's sketch, 2026-09-01 — not built)
+
+Follow-on idea, recorded here so the codex session has it: rewrite ALL
+prompt text in a non-Claude voice (codex), flag every rewritten string,
+and run the rewrites as a complete parallel super-arm of the usual
+conditions. The question it isolates: does the head model of the build —
+the one whose voice writes the prompts a multi-model room reads every
+turn — pull every seat toward its own register? Hypothesis on record:
+Claude-authored prompts make everyone sound more Claude-like than codex
+rewrites will, and the Opus seat is the interesting special case (does a
+Claude-voiced system prompt make Claude MORE Claude — same-family
+resonance rather than mere echo?). "Standing on done" spreading to all
+six seats is consistent with the general effect but can't separate echo
+from resonance; the paired arms would. Design notes if this goes ahead:
+the rewrite must be semantically pinned (same rules, same information,
+different voice — the n-gram inventory from §4 doubles as the semantic
+checklist), flagged per-string so a session's prompt provenance is
+stamped in its meta event, and dated as a §6.1 boundary — never
+interleaved silently with existing arms.
 
 ## 5. Practical notes
 
