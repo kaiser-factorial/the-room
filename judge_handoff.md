@@ -69,6 +69,17 @@ item. Don't paste items into a chat with any assistant — including the
 codex session — until your labels are committed. The set is only worth
 what its independence is worth.
 
+**Sequencing vs the rewrite work:** the judge instrument is the stateless
+pipeline in `src/judge.ts` — fresh temp-0 API calls, one item per call,
+rubric text only. Run that way, Sol-the-judge carries no memory of
+Sol-the-rewrite-collaborator, so judging before or after the codex sweep
+is equivalent *provided nothing about the rewrite project enters the
+rubric text*. The rule that matters is separation of contexts, not
+calendar order: never judge items inside an interactive session that has
+rewrite context in it, and never let the rewrite work edit a rubric
+mid-validation (that would be a rubricVersion bump and a fresh run by
+definition).
+
 Two ways to record labels:
 
 - Fill each item's `"label"` field in the JSON directly, or
@@ -230,8 +241,18 @@ rewrites will, and the Opus seat is the interesting special case (does a
 Claude-voiced system prompt make Claude MORE Claude — same-family
 resonance rather than mere echo?). "Standing on done" spreading to all
 six seats is consistent with the general effect but can't separate echo
-from resonance; the paired arms would. Design notes if this goes ahead:
-the rewrite must be semantically pinned (same rules, same information,
+from resonance; the paired arms would. Three cells, not two: a **neutral
+arm** (Corina-authored, 2026-09-01) sits alongside the Claude and codex
+voicings — maximally affectless spec register: bulleted, imperative,
+no metaphor, no hedges, no personality. Without it, "Claude prompts make
+Claude more Claude" is confounded with "codex prompts make Claude more
+codex": a difference between two voiced arms shows a pull exists but not
+which direction it runs; the neutral cell is the reference point both
+are measured against. (The neutral rewrites are human-authored on
+purpose — a third model voice would just add a third attractor. The
+residue to accept and note: even spec register is authored, so "neutral"
+means minimally voiced, not unvoiced.) Design notes if this goes ahead:
+every rewrite must be semantically pinned (same rules, same information,
 different voice — the n-gram inventory from §4 doubles as the semantic
 checklist), flagged per-string so a session's prompt provenance is
 stamped in its meta event, and dated as a §6.1 boundary — never
