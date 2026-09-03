@@ -1,0 +1,17 @@
+{
+  "description": "Same-family room, §9.12: every ByteDance Seed OpenRouter serves — 1.6 Flash, 1.6, 2.0 Mini, 2.0 Lite, 2.0 Code and 2.1 Turbo (the house roster's seat under the same id, named \"Seed 2.1\" as in the roster). Six seats, one per release; 2.0 Code is a coding model in a room with no task, which is either dull or the most interesting seat here, and it is one edit away from being dropped. Names carry the tier where the release has one (\"Seed 2.0 Lite\"), since two seats share a generation. Seed's history in this apparatus is starvation — it treated the journal as mandatory and starved on its own thoughts in the first live rooms — so the within-family question is whether that is the model line or the one release. Journal on (house baseline); everything else control.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "replace",
+    "recall": true
+  },
+  "agents": [
+    "seed-1.6-flash",
+    "seed-1.6",
+    "seed-2.0-mini",
+    "seed-2.0-lite",
+    "seed-2.0-code",
+    "seed"
+  ]
+}

@@ -2,11 +2,14 @@
 // (control) config. Resolution is shallow-merge per top-level field, with
 // two structured cases: `journal` merges key-by-key, and `agents` may be
 // given as either a list of catalog ids (seat selection) or a list of
-// {id, personaId} objects (persona matrix). The fully-resolved condition is
-// stamped into the session meta so analysis never guesses.
+// {id, personaId, name} objects (persona matrix, identity axis). Ids resolve
+// against the CATALOG (catalog.ts): the roster, plus every family sibling a
+// same-family room can seat. The fully-resolved condition is stamped into
+// the session meta so analysis never guesses.
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { catalogSeat } from './catalog.js';
 import { config as baseConfig } from './config.js';
 import { personaText } from './personas.js';
 import type { RoomConfig } from './types.js';
@@ -101,7 +104,7 @@ export function resolveCondition(name?: string, overrides?: ConditionSpec): Room
   if (merged.agents?.length) {
     const seats = merged.agents.map((s) => (typeof s === 'string' ? { id: s } : s));
     const agents = seats.flatMap((seat) => {
-      const cat = baseConfig.agents.find((a) => a.id === seat.id);
+      const cat = catalogSeat(seat.id);
       if (!cat) {
         console.error(`condition ${conditionName}: unknown agent id '${seat.id}' — skipped`);
         return [];
@@ -135,6 +138,9 @@ export function conditionRecord(cfg: RoomConfig): Record<string, unknown> {
       id: a.id,
       model: a.model,
       adapter: a.adapter,
+      // false = traceless by construction (no reasoning mode), which the
+      // three-channel analysis must not read as a provider withholding one.
+      reasoning: a.reasoning ?? true,
       personaId: a.personaId ?? 'base',
       personaText: personaText(a.personaId),
       providerOrder: a.providerOrder ?? null,

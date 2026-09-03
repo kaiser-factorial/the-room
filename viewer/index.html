@@ -427,7 +427,11 @@ const SUPABASE_URL = 'https://wfrxfhpiuxofmfdjpuvv.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcnhmaHBpdXhvZm1mZGpwdXZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMDk0NzIsImV4cCI6MjA5ODc4NTQ3Mn0.cpBDy6DUtj_m9esL4bGCjTp7V0m-sCuG5cxHxZ5iZg0';
 const ADMIN_FN = `${SUPABASE_URL}/functions/v1/room-admin`;
 
-// Must match config.ts — the roster the admin panel offers.
+// Must match config.ts — the ROSTER, which is what the seat picker offers
+// unless the picked condition seats its own room: a same-family room
+// (§9.12) lists its seats in conditions.json, and the picker shows those.
+// Colours for any seat come from the session's meta first, so a family
+// seat this list has never heard of still renders in its own colour.
 const CATALOG = [
   { id: 'opus', name: 'Opus 5', color: '#DA7756' },
   { id: 'gemini', name: 'Gemini 3.7', color: '#4285F4' },
@@ -439,7 +443,7 @@ const CATALOG = [
 // Must match conditions/*.json (redeploy viewer when adding presets).
 // Offline fallback only — the live list comes from conditions.json,
 // generated at deploy time from conditions/*.json.
-const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'floor', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing', 'site', 'site-native', 'site-open', 'site-unwitnessed', 'site-unending', 'site-open-unending', 'project', 'project-unending', 'site-open-whittle', 'project-whittle'];
+const CONDITIONS = ['control', 'house', 'countdown-visible', 'journal-silent', 'journal-free', 'floor', 'context-window', 'roster-hidden', 'trace-rich', 'search-tool', 'search-free', 'gated', 'tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'identity-swap', 'broadcast-informed', 'broadcast-uninformed', 'transparent', 'self-governing', 'site', 'site-native', 'site-open', 'site-unwitnessed', 'site-unending', 'site-open-unending', 'project', 'project-unending', 'site-open-whittle', 'project-whittle', 'family-claude', 'family-opus', 'family-gemini', 'family-grok', 'family-qwen', 'family-deepseek', 'family-seed', 'family-claude-bookends'];
 const ADMIN_COLOR = '#e8e6e1';
 // The file the site view renders (site.html's default). A room that writes
 // it gets the site half of the switch in the header.
@@ -1555,6 +1559,7 @@ async function buildPicker() {
     cb.addEventListener('change', () => {
       cb.checked ? picked.add(name) : picked.delete(name);
       row.classList.toggle('sel', cb.checked);
+      renderSeats();
       updateSummary();
     });
     i.addEventListener('click', () => {
@@ -1593,8 +1598,55 @@ $('pickClear').onclick = () => {
   picked.clear();
   for (const cb of $('pickList').querySelectorAll('input')) cb.checked = false;
   for (const row of $('pickList').querySelectorAll('.item')) row.classList.remove('sel');
+  renderSeats();
   updateSummary();
 };
+
+// ── The seat picker ────────────────────────────────────────────────────────
+// It offers the seats of the picked condition — the roster for anything
+// that does not seat its own room, and the siblings for a same-family room
+// (from conditions.json). When several picked conditions seat DIFFERENT
+// rooms there is no one list to narrow, so the picker stands down and no
+// override is sent: each condition runs the room it defines. Before this a
+// family room picked with any box unticked was started as the mixed room.
+let SEATS = CATALOG;      // what the checkboxes currently show
+let seatsMixed = false;   // picked conditions disagree about the room
+
+function seatsFor() {
+  const info = CONDITION_INFO || [];
+  const lists = [...picked].map((n) => info.find((c) => c.name === n)?.seats).filter((l) => l && l.length);
+  if (!lists.length) return { seats: CATALOG, mixed: false };
+  const key = (l) => l.map((s) => s.id).join(',');
+  return { seats: lists[0], mixed: lists.some((l) => key(l) !== key(lists[0])) };
+}
+
+function renderSeats() {
+  const { seats, mixed } = seatsFor();
+  const el = $('cfgAgents');
+  const was = new Map([...el.querySelectorAll('input')].map((i) => [i.value, i.checked]));
+  const unchanged = !mixed && !seatsMixed && seats === SEATS && el.querySelector('input');
+  if (unchanged) return;
+  SEATS = seats; seatsMixed = mixed;
+  el.innerHTML = '';
+  if (mixed) {
+    const n = document.createElement('span');
+    n.className = 'lbl';
+    n.textContent = 'as each condition defines';
+    el.appendChild(n);
+    return;
+  }
+  for (const a of seats) {
+    const lab = document.createElement('label');
+    lab.style.textTransform = 'none'; lab.style.letterSpacing = '0';
+    lab.innerHTML = `<input type="checkbox" value="${a.id}" /> <span></span>`;
+    // A seat that was already on screen keeps its tick; a new one starts ticked.
+    lab.querySelector('input').checked = was.has(a.id) ? was.get(a.id) : true;
+    lab.querySelector('span').textContent = a.name;
+    lab.querySelector('span').style.color = a.color;
+    lab.querySelector('input').addEventListener('change', updateSummary);
+    el.appendChild(lab);
+  }
+}
 
 const planMode = () => $('planLoop').checked ? 'loop' : $('planN').checked ? 'n' : 'once';
 
@@ -1604,7 +1656,8 @@ function updateSummary() {
   const seats = $('cfgAgents').querySelectorAll('input:checked').length;
   $('pickCount').textContent = n ? `${n} selected` : '';
   if (!n) { el.className = 'summary warn'; el.textContent = 'pick at least one condition'; return; }
-  if (!seats) { el.className = 'summary warn'; el.textContent = 'pick at least one seat'; return; }
+  if (!seats && !seatsMixed) { el.className = 'summary warn'; el.textContent = 'pick at least one seat'; return; }
+  const seatText = seatsMixed ? 'seats as each condition defines' : `${seats} seat${seats > 1 ? 's' : ''}`;
   const mins = Number($('cfgMinutes').value) || 30;
   const mode = planMode();
   el.className = 'summary';
@@ -1617,7 +1670,7 @@ function updateSummary() {
   const each = mode === 'n' ? (Number($('cfgCount').value) || 1) : 1;
   const total = n * each;
   el.textContent = `${total} session${total > 1 ? 's' : ''} — ${n} condition${n > 1 ? 's' : ''}`
-    + (each > 1 ? ` × ${each}` : '') + `, ${mins} min each, ${seats} seat${seats > 1 ? 's' : ''}`;
+    + (each > 1 ? ` × ${each}` : '') + `, ${mins} min each, ${seatText}`;
 }
 for (const id of ['planOnce', 'planN', 'planLoop', 'cfgCount', 'cfgMinutes', 'cfgLoopPause', 'cfgLoopSets']) {
   $(id).addEventListener('input', updateSummary);
@@ -1636,18 +1689,7 @@ dot.addEventListener('click', () => {
   $('adminLogin').hidden = !!adminPw;
   $('adminPanel').hidden = !adminPw;
   if (!$('pickList').children.length) buildPicker().then(updateSummary);
-  if (!$('cfgAgents').children.length) {
-    for (const a of CATALOG) {
-      const lab = document.createElement('label');
-      lab.style.textTransform = 'none'; lab.style.letterSpacing = '0';
-      lab.innerHTML = `<input type="checkbox" checked value="${a.id}" /> <span></span>`;
-      lab.querySelector('span').textContent = a.name;
-      lab.querySelector('span').style.color = a.color;
-      lab.querySelector('input').addEventListener('change', updateSummary);
-      $('cfgAgents').appendChild(lab);
-    }
-    updateSummary();
-  }
+  if (!$('cfgAgents').children.length) { renderSeats(); updateSummary(); }
   modal.showModal();
 });
 $('closeBtn').onclick = $('closeBtn2').onclick = () => modal.close();
@@ -1684,13 +1726,14 @@ const flash = (t) => { $('adminMsg2').textContent = t; setTimeout(() => { $('adm
 $('startBtn').onclick = async () => {
   const conditions = [...picked];
   if (!conditions.length) return flash('pick at least one condition');
-  const agentIds = [...$('cfgAgents').querySelectorAll('input:checked')].map((i) => i.value);
-  if (!agentIds.length) return flash('pick at least one seat');
-  // Only send a seat override when the selection actually narrows the
-  // catalog — otherwise it would clobber seat/persona assignments that a
-  // named condition defines (the meta stamp would then faithfully record
-  // the wrong resolution, invisibly).
-  const seatOverride = agentIds.length < CATALOG.length ? { agentIds } : {};
+  const agentIds = seatsMixed ? [] : [...$('cfgAgents').querySelectorAll('input:checked')].map((i) => i.value);
+  if (!seatsMixed && !agentIds.length) return flash('pick at least one seat');
+  // Only send a seat override when the selection actually narrows the room
+  // the condition seats — otherwise it would clobber seat/persona/name
+  // assignments that a named condition defines (the meta stamp would then
+  // faithfully record the wrong resolution, invisibly). Never when the
+  // picked conditions seat different rooms (seatsMixed).
+  const seatOverride = !seatsMixed && agentIds.length < SEATS.length ? { agentIds } : {};
   const base = {
     condition: conditions[0],
     ...seatOverride,
@@ -1818,10 +1861,16 @@ async function fillRounds(runs) {
   for (const s of runs) if (s.rounds == null) s.rounds = max.get(s.id) ?? null;
 }
 
+const ROSTER_IDS = CATALOG.map((a) => a.id).sort().join(',');
 const seatLabel = (agents) => {
-  const names = (agents || []).map((a) => String(a.name || a.id || '').split(' ')[0]);
-  if (!names.length) return '—';
-  return names.length === CATALOG.length ? `all ${names.length}` : names.join('·');
+  const list = agents || [];
+  if (!list.length) return '—';
+  // "all 6" means the ROSTER, not any six seats — a family room is six too.
+  if (list.map((a) => a.id).sort().join(',') === ROSTER_IDS) return `all ${list.length}`;
+  const names = list.map((a) => String(a.name || a.id || '').split(' ')[0]);
+  // A same-family room shares its first word: "Opus ×6", not "Opus·Opus·…".
+  if (names.length > 1 && new Set(names).size === 1) return `${names[0]} ×${names.length}`;
+  return names.join('·');
 };
 
 function renderRuns() {

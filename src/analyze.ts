@@ -414,9 +414,16 @@ export function mimicry(msgs: Msg[]) {
 
 // ── Turn dynamics (§2.4) ───────────────────────────────────────────────────
 
-/** Count mentions of each OTHER agent in a text. Matches the name's first
- *  word: agents shorten versioned names ("Gemini", not "Gemini 3.7"), and
- *  first words are unique across the roster. */
+/** Count mentions of each OTHER agent in a text.
+ *
+ *  Two passes. Full names first, longest first, each match blanked out as
+ *  it is counted — so "Gemini 3" cannot be found again inside "Gemini 3.5",
+ *  and "DeepSeek V4" not inside "DeepSeek V4 Pro". Then the bare first word
+ *  ("Gemini" for "Gemini 3.7"): agents shorten versioned names in address,
+ *  and in the mixed roster first words are unique. In a same-family room
+ *  (§9.12) they are not — "Opus" in a room of six Opuses addresses nobody
+ *  in particular — so a first word shared by two or more seats is counted
+ *  for none of them, and only the full name reaches a sibling. */
 /**
  * F4¾ tool use, per agent and per room. Exploratory — none of this is a
  * registered statistic (EXPERIMENT_DESIGN §9.5); it exists so an agentic
@@ -657,11 +664,26 @@ export function completionRecord(s: Session): Record<string, unknown> {
 
 export function countMentions(text: string, selfId: string, agents: { id: string; name: string }[]): Record<string, number> {
   const out: Record<string, number> = {};
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const firstWord = (name: string) => name.split(' ')[0];
+  const firstWords = agents.map((a) => firstWord(a.name));
+  const shared = new Set(firstWords.filter((w, i) => firstWords.indexOf(w) !== i));
+  let work = text;
+  // Pass 1: full names, longest first, blanked out as they are counted.
+  // The reader's own name is blanked too, so it cannot feed pass 2.
+  for (const a of [...agents].sort((x, y) => y.name.length - x.name.length)) {
+    const re = new RegExp(`\\b${escape(a.name)}\\b`, 'g');
+    let n = 0;
+    work = work.replace(re, (m) => { n++; return ' '.repeat(m.length); });
+    if (n && a.id !== selfId) out[a.id] = (out[a.id] ?? 0) + n;
+  }
+  // Pass 2: the bare first word, only where it names exactly one seat.
   for (const a of agents) {
     if (a.id === selfId) continue;
-    const escaped = a.name.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const n = count(text, new RegExp(`\\b${escaped}\\b`, 'g'));
-    if (n) out[a.id] = n;
+    const first = firstWord(a.name);
+    if (first === a.name || shared.has(first)) continue;
+    const n = count(work, new RegExp(`\\b${escape(first)}\\b`, 'g'));
+    if (n) out[a.id] = (out[a.id] ?? 0) + n;
   }
   return out;
 }

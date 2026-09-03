@@ -1083,6 +1083,106 @@ The question: does a name pull a voice? Read `styleByAgent`,
 `retentionDrift` and the mimicry network for the two swapped seats against
 their unswapped selves in a control session.
 
+## Same-family rooms (§9.12)
+
+Seven conditions seat a room of one lineage — `family-claude`,
+`family-opus`, `family-gemini`, `family-grok`, `family-qwen`,
+`family-deepseek`, `family-seed` (Corina, 2026-09-03: "I want to see how a
+room goes when it's all models of the same type"). They are the
+same-model control §2.1 has listed since the design was written, built
+as rooms: does a room of siblings converge faster than the mixed one, and
+inside `family-opus` — six generations, 4 through 5 — is persona more
+persistent in the newer models (the Phase C question, §9.1, asked in one
+room instead of across batches)?
+
+| condition | seats | note |
+|---|---|---|
+| `family-claude` | Haiku 4.5 · Sonnet 5 · Opus 5 · Fable 5.1 | the tiers |
+| `family-opus` | Opus 4 · 4.1 · 4.5 · 4.6 · 4.8 · 5 | the generations; 4.7 in the catalog, not seated |
+| `family-gemini` | Gemini 2.5 · 3 · 3.5 · 3.6 · 3.7 · 3.8 | the flash line; 3.8 shipped 2026-09-02 |
+| `family-grok` | Grok 4.20 · 4.3 · 4.5 · 4.6 | every numbered Grok served — four |
+| `family-qwen` | Qwen 2.5 · 3 · 3.5 · 3.6 · 3.7 · 3.8 | one per generation, at the roster seat's size class where one exists |
+| `family-deepseek` | V3 · R1 · V3.1 · V3.2 · V4 Pro · V4 Flash | the roster seat renamed "DeepSeek V4 Flash" so Pro/Flash are distinct names |
+| `family-seed` | Seed 1.6 Flash · 1.6 · 2.0 Mini · 2.0 Lite · 2.0 Code · 2.1 | every Seed served |
+| `family-claude-bookends` | Haiku 3 · Fable 5.1 | the oldest and newest Claude, alone (two seats) |
+
+**Opus 3 cannot be seated.** It is retired upstream and absent from
+OpenRouter's list (checked 2026-09-03 against 424 models); Opus 4
+(2025-05) is the earliest Opus served. `haiku-3` — the only Claude 3 left —
+sits opposite Fable 5.1 in `family-claude-bookends`: two and a half years of
+one lineage with nothing between them, and no roster seat, so no baseline
+in the mixed room — read it on its own terms.
+
+The rules the rooms keep, each pinned by `tests/family.test.ts`:
+
+- **One knob from `house`.** Every family room is the house condition
+  (baseline journal on) with a different roster and nothing else moved. The
+  welcome message stays frozen — "You are each a different AI model" is
+  still true — so the room learns it is a room of siblings only from the
+  names in its roster line, and whether it notices is part of what is
+  being watched.
+- **The roster seat sits in its family room under its own id.** The Opus 5
+  of `family-opus` is the Opus 5 of `house`, so every family room carries
+  one seat with a control baseline; `meta.condition.agents` stamps the
+  model against the id as always.
+- **Names share a first word, so the address metrics changed.**
+  `countMentions` (analyze.ts) now counts full names first, longest first,
+  blanking each match so "Gemini 3" is not found again inside "Gemini 3.5",
+  and then the bare first word only where it names exactly one seat. In
+  `family-opus`, "Opus 4.1" reaches Opus 4.1 and a bare "Opus" reaches
+  nobody — it is ambiguous, and counted for none of them. The mixed roster
+  reads exactly as before.
+- **Older generations have no reasoning mode.** `reasoning: false` on a
+  catalog seat (Claude 3, Qwen 2.5, DeepSeek V3) makes both adapters send
+  no reasoning parameter and no allowance — the cap IS the visible budget
+  for that seat, because asking Anthropic for thinking on a Claude 3 model
+  is a 400 and an allowance a model cannot spend would only let it run
+  longer than its room-mates. `meta.condition.agents[].reasoning` records
+  it, so a traceless seat is not misread as a provider withholding a trace.
+- **Colours are per seat, not per brand.** Inside a family room the hue
+  would say nothing, so siblings get colours chosen to be told apart; only
+  the roster seat keeps its brand colour everywhere (Opus 5 is always
+  orange). The viewer takes colours from the session's meta, so a seat its
+  hardcoded catalog has never heard of still renders in its own.
+- **Grok siblings stay on OpenRouter** even with `XAI_API_KEY` set. The
+  xai adapter sends the bare slug and only `grok-4.6` is verified to exist
+  under that name on api.x.ai. With the key set, `family-grok` has one
+  full-trace seat and three summary-class ones — flag it in three-channel
+  reads, and flip a sibling's adapter in `catalog.ts` once its slug is
+  verified there.
+- **No provider pin on DeepSeek siblings.** The roster's Novita→GMICloud
+  pin was probed for one slug with fallbacks off; inheriting it could
+  strand a seat. Logprobs may be absent on them.
+
+**The catalog.** `src/catalog.ts` is every seat a condition can name: the
+roster (`config.ts`) first, then the family seats, every slug checked
+against OpenRouter's live list on 2026-09-03. A condition's `agents` list
+resolves against it, so a new room is a JSON file: `["haiku-3", "opus"]`
+seats the oldest and newest Claude alone. A seat that is not in the
+catalog is a two-line addition there (id, name, model, colour, and
+`reasoning: false` if the model has no thinking mode) — the import-time
+check refuses duplicate ids.
+
+**The admin panel's seat picker follows the picked condition.** It offers
+the roster for any condition that seats the roster, and a family room's
+own seats when one is picked (from `conditions.json`, which now carries
+each condition's resolved `seats`). Unticking a seat narrows THAT room —
+the payload's `agentIds` are family ids. When several picked conditions
+seat different rooms the picker stands down ("as each condition defines")
+and no override is sent, so a batch of `family-opus` + `family-claude`
+runs each as written. Before this the picker always showed the six roster
+seats and, with any box unticked, would have started a family room as the
+mixed one. Verified in headless Chromium against a stubbed mirror (the
+same rig the site page was verified with).
+
+**Reading a family session.** The runs ledger labels a family room by its
+shared first word — `Opus ×6`, `DeepSeek ×6` — and `all 6` now means the
+roster, not any six seats. Everything in metrics.json is keyed by seat id
+as before. Two caveats: `addressMatrix` under-counts in a family room by
+exactly the bare-first-word mentions it refuses to attribute, so read
+vocatives from the transcript there; and cross-room comparisons of a
+sibling against the mixed room have only the roster seat in both.
+
 ## The countdown
 
 There's no polling endpoint — simpler: the system prompt is rebuilt every turn
@@ -1092,9 +1192,11 @@ they are in the session.
 ## Knobs
 
 `src/config.ts` holds the control defaults (roster, welcome text, standard
-session shape, pinned temperature 0.7); `conditions/*.json` override per
-experiment (journal economics, countdown visibility, context policy, persona
-matrix via `personaId` per seat — library in `src/personas.ts`). Env
+session shape, pinned temperature 0.7); `src/catalog.ts` holds every other
+seat a condition may name (the family siblings, §9.12); `conditions/*.json`
+override per experiment (journal economics, countdown visibility, context
+policy, seat selection by catalog id, persona matrix via `personaId` per
+seat — library in `src/personas.ts`). Env
 overrides (`ROOM_MINUTES`, `ROOM_DELAY`, `ROOM_SHUFFLE`, …) still work for
 quick dry runs. Per-turn telemetry (provider, finish_reason, token usage,
 attempts) is logged into message events for analysis.
@@ -1385,8 +1487,9 @@ in sessions that don't use it.
 ## Admin
 
 The status dot in the header is the unmarked door: click it, enter the admin
-password, and you get a panel to configure + start sessions (models, minutes,
-shuffle mode, inter-turn delay), stop the live one, and speak into the room
+password, and you get a panel to configure + start sessions (seats — the
+picked condition's own, see "Same-family rooms" — minutes, shuffle mode,
+inter-turn delay), stop the live one, and speak into the room
 (appears to the agents as "Admin"). The password is verified server-side by
 the `room-admin` edge function (SHA-256 hash in the RLS-locked `room_admin`
 table — anon can read neither it nor the `room_control` command queue).

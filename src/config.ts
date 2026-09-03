@@ -12,6 +12,9 @@ export const config: RoomConfig = {
   agents: [
     // Colors ≈ org brand colors. Roster fixed by Corina 2026-08-24; all
     // slugs verified against OpenRouter's live list the same day.
+    // This is the ROSTER — the mixed room. The rest of each family (every
+    // Claude tier, six Opuses, the Gemini flash line, …) lives in
+    // catalog.ts, and a condition seats any of them by id (§9.12).
     // Claude seat: Sonnet 5 → Opus 5 (Corina, 2026-08-25) — Opus exposes
     // thinking traces at trace-rich settings where Sonnet's adaptive
     // thinking mostly declines to think in chat (§2.5). Pre-swap sessions

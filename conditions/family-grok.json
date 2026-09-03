@@ -1,0 +1,15 @@
+{
+  "description": "Same-family room, §9.12: every numbered Grok OpenRouter serves — 4.20, 4.3, 4.5 and 4.6 — a four-seat room, because that is all there is (grok-build is a coding line and the multi-agent variant is a system, not a model). Grok 4.6 is the house roster's seat under the same id. Adapter caveat: the siblings stay on OpenRouter even with XAI_API_KEY set, because only the bare slug `grok-4.6` is verified on api.x.ai; with the key set this room has one full-trace seat and three summary-class ones (§2.5 caveat), so read its three-channel numbers with that in mind. The standing question from the site rooms — why Grok announces and does not act — gets a within-family control here: do the earlier releases do it too? Journal on (house baseline); everything else control.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "replace",
+    "recall": true
+  },
+  "agents": [
+    "grok-4.20",
+    "grok-4.3",
+    "grok-4.5",
+    "grok"
+  ]
+}

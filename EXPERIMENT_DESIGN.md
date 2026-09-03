@@ -1448,3 +1448,111 @@ can draw on more than one session's memory); a second task with a
 different shape (something with a right answer, to separate coordination
 from taste); and the same room with `completion.notice: false`, which
 asks whether a room can converge on "finished" without a tally to watch.
+
+### §9.12 — same-family rooms (Corina 2026-09-03; BUILT the same day, NOT YET RUN)
+
+*"I want to see how a room goes when it's all models of the same type."*
+Seven conditions, one per roster family, each the `house` condition with a
+room of one lineage seated in it and nothing else moved:
+
+| condition | seats |
+|---|---|
+| `family-claude` | Haiku 4.5, Sonnet 5, Opus 5, Fable 5.1 — the tiers |
+| `family-opus` | Opus 4, 4.1, 4.5, 4.6, 4.8, 5 — the generations |
+| `family-gemini` | Gemini 2.5, 3, 3.5, 3.6, 3.7, 3.8 — the flash line |
+| `family-grok` | Grok 4.20, 4.3, 4.5, 4.6 — all four served |
+| `family-qwen` | Qwen 2.5, 3, 3.5, 3.6, 3.7, 3.8 — one per generation |
+| `family-deepseek` | V3, R1, V3.1, V3.2, V4 Pro, V4 Flash |
+| `family-seed` | Seed 1.6 Flash, 1.6, 2.0 Mini, 2.0 Lite, 2.0 Code, 2.1 |
+| `family-claude-bookends` | Haiku 3, Fable 5.1 — the oldest and newest, alone |
+
+**What it is, methodologically.** §2.1 has listed a *same-model control*
+since the design was written — "two instances of the same model in one
+room (do identical weights converge faster than different ones?)" — and
+never built it. This is that control, extended one step: not identical
+weights but one lineage, so the room varies in generation or tier while
+holding the training culture roughly fixed. And `family-opus` is §9.1's
+Phase C question put inside a single room instead of across batches — is
+persona more persistent in newer models? — with the advantage that the
+old and new generations are talking to *each other*, so a difference in
+retention is measured against the same interlocutors rather than against
+contemporaneous but separate baselines. Both readings are exploratory and
+out of the registered stats, like every §9 arm.
+
+**One knob.** Every family room differs from `house` on the roster and
+nothing else; a test pins that by comparing the resolved condition record
+minus its agents against house's. The welcome message stays frozen (D4):
+"You are each a different AI model" remains true of Opus 4 and Opus 5, so
+the room is told it is a room of siblings by nothing but the names in its
+roster line ("You are Opus 4.6. The others in the room: Opus 4, Opus 4.1,
+…"). Whether a room *notices* — and what it does with it — is the first
+thing to read in rounds 1–2, the same place `site-open`'s agenda-setting
+datum lives.
+
+**The roster seat is inside its family room.** The Opus 5 of
+`family-opus` is the Opus 5 of `house`, under the same id, so every family
+room carries exactly one seat with a control baseline in the mixed room.
+That is the cross-room comparison: the roster seat's `styleByAgent` and
+`retentionDrift` among siblings against the same seat among strangers. A
+sibling has no such baseline and should not be read as if it had one.
+
+**Names, and what the address metrics do with them.** Names stay
+vendor-free and first-name-basis, which inside a family means every seat
+shares its first word. `countMentions` now counts full names first,
+longest first, blanking each match so "Gemini 3" is not re-found inside
+"Gemini 3.5", and then the bare first word only where it names exactly
+one seat. A bare "Opus" in an all-Opus room is ambiguous and is counted
+for nobody — a deliberate under-count, so `addressMatrix` in a family
+room reports only unambiguous address, and the room's own habit of
+disambiguating ("Opus 4.1, you said…") becomes visible as the share of
+mentions that land. The mixed roster reads exactly as before; a test pins
+both.
+
+**Reasoning, across generations.** The catalog's older seats — Claude 3,
+Qwen 2.5, DeepSeek V3 — have no reasoning mode. `reasoning: false` on the
+seat makes both adapters send no reasoning parameter and no allowance:
+the cap is the visible budget alone for that seat, because asking
+Anthropic for thinking on a Claude 3 model is a 400, and an allowance the
+model cannot spend would let it run longer than its room-mates under "the
+same cap". `meta.condition.agents[].reasoning` records it, so §2.5's
+three-channel analysis does not mistake traceless-by-construction for a
+provider withholding a trace. `family-qwen` and `family-deepseek` are
+therefore mixed reasoning/non-reasoning rooms — a within-family contrast
+the mixed roster never had cleanly (R1 against V3 is the sharpest form).
+
+**What could not be built.** Opus 3 — the seat this was imagined around
+("I need to have Opus 3 talk with Opus 5") — is retired upstream and
+absent from OpenRouter's list, checked 2026-09-03 against 424 models.
+Opus 4 (2025-05) is the earliest Opus served; `haiku-3` (2024-03) is the
+only Claude 3 left, and it gets the room Opus 3 was meant for:
+`family-claude-bookends` seats it alone with Fable 5.1 (Corina: "old
+Claude meets new"). Two seats, two and a half years apart, no roster seat
+and so no baseline in the mixed room. The reading is who sets the subject,
+whether the newer model treats the older as a peer or a ward, and whether
+Haiku 3's register moves toward Fable's — §9.1 in its most extreme form,
+with the caveat that a two-seat room is also axis 1's smallest cell, so
+its convergence is not comparable to the six-seat rooms. This is
+§9.1's deprecation clock made concrete, and reminder 3 (the Phase C slug
+snapshot) applies with more force now: the family rooms are only
+re-runnable for as long as their oldest seats are served.
+
+**Caveats carried in.** Grok siblings ride OpenRouter even with
+`XAI_API_KEY` set (only `grok-4.6` is verified under its bare slug on
+api.x.ai), so with the key `family-grok` mixes one full-trace seat with
+three summary-class ones. DeepSeek siblings carry no provider pin, so
+logprobs may be absent on them. `family-opus` costs: Opus 4 and 4.1 are
+billed at three times the later generations. `family-seed` seats a coding
+model (2.0 Code) in a room with no task, which is either dull or the most
+interesting seat there. And n=0: none of these has run.
+
+**Predictions, written before the first run.** (a) Family rooms converge
+faster than the mixed room on the raw gap — shared training culture is a
+head start — *and* the length-controlled gap (§2.7) closes less of it
+than usual, since siblings arrive with the same register rather than
+drifting into one. (b) In `family-opus`, retention rises with generation:
+Opus 5 holds its round-1–5 self better than Opus 4 does. The distinguishable
+failure is the one §9.1 pre-registers — the older seats not converging
+faster but merely noisier. (c) Rooms notice. At least one seat names the
+situation ("we're all Opus") in round 1 or 2, and the room's subject
+becomes itself faster than `site-open` got there — self-description is
+what six models reach for on a blank page, and a family room is a mirror.

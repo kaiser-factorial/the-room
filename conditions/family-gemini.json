@@ -1,0 +1,17 @@
+{
+  "description": "Same-family room, §9.12: the Gemini flash line by generation — 2.5, 3 (the preview slug, the only 3.0 flash served), 3.5, 3.6, 3.7 and 3.8 (released 2026-09-02, the day before this condition). One tier so that generation is the only thing that varies between seats; the Pro models would add a second axis. Gemini 3.7 is the house roster's seat under the same id. Names are the generation only (\"Gemini 3.5\"), since everyone here is a Flash. Journal on (house baseline); everything else control.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "replace",
+    "recall": true
+  },
+  "agents": [
+    "gemini-2.5",
+    "gemini-3",
+    "gemini-3.5",
+    "gemini-3.6",
+    "gemini",
+    "gemini-3.8"
+  ]
+}

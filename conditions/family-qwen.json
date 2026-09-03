@@ -1,0 +1,17 @@
+{
+  "description": "Same-family room, §9.12: Qwen by generation — 2.5, 3, 3.5, 3.6, 3.7 and 3.8 — at the roster seat's size class wherever a generation has one (27B dense for 3.5/3.6/3.8; 3 has a 32B, 2.5 a 72B, and 3.7 ships only as Plus/Max/Flash, so Plus stands in). There are dozens of Qwens on OpenRouter; this is one seat per generation, not one per size, so that generation is what varies. Qwen 2.5 has no reasoning mode (`reasoning: false` on its seat — no reasoning parameter, no allowance; its cap is the visible budget alone), so it is traceless by construction rather than by provider. Qwen 3.8 is the house roster's seat under the same id. Journal on (house baseline); everything else control.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "replace",
+    "recall": true
+  },
+  "agents": [
+    "qwen-2.5",
+    "qwen-3",
+    "qwen-3.5",
+    "qwen-3.6",
+    "qwen-3.7",
+    "qwen"
+  ]
+}

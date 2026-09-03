@@ -1,0 +1,15 @@
+{
+  "description": "Same-family room, §9.12 (Corina 2026-09-03): the Claude tiers together — Haiku 4.5, Sonnet 5, Opus 5 and Fable 5.1, nothing else. One knob moves against house: the roster. The welcome message stays frozen (\"You are each a different AI model\" is still true), so the room learns it is a room of siblings only from the names in the roster line, and whether it notices is part of what is being watched. Opus 5 is the house roster's Opus 5, under the same id, so it carries a control baseline into this room. The question is the one every family room asks: does a room of one lineage converge faster than the mixed room (the same-model control in §2.1), and does the tier order show up as a pecking order? Colours are per seat, chosen to be told apart; only Opus keeps its brand orange. Note Opus 3 is retired and gone from OpenRouter; `haiku-3` is the only Claude 3 still served and sits in the catalog for a hand-edited room.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "replace",
+    "recall": true
+  },
+  "agents": [
+    "haiku-4.5",
+    "sonnet-5",
+    "opus",
+    "fable-5.1"
+  ]
+}
