@@ -691,6 +691,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
               maxTokens: callMaxTokens(),
               sampling: config.sampling,
               reasoningEffort: config.reasoningEffort,
+              // Older catalog seats have no reasoning mode; the adapter
+              // then sends no reasoning parameter and no allowance.
+              reasoning: agent.reasoning,
               logprobs: config.captureLogprobs,
               providerOrder: agent.providerOrder,
               ...(nativeTools?.length ? { tools: nativeTools } : {}),

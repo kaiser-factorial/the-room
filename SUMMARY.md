@@ -22,8 +22,9 @@ versus retained identity. Manipulable axes — room size, persona injection,
 opening message, speaking-order regime, countdown visibility, journal
 economics, context policy, roster disclosure, websearch, a tool bench
 (shared filesystem + python), self-governance, thought broadcast, a shared
-TASK whose completion the room itself declares, and a shared PROJECT with a
-filesystem and no named deliverable — let the apparatus ask not only
+TASK whose completion the room itself declares, a shared PROJECT with a
+filesystem and no named deliverable, and the ROSTER itself (a room of one
+model family) — let the apparatus ask not only
 *whether* models mould together, but what social and structural pressures
 govern it, and whether identity that is faint as style is legible as
 function.
@@ -101,6 +102,25 @@ OpenRouter's live model list the same day. Claude seat amended to Opus 5
 2026-08-25 — Opus exposes thinking traces at trace-rich settings where
 Sonnet 5's adaptive thinking declines to think in chat (§2.5); sessions
 before the swap are pilot data. Matches `src/config.ts`.)*
+
+**Family pool (`src/catalog.ts`, 2026-09-03 — the same-family rooms, §9.12;
+every slug checked against OpenRouter's live list that day):** the rest of
+each roster family, seated by the seven `family-*` conditions with the
+roster seat inside each under its own id. Claude tiers Haiku 4.5 / Sonnet 5
+/ Fable 5.1 (`anthropic/claude-haiku-4.5`, `-sonnet-5`, `-fable-5.1`); Opus
+4 / 4.1 / 4.5 / 4.6 / 4.7 / 4.8 (`anthropic/claude-opus-4` … `-4.8`; **Opus 3
+is retired and unserved**, and `haiku-3` is the only Claude 3 left); the
+Gemini flash line 2.5 / 3 / 3.5 / 3.6 / 3.8 (`google/gemini-2.5-flash`,
+`-3-flash-preview`, `-3.5-flash`, `-3.6-flash`, `-3.8-flash`); Grok 4.20 /
+4.3 / 4.5 (`x-ai/grok-4.20`, `-4.3`, `-4.5` — OpenRouter only, see README);
+Qwen 2.5 / 3 / 3.5 / 3.6 / 3.7 (`qwen/qwen-2.5-72b-instruct`, `qwen3-32b`,
+`qwen3.5-27b`, `qwen3.6-27b`, `qwen3.7-plus`); DeepSeek V3 / R1 / V3.1 /
+V3.2 / V4 Pro (`deepseek/deepseek-chat-v3-0324`, `-r1-0528`,
+`-chat-v3.1`, `-v3.2`, `-v4-pro-0813`); Seed 1.6 Flash / 1.6 / 2.0 Mini /
+2.0 Lite / 2.0 Code (`bytedance-seed/seed-1.6-flash`, `seed-1.6`,
+`seed-2.0-mini`, `-lite`, `-code`). Claude 3, Qwen 2.5 and DeepSeek V3 carry
+`reasoning: false` — no reasoning mode, so no reasoning parameter and no
+allowance; traceless by construction, stamped in meta.
 
 **Extended pool (config-only additions, later batches):** GPT-5.6 Luna
 (`openai/gpt-5.6-luna`), Laguna (`poolside/laguna-s-2.1` or `laguna-m.1`),
@@ -281,6 +301,18 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    agreeing is FREE there, so "3–4 rounds" may measure how cheap the button
    is rather than real convergence. Terminates by construction: all seats
    standing IS unanimity.
+19. **The roster as a family** (§9.12, BUILT 2026-09-03; NOT YET RUN;
+   exploratory, out of registered stats) — `family-claude`, `family-opus`,
+   `family-gemini`, `family-grok`, `family-qwen`, `family-deepseek`,
+   `family-seed`: the `house` condition with a room of one lineage in it
+   and nothing else moved. The same-model control §2.1 always listed, as
+   rooms; `family-opus` (six generations, 4 → 5) is the Phase C question
+   (§9.1) inside one room. The welcome stays frozen, so a room learns it is
+   siblings only from its roster line. Address metrics match full names
+   where seats share a first word (a bare "Opus" in an all-Opus room is
+   counted for nobody). Older seats without a reasoning mode get no
+   reasoning parameter and no allowance (`reasoning: false`). Opus 3 could
+   not be seated: retired, unserved.
 
 ## Measurement summary
 

@@ -1,0 +1,20 @@
+{
+  "description": "Same-family room, §9.12: DeepSeek by release — V3 (0324), R1 (0528), V3.1, V3.2, V4 Pro (0813) and V4 Flash (0731, the house roster's seat under the same id, renamed here from \"DeepSeek V4\" to \"DeepSeek V4 Flash\" so that Pro and Flash are distinct names rather than one a prefix of the other). V3 has no reasoning mode (`reasoning: false`): traceless by construction. R1 is the one reasoning-first release, which makes this the family room where reasoning-vs-chat lineage is a within-room contrast. The siblings carry no provider pin — the roster's Novita→GMICloud pin was probed for one slug with fallbacks off, and inheriting it could strand a seat — so logprobs may be absent on them. Journal on (house baseline); everything else control.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "replace",
+    "recall": true
+  },
+  "agents": [
+    "deepseek-v3",
+    "deepseek-r1",
+    "deepseek-v3.1",
+    "deepseek-v3.2",
+    "deepseek-v4-pro",
+    {
+      "id": "deepseek",
+      "name": "DeepSeek V4 Flash"
+    }
+  ]
+}

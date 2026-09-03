@@ -48,6 +48,9 @@ export interface SendOptions {
   sampling?: SamplingConfig;
   /** Trace richness (F1); defaults to 'low', the anti-starvation setting. */
   reasoningEffort?: ReasoningEffort;
+  /** false = the seat's model has no reasoning mode (AgentConfig.reasoning):
+   *  send no reasoning parameter and cap at the visible budget alone. */
+  reasoning?: boolean;
   /** Request chosen-token logprobs (§2.6). Providers that don't support
    *  them just return none — harmless to ask everywhere. */
   logprobs?: boolean;
@@ -321,32 +324,45 @@ export function readToolCalls(raw: { id?: string; function?: { name?: string; ar
     .map((c, i) => ({ id: c.id ?? `call_${i}`, name: c.function!.name!, arguments: c.function?.arguments ?? '{}' }));
 }
 
+/** The request body for one OpenRouter completion. Exported so a test can
+ *  see what a seat is actually asked for without a network. */
+export function openrouterBody(model: string, messages: ChatMessage[], opts: SendOptions): Record<string, unknown> {
+  const effort = opts.reasoningEffort ?? 'low';
+  // A seat whose model has no reasoning mode (AgentConfig.reasoning false)
+  // gets neither the parameter nor the allowance — the cap IS the visible
+  // budget for it, which is the only fair reading of "the same cap" across
+  // a room that mixes reasoning and non-reasoning generations.
+  const reasons = opts.reasoning !== false;
+  const body: Record<string, unknown> = {
+    model,
+    messages: toWireMessages(messages),
+    // opts.maxTokens is the VISIBLE budget; thinking is allowed its own
+    // room on top, so a reasoning model can no longer eat the reply it
+    // was about to give (first live run: Seed spoke 1/13 rounds this way).
+    max_tokens: reasons ? totalMaxTokens(opts.maxTokens, effort) : opts.maxTokens,
+    ...(reasons ? { reasoning: reasoningParam(model, effort) } : {}),
+  };
+  if (!body.reasoning) delete body.reasoning;
+  // top_logprobs is required by some providers (GMICloud returns nothing
+  // on a bare logprobs:true — probed 2026-08-25); 1 keeps payloads small.
+  if (opts.logprobs) { body.logprobs = true; body.top_logprobs = 1; }
+  if (opts.sampling) {
+    body.temperature = opts.sampling.temperature;
+    if (opts.sampling.topP !== undefined) body.top_p = opts.sampling.topP;
+  }
+  const order = opts.providerOrder ?? opts.sampling?.providerOrder;
+  if (order?.length) body.provider = { order, allow_fallbacks: false };
+  if (opts.tools?.length) body.tools = opts.tools;
+  return body;
+}
+
 export const openrouterAdapter: Adapter = {
   async send(model, messages, opts) {
     if (process.env.ROOM_STUB === '1') return stubSend(model, opts);
     const key = process.env.OPENROUTER_API_KEY;
     if (!key) throw new Error('Set OPENROUTER_API_KEY in the environment.');
 
-    const body: Record<string, unknown> = {
-      model,
-      messages: toWireMessages(messages),
-      // opts.maxTokens is the VISIBLE budget; thinking is allowed its own
-      // room on top, so a reasoning model can no longer eat the reply it
-      // was about to give (first live run: Seed spoke 1/13 rounds this way).
-      max_tokens: totalMaxTokens(opts.maxTokens, opts.reasoningEffort ?? 'low'),
-      reasoning: reasoningParam(model, opts.reasoningEffort ?? 'low'),
-    };
-    if (!body.reasoning) delete body.reasoning;
-    // top_logprobs is required by some providers (GMICloud returns nothing
-    // on a bare logprobs:true — probed 2026-08-25); 1 keeps payloads small.
-    if (opts.logprobs) { body.logprobs = true; body.top_logprobs = 1; }
-    if (opts.sampling) {
-      body.temperature = opts.sampling.temperature;
-      if (opts.sampling.topP !== undefined) body.top_p = opts.sampling.topP;
-    }
-    const order = opts.providerOrder ?? opts.sampling?.providerOrder;
-    if (order?.length) body.provider = { order, allow_fallbacks: false };
-    if (opts.tools?.length) body.tools = opts.tools;
+    const body = openrouterBody(model, messages, opts);
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       const res = await fetch(API_URL, {

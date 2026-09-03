@@ -2,17 +2,20 @@
 
 Multi-agent room experiment: 6 different AI models locked in a task-free,
 facilitator-free group conversation; we measure linguistic drift/moulding.
-Everything below is true as of **2026-08-30** (end of the SIXTH build
-session — the TASK-FAMILY sprint: `site` grew to five arms, the admin
-panel was rebuilt around a runs ledger, and `project` opened a second task
-family where the room gets a filesystem instead of a file. Merged to main
+Everything below is true as of **2026-09-03** (the SAME-FAMILY session:
+seven `family-*` conditions and the seat catalog — see the first bullet
+under Current state; built and tested, NOT deployed. Before that, the
+2026-08-30 TASK-FAMILY sprint: `site` grew to five arms, the admin panel
+was rebuilt around a runs ledger, and `project` opened a second task
+family where the room gets a filesystem instead of a file — merged to main
 AND deployed to both Spaces; see reminder 0 for the record and the
 credential follow-up it leaves).
 
 ## Read these, in order
 
-1. **SUMMARY.md** — abstract, control state, roster, axes (now 18 —
-   §9.9's project bench is the newest), measurement + robustness layer.
+1. **SUMMARY.md** — abstract, control state, roster (+ the family pool),
+   axes (now 19 — §9.12's same-family rooms are the newest), measurement +
+   robustness layer.
    The at-a-glance spec.
 2. **EXPERIMENT_DESIGN.md** — §0 program (Phase A pilot → Phase B journal
    experiment), §2.5 three-channel (incl. the Grok-trace caveat + fix, and
@@ -36,6 +39,32 @@ credential follow-up it leaves).
 
 ## Current state
 
+- **SAME-FAMILY ROOMS are BUILT (§9.12, 2026-09-03) — not yet deployed,
+  not yet run.** Seven conditions — `family-claude` (Haiku 4.5 / Sonnet 5
+  / Opus 5 / Fable 5.1), `family-opus` (4 / 4.1 / 4.5 / 4.6 / 4.8 / 5),
+  `family-gemini` (the flash line 2.5 → 3.8), `family-grok` (4.20 / 4.3 /
+  4.5 / 4.6), `family-qwen` (2.5 → 3.8, one per generation),
+  `family-deepseek` (V3 / R1 / V3.1 / V3.2 / V4 Pro / V4 Flash),
+  `family-seed` (every Seed served) — each `house` with one lineage seated
+  and nothing else moved. New `src/catalog.ts` holds every seat a condition
+  may name (roster first; 33 family seats, all slugs checked against
+  OpenRouter's live list that day); `resolveCondition` looks ids up there.
+  **Opus 3 cannot be seated** — retired, gone from OpenRouter; Opus 4 is
+  the earliest Opus served, `haiku-3` the only Claude 3. New per-seat
+  `reasoning: false` (Claude 3, Qwen 2.5, DeepSeek V3): no reasoning
+  parameter, no allowance, stamped in meta. `countMentions` matches full
+  names where first words collide (a bare "Opus" in an all-Opus room is
+  counted for nobody). `conditions.json` now carries each condition's
+  resolved `seats`, and the **admin panel's seat picker follows the picked
+  condition** — it used to show the six roster seats regardless, and with
+  any box unticked would have started a family room as the mixed one
+  (verified fixed in headless Chromium against a stubbed mirror). Runs
+  ledger labels a family room `Opus ×6`; `all 6` now means the roster.
+  README "Same-family rooms", SUMMARY axis 19, EXPERIMENT_DESIGN §9.12
+  (predictions written before the first run). 171 tests green. **To deploy: both
+  Spaces** (the runner for catalog/conditions/adapters, the viewer for the
+  picker + regenerated conditions.json) — probe the runner idle first, as
+  always.
 - **Everything is HOSTED.** Viewer (public):
   https://huggingface.co/spaces/brick-factorial/the-room · Runner
   (private Docker Space, cpu-basic):
@@ -731,6 +760,16 @@ is stale):
 
 The queue, in the order it matters:
 
+0. **RUN a family room (§9.12).** Built 2026-09-03, deployed never, n=0.
+   Corina's order of interest: `family-claude` first, then `family-opus`
+   ("I need to have Opus 3 talk with Opus 5" — Opus 3 is retired, so 4
+   through 5 is what there is), then the Gemini / Grok / Qwen / DeepSeek /
+   Seed rooms. Deploy both Spaces first. Read rounds 1–2 for whether the
+   room notices it is siblings; read the roster seat's retention against
+   its `house` self; read `family-opus` retention by generation (the
+   predictions are in §9.12). Watch `family-grok` for the announce-and-not-
+   act habit across releases, and `family-seed` for whether starvation is
+   the line or the one release.
 1. **READ the project and whittle runs — the bench has been exercised, and
    nothing has looked at what came out.** The questions the arms were
    built for are all still open, and the data to answer them is now

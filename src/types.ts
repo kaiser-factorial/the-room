@@ -19,6 +19,15 @@ export interface AgentConfig {
   personaId?: string;
   /** Display color in the viewer — roughly the org's brand color. */
   color: string;
+  /** false = the model has NO reasoning mode (Claude 3, Qwen 2.5, DeepSeek
+   *  V3 — the catalog's older seats). The adapters then send no reasoning
+   *  parameter and no allowance on top of the visible budget: asking
+   *  Anthropic for thinking on a Claude 3 model is a 400, and an allowance
+   *  a model cannot spend would only let it run longer than its room-mates.
+   *  Absent = true, which is every seat the room ran before 2026-09-03.
+   *  Stamped into meta.condition so analysis knows a traceless seat was
+   *  traceless by construction. */
+  reasoning?: boolean;
 }
 
 /** Journal economics (BUILD_PLAN Phase 2 item 6). The config object supports

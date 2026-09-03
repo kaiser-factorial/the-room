@@ -15,18 +15,21 @@ export const xaiAdapter: Adapter = {
     const key = process.env.XAI_API_KEY;
     if (!key) throw new Error('Set XAI_API_KEY in the environment.');
 
+    // A seat with no reasoning mode (AgentConfig.reasoning false) gets
+    // neither the knob nor the allowance — same rule as openrouter.ts.
+    const reasons = opts.reasoning !== false;
     const body: Record<string, unknown> = {
       // The catalog keeps OpenRouter-style slugs; xAI wants them bare.
       model: model.replace(/^x-ai\//, ''),
       messages: toWireMessages(messages),
       // Visible budget + a reasoning allowance on top (see openrouter.ts).
-      max_tokens: totalMaxTokens(opts.maxTokens, opts.reasoningEffort ?? 'low'),
+      max_tokens: reasons ? totalMaxTokens(opts.maxTokens, opts.reasoningEffort ?? 'low') : opts.maxTokens,
     };
     // xAI speaks the same OpenAI tool dialect (F4¾ native transport).
     if (opts.tools?.length) body.tools = opts.tools;
     // xAI's reasoning knob is `reasoning_effort` (low|high, no medium) on
     // models that support it; reuse the same effort source as OpenRouter.
-    const reasoning = reasoningParam(model, opts.reasoningEffort ?? 'low');
+    const reasoning = reasons ? reasoningParam(model, opts.reasoningEffort ?? 'low') : undefined;
     if (reasoning && 'effort' in reasoning) {
       body.reasoning_effort = reasoning.effort === 'low' ? 'low' : 'high';
     }

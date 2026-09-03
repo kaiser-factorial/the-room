@@ -1,0 +1,17 @@
+{
+  "description": "Same-family room, §9.12: six generations of Opus — 4, 4.1, 4.5, 4.6, 4.8 and 5 — the Phase C question (§9.1, is persona more persistent in newer models?) asked inside ONE room instead of across batches. Opus 3 was the seat this room was imagined around and it cannot be seated: retired upstream and absent from OpenRouter's list (checked 2026-09-03); Opus 4 (2025-05) is the earliest served. Opus 4.7 is in the catalog but not here — the room stays at six, and 4.8 is its neighbour six weeks on. Every seat shares the first word of its name, so the address metrics fall back to full names (\"Opus 4.1\"), and a bare \"Opus\" is counted for nobody. Opus 5 is the house roster's seat under the same id. Journal on (house baseline); everything else control. Cost note: Opus 4 and 4.1 are billed at three times the later generations.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "replace",
+    "recall": true
+  },
+  "agents": [
+    "opus-4",
+    "opus-4.1",
+    "opus-4.5",
+    "opus-4.6",
+    "opus-4.8",
+    "opus"
+  ]
+}
