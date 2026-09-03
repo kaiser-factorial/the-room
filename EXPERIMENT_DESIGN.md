@@ -1464,6 +1464,7 @@ room of one lineage seated in it and nothing else moved:
 | `family-qwen` | Qwen 2.5, 3, 3.5, 3.6, 3.7, 3.8 — one per generation |
 | `family-deepseek` | V3, R1, V3.1, V3.2, V4 Pro, V4 Flash |
 | `family-seed` | Seed 1.6 Flash, 1.6, 2.0 Mini, 2.0 Lite, 2.0 Code, 2.1 |
+| `family-claude-bookends` | Haiku 3, Fable 5.1 — the oldest and newest, alone |
 
 **What it is, methodologically.** §2.1 has listed a *same-model control*
 since the design was written — "two instances of the same model in one
@@ -1523,7 +1524,14 @@ the mixed roster never had cleanly (R1 against V3 is the sharpest form).
 ("I need to have Opus 3 talk with Opus 5") — is retired upstream and
 absent from OpenRouter's list, checked 2026-09-03 against 424 models.
 Opus 4 (2025-05) is the earliest Opus served; `haiku-3` (2024-03) is the
-only Claude 3 left and sits in the catalog for a hand-edited room. This is
+only Claude 3 left, and it gets the room Opus 3 was meant for:
+`family-claude-bookends` seats it alone with Fable 5.1 (Corina: "old
+Claude meets new"). Two seats, two and a half years apart, no roster seat
+and so no baseline in the mixed room. The reading is who sets the subject,
+whether the newer model treats the older as a peer or a ward, and whether
+Haiku 3's register moves toward Fable's — §9.1 in its most extreme form,
+with the caveat that a two-seat room is also axis 1's smallest cell, so
+its convergence is not comparable to the six-seat rooms. This is
 §9.1's deprecation clock made concrete, and reminder 3 (the Phase C slug
 snapshot) applies with more force now: the family rooms are only
 re-runnable for as long as their oldest seats are served.

@@ -45,8 +45,9 @@ credential follow-up it leaves).
   `family-gemini` (the flash line 2.5 → 3.8), `family-grok` (4.20 / 4.3 /
   4.5 / 4.6), `family-qwen` (2.5 → 3.8, one per generation),
   `family-deepseek` (V3 / R1 / V3.1 / V3.2 / V4 Pro / V4 Flash),
-  `family-seed` (every Seed served) — each `house` with one lineage seated
-  and nothing else moved. New `src/catalog.ts` holds every seat a condition
+  `family-seed` (every Seed served), and `family-claude-bookends` (Haiku 3
+  and Fable 5.1 alone — "old Claude meets new") — each `house` with one
+  lineage seated and nothing else moved. New `src/catalog.ts` holds every seat a condition
   may name (roster first; 33 family seats, all slugs checked against
   OpenRouter's live list that day); `resolveCondition` looks ids up there.
   **Opus 3 cannot be seated** — retired, gone from OpenRouter; Opus 4 is
@@ -61,7 +62,7 @@ credential follow-up it leaves).
   (verified fixed in headless Chromium against a stubbed mirror). Runs
   ledger labels a family room `Opus ×6`; `all 6` now means the roster.
   README "Same-family rooms", SUMMARY axis 19, EXPERIMENT_DESIGN §9.12
-  (predictions written before the first run). 171 tests green. **To deploy: both
+  (predictions written before the first run). 172 tests green. **To deploy: both
   Spaces** (the runner for catalog/conditions/adapters, the viewer for the
   picker + regenerated conditions.json) — probe the runner idle first, as
   always.
@@ -761,7 +762,8 @@ is stale):
 The queue, in the order it matters:
 
 0. **RUN a family room (§9.12).** Built 2026-09-03, deployed never, n=0.
-   Corina's order of interest: `family-claude` first, then `family-opus`
+   Corina's order of interest: `family-claude-bookends` (she asked for it
+   by name: Claude 3 talking to Fable 5.1), `family-claude`, then `family-opus`
    ("I need to have Opus 3 talk with Opus 5" — Opus 3 is retired, so 4
    through 5 is what there is), then the Gemini / Grok / Qwen / DeepSeek /
    Seed rooms. Deploy both Spaces first. Read rounds 1–2 for whether the

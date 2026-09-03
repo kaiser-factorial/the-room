@@ -34,10 +34,11 @@
 //    ones — read three-channel comparisons in that room accordingly, and
 //    flip a sibling's adapter here once its bare slug is verified.
 //
-// Not seated by default, but here so a condition (or a hand-edited one) can
-// use them: `haiku-3` (the only Claude 3 still served — Opus 3 is gone from
-// OpenRouter, and retired upstream) and `opus-4.7` (the seventh Opus; the
-// room stays at six, and 4.8 is its six-weeks-later neighbour).
+// `haiku-3` (the only Claude 3 still served — Opus 3 is gone from
+// OpenRouter, and retired upstream) sits in `family-claude-bookends` with
+// Fable 5.1: the oldest and newest Claude, alone. `opus-4.7` (the seventh
+// Opus) is here but unseated — the room stays at six, and 4.8 is its
+// six-weeks-later neighbour.
 
 import type { AgentConfig } from './types.js';
 import { config } from './config.js';
@@ -47,7 +48,8 @@ export const FAMILY_SEATS: AgentConfig[] = [
   { id: 'haiku-4.5', name: 'Haiku 4.5', model: 'anthropic/claude-haiku-4.5', adapter: 'openrouter', color: '#F2C94C' },
   { id: 'sonnet-5', name: 'Sonnet 5', model: 'anthropic/claude-sonnet-5', adapter: 'openrouter', color: '#6FCF97' },
   { id: 'fable-5.1', name: 'Fable 5.1', model: 'anthropic/claude-fable-5.1', adapter: 'openrouter', color: '#BB6BD9' },
-  // The oldest Claude still served (2024-03). No reasoning mode.
+  // The oldest Claude still served (2024-03). No reasoning mode. Seated
+  // only in `family-claude-bookends`, opposite Fable 5.1.
   { id: 'haiku-3', name: 'Haiku 3', model: 'anthropic/claude-3-haiku', adapter: 'openrouter', color: '#9B9B9B', reasoning: false },
 
   // ── Opus, by generation (Opus 3 is retired; 4 is the earliest served) ──

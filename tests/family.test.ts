@@ -60,6 +60,17 @@ test('family rooms: one lineage per room, the roster seat inside it, one knob fr
   }
 });
 
+test('family-claude-bookends: the oldest and newest Claude, alone, one knob from house', () => {
+  const c = resolveCondition('family-claude-bookends');
+  assert.deepEqual(c.agents.map((a) => a.id), ['haiku-3', 'fable-5.1']);
+  for (const a of c.agents) assert.ok(a.model.startsWith('anthropic/claude-'), a.model);
+  assert.equal(c.agents[0].reasoning, false, 'Haiku 3 has no reasoning mode');
+  assert.notEqual(c.agents[1].reasoning, false, 'Fable traces');
+  const { agents: _a, name: _n, ...rest } = conditionRecord(c);
+  const { agents: _b, name: _m, ...houseRest } = conditionRecord(resolveCondition('house'));
+  assert.deepEqual(rest, houseRest);
+});
+
 test('family-deepseek: Pro and Flash are distinct names, not one a prefix of the other', () => {
   const names = resolveCondition('family-deepseek').agents.map((a) => a.name);
   for (const a of names) for (const b of names) {

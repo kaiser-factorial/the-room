@@ -1104,11 +1104,14 @@ room instead of across batches)?
 | `family-qwen` | Qwen 2.5 · 3 · 3.5 · 3.6 · 3.7 · 3.8 | one per generation, at the roster seat's size class where one exists |
 | `family-deepseek` | V3 · R1 · V3.1 · V3.2 · V4 Pro · V4 Flash | the roster seat renamed "DeepSeek V4 Flash" so Pro/Flash are distinct names |
 | `family-seed` | Seed 1.6 Flash · 1.6 · 2.0 Mini · 2.0 Lite · 2.0 Code · 2.1 | every Seed served |
+| `family-claude-bookends` | Haiku 3 · Fable 5.1 | the oldest and newest Claude, alone (two seats) |
 
 **Opus 3 cannot be seated.** It is retired upstream and absent from
 OpenRouter's list (checked 2026-09-03 against 424 models); Opus 4
 (2025-05) is the earliest Opus served. `haiku-3` — the only Claude 3 left —
-is in the catalog for a hand-edited room.
+sits opposite Fable 5.1 in `family-claude-bookends`: two and a half years of
+one lineage with nothing between them, and no roster seat, so no baseline
+in the mixed room — read it on its own terms.
 
 The rules the rooms keep, each pinned by `tests/family.test.ts`:
 

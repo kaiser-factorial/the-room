@@ -312,7 +312,8 @@ ZeroGPU Gradio Space) — the 1930-cutoff convergence probe.
    where seats share a first word (a bare "Opus" in an all-Opus room is
    counted for nobody). Older seats without a reasoning mode get no
    reasoning parameter and no allowance (`reasoning: false`). Opus 3 could
-   not be seated: retired, unserved.
+   not be seated: retired, unserved. `family-claude-bookends` is the
+   eighth: Haiku 3 and Fable 5.1 alone, the oldest and newest Claude.
 
 ## Measurement summary
 

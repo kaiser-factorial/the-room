@@ -1,0 +1,13 @@
+{
+  "description": "Same-family room, §9.12 — the bookends (Corina 2026-09-03: \"old Claude meets new\"): Haiku 3 (2024-03, the oldest Claude still served; Opus 3 is retired) and Fable 5.1 (2026-09-01, the newest), alone in a two-seat room. Two and a half years of the same lineage, with nothing between them. Haiku 3 has no reasoning mode (`reasoning: false` on its seat — no reasoning parameter, no allowance, traceless by construction); Fable traces. Neither is the house roster's seat, so this room carries no control baseline into the mixed room — read it on its own terms: who sets the subject, whether the newer model treats the older one as a peer or a ward, and whether Haiku 3's register moves toward Fable's over the session (the §9.1 question in its most extreme form). Two seats is the smallest room the design allows (axis 1). Journal on (house baseline); everything else control. The welcome stays frozen — \"You are each a different AI model\" is true — so the room learns it is family only from its roster line.",
+  "journal": {
+    "enabled": true,
+    "notice": true,
+    "mode": "replace",
+    "recall": true
+  },
+  "agents": [
+    "haiku-3",
+    "fable-5.1"
+  ]
+}
