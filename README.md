@@ -1288,6 +1288,17 @@ multi-step tests drive one. Because the script is consumed per CALL, a
 looping turn eats several entries: `run-quiet,run-quiet,plain` is one
 two-step turn per seat.
 
+## Hand-coding a session (eval/)
+
+The human side of the judge layer, in dependency-free Python — see `eval/README.md`.
+`python3 eval/export_session.py sessions/<id>` turns an exported or live session folder into
+`transcript.md` (a stable id on every message and journal entry; system lines and tool events
+shown but unlabelled) and `coding_sheet.csv` with blank columns for the judge tasks — the three
+chat tasks, plus `completion_stance` and `work_narration` when the condition is a task or tool
+room. `python3 eval/evalkit.py kappa a.csv b.csv` scores two coders' sheets (raw agreement,
+Cohen's κ, every disagreement listed). Neither script prints transcript content, so both are
+safe to run before labels exist (`judge_handoff.md` §1).
+
 ## Analysis (F2)
 
 ```bash
