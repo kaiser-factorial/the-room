@@ -73,6 +73,16 @@ credential follow-up it leaves).
   README "Same-family rooms", SUMMARY axis 19, EXPERIMENT_DESIGN §9.12
   (predictions written before the first run). 172 tests green. Every
   family room is one admin-panel click away.
+- **VIEWER DEPLOYED 2026-09-07 (second pass) — viewer `b134752`, runner
+  deliberately NOT touched** (PR #38 merged to main `4c5a951`: the two-axis
+  picker, `link`/`json`, the phone headers, the rail gutter — all viewer).
+  Verified after: `index.html`, `site.html`, `made.html` byte-identical to
+  the repo apart from HF's tag (2 diff lines each), each carrying the
+  chevron; `catalog.json` 39 seats in six families; `conditions.json` 39
+  with `seats` on every entry; runner probe idle, uptime 11380s and
+  climbing (no restart, as intended). A second write token was pasted for
+  this pass; the first had already been rotated by then — **rotate this
+  one too.**
 - **THE PICKER HAS TWO AXES (2026-09-07, after the first bookends room).**
   Condition = the situation (chat, `site`, `project`, …); seats = anyone in
   the catalog, grouped by family, the condition's own room ticked by
