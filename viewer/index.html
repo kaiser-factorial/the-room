@@ -43,6 +43,24 @@
   #dot { width: 0.55em; height: 0.55em; border-radius: 50%; background: var(--dim); cursor: default; }
   #dot.live { background: var(--accent); }
   #dot.ended { background: #b8563e; }
+  /* The tools tray: inline on a desktop (display: contents keeps every tool
+     a direct flex child of the header, so the layout is unchanged), a
+     fold-away row on a phone. */
+  #tools { display: contents; }
+  #more { display: none; }
+  @media (max-width: 40rem) {
+    header { padding: 0.5rem 0.7rem; gap: 0.5rem; align-items: center; }
+    header h1 { font-size: 0.85rem; letter-spacing: 0.1em; }
+    header select { font-size: 0.8rem; padding: 0.2rem 0.4rem; max-width: 52vw; }
+    #clock { font-size: 0.75rem; }
+    #statuswrap #status { display: none; }   /* the dot says it */
+    #more { display: inline-block; background: none; border: 1px solid var(--line); color: var(--dim);
+      font: inherit; font-size: 0.8rem; line-height: 1; padding: 0.25rem 0.45rem; cursor: pointer; }
+    header.open #more { color: var(--text); transform: rotate(180deg); }
+    #tools { display: none; width: 100%; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    header.open #tools { display: flex; }
+    #find { width: 100%; }
+  }
 
   .wrap { display: flex; max-width: 72rem; margin: 0 auto; align-items: flex-start; }
   main { flex: 1; min-width: 0; max-width: 44rem; margin: 0 auto; padding: 1.5rem 1.2rem 6rem; }
@@ -298,22 +316,27 @@
 <header>
   <h1>THE ROOM</h1>
   <select id="sessions"></select>
-  <span class="switch" id="roomTools">
-    <a id="permalink" href="#" title="copy a link to this room">link</a><a id="exportJson" href="#" title="download this room as JSON — the transcript events and the journals">json</a>
-  </span>
+  <!-- On a phone the tools fold away behind this chevron; on a desktop it
+       is hidden and the tools sit inline as they always have. -->
+  <button id="more" type="button" aria-expanded="false" aria-controls="tools" title="more">▾</button>
   <span id="clock"></span>
-  <span class="switch" id="views" hidden>
-    <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a><a id="toMade" href="./made.html">made</a>
-  </span>
-  <input id="find" type="search" placeholder="find in transcript…" autocomplete="off" />
-  <span class="switch" id="scope" title="where to search">
-    <a href="#" class="on" data-scope="room">this room</a><a href="#" data-scope="all">all runs</a>
-  </span>
-  <span id="findCount"></span>
-  <span class="switch" id="zoom" title="text size">
-    <a href="#" id="zoomOut" aria-label="Smaller text">−</a><a href="#" id="zoomIn" aria-label="Larger text">+</a>
-  </span>
   <span id="statuswrap"><span id="cond"></span><span id="dot"></span><span id="status">connecting…</span></span>
+  <span id="tools">
+    <span class="switch" id="roomTools">
+      <a id="permalink" href="#" title="copy a link to this room">link</a><a id="exportJson" href="#" title="download this room as JSON — the transcript events and the journals">json</a>
+    </span>
+    <span class="switch" id="views" hidden>
+      <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a><a id="toMade" href="./made.html">made</a>
+    </span>
+    <input id="find" type="search" placeholder="find in transcript…" autocomplete="off" />
+    <span class="switch" id="scope" title="where to search">
+      <a href="#" class="on" data-scope="room">this room</a><a href="#" data-scope="all">all runs</a>
+    </span>
+    <span id="findCount"></span>
+    <span class="switch" id="zoom" title="text size">
+      <a href="#" id="zoomOut" aria-label="Smaller text">−</a><a href="#" id="zoomIn" aria-label="Larger text">+</a>
+    </span>
+  </span>
 </header>
 
 <div id="hits" hidden></div>
@@ -1520,6 +1543,17 @@ function updateViews() {
 }
 
 $('sessions').onchange = (e) => { pinned = null; showSession(e.target.value); };
+
+// The phone header's chevron: fold the tools out and back. Remembered per
+// browser, so a reader who opened it finds it open next time.
+const header = document.querySelector('header');
+function setTools(open) {
+  header.classList.toggle('open', open);
+  $('more').setAttribute('aria-expanded', String(open));
+  try { localStorage.setItem('room-tools-open', open ? '1' : ''); } catch {}
+}
+$('more').addEventListener('click', () => setTools(!header.classList.contains('open')));
+try { if (localStorage.getItem('room-tools-open') === '1') setTools(true); } catch {}
 
 // ── link + json: this room, portable ───────────────────────────────────────
 // `link` copies the canonical deep link for the room on screen — including

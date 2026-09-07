@@ -86,6 +86,13 @@ credential follow-up it leaves).
   headless Chromium (default ticks, override payload, hand-built room
   surviving a second pick, mixed rooms untouched → no override, two-seat
   minimum). README "Same-family rooms" has the rules.
+- **Phone header (2026-09-07).** Under 40rem the transcript header keeps
+  only the title, the room select, the clock and the dot; everything else
+  (link/json, chat/site/made, find + scope, zoom) folds behind a `▾`
+  chevron, remembered in localStorage. `#tools { display: contents }` on a
+  desktop keeps every tool a direct flex child, so the wide layout is
+  unchanged. Measured in Chromium at 390px: 41px closed (it used to wrap to
+  three rows), 111px open. site.html and made.html headers untouched.
 - **`link` + `json` in the transcript header (2026-09-07).** `link` copies
   `?session=<id>` for the room on screen (newest included); `#<id>` in the
   URL now pins a room like `?session=` does. `json` downloads the room as
