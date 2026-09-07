@@ -48,6 +48,7 @@
      fold-away row on a phone. */
   #tools { display: contents; }
   #more { display: none; }
+  @media (min-width: 40.01rem) { #statuswrap { order: 9; } }
   @media (max-width: 40rem) {
     header { padding: 0.5rem 0.7rem; gap: 0.5rem; align-items: center; }
     header h1 { font-size: 0.85rem; letter-spacing: 0.1em; }
@@ -224,6 +225,12 @@
   #roundFly button.dot { width: 11px; height: 11px; border-radius: 50%; padding: 0;
     border: 1px solid rgba(0,0,0,0.4); cursor: pointer; flex-shrink: 0; }
 
+  /* Below ~75rem the rail's left clamps to 0.4rem while the column is still
+     centred, and at ~62rem the two meet: rail squares 1px from the text
+     (Corina, 2026-09-07). A gutter for the widths where they share an edge. */
+  @media (min-width: 60.01rem) and (max-width: 76rem) {
+    main { padding-left: 3.2rem; }
+  }
   @media (max-width: 60rem) {
     .wrap { flex-direction: column; }
     #journals { position: static; width: auto; max-height: none; border-top: 1px solid var(--line); }

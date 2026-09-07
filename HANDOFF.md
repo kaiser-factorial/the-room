@@ -92,7 +92,11 @@ credential follow-up it leaves).
   chevron, remembered in localStorage. `#tools { display: contents }` on a
   desktop keeps every tool a direct flex child, so the wide layout is
   unchanged. Measured in Chromium at 390px: 41px closed (it used to wrap to
-  three rows), 111px open. site.html and made.html headers untouched.
+  three rows), 111px open. site.html and made.html fold the same way (one
+  localStorage key across the three views). Also a gutter between the
+  round rail and the text at 60–76rem, where the rail's left clamps to
+  0.4rem and the centred column met it: 1px between squares and text at
+  1000px, now 33px.
 - **`link` + `json` in the transcript header (2026-09-07).** `link` copies
   `?session=<id>` for the room on screen (newest included); `#<id>` in the
   URL now pins a room like `?session=` does. `json` downloads the room as
