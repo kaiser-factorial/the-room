@@ -1,0 +1,281 @@
+/* the-room viewer — the two scatter-lab themes (Corina 2026-09-07).
+ *
+ * Ported from scatter-lab's globals.css and the ccru terminal containers it
+ * wraps: `terminal` (near-black, JetBrains Mono, thin green-bordered panels
+ * with a 10px tracked uppercase title bar and a green glow) and `primary`
+ * (the Bauhaus: off-white, Courier Prime, 3px black boxes with a hard
+ * offset shadow, uppercase bold section headers, red / blue / yellow).
+ *
+ * The theme rides `data-theme` on <html>, set before first paint by a tiny
+ * inline script in each page's <head> from localStorage('room-theme'),
+ * default terminal. Every page keeps its own structural CSS and its old
+ * token names (--bg, --panel, --text, --dim, --line, --accent); this file
+ * loads AFTER it and redefines those tokens per theme on html[data-theme],
+ * which out-specifies :root, so the structure re-skins without a rewrite.
+ *
+ * Seat colours were chosen for a dark page (Grok is #ECECEC). Under the
+ * Bauhaus theme a coloured name would vanish, so pages set the colour as
+ * `--seat` on the element instead of `color`, and this file decides: the
+ * terminal colours the text, the Bauhaus prints black text with a bordered
+ * colour swatch beside it — the same mark scatter-lab uses for its steps.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+/* ── tokens ──────────────────────────────────────────────────────────── */
+:root, html[data-theme='terminal'] {
+  --bg: #121212;
+  --panel: #0b111a;
+  --card: #161616;
+  --text: #c9c2b4;
+  --dim: #8a8478;
+  --line: color-mix(in srgb, #10ff50 22%, transparent);
+  --accent: #10ff50;
+  --warn: #E63946;
+  --mauk: #03A6A1;
+  --abaci: #FF9D23;
+  --font-body: 'JetBrains Mono', 'Courier New', ui-monospace, monospace;
+  --font-mono: 'JetBrains Mono', 'Courier New', ui-monospace, monospace;
+  --glow: 0 0 12px color-mix(in srgb, var(--accent) 55%, transparent);
+  --shadow: none;
+  --border-w: 1px;
+  --radius: 0;
+  color-scheme: dark;
+}
+html[data-theme='primary'] {
+  --bg: #FAFAFA;
+  --panel: #FFFFFF;
+  --card: #FFFFFF;
+  --text: #111111;
+  --dim: #5c5c5c;
+  --line: #111111;
+  --accent: #0045AD;
+  --warn: #EB1A26;
+  --p-red: #EB1A26;
+  --p-blue: #0045AD;
+  --p-yellow: #FFD600;
+  --p-black: #111111;
+  --p-white: #FFFFFF;
+  --mauk: #0045AD;
+  --abaci: #EB1A26;
+  --font-body: 'Courier Prime', 'Courier New', monospace;
+  --font-mono: 'Courier Prime', 'Courier New', monospace;
+  --glow: none;
+  --shadow: 6px 6px 0 var(--p-black);
+  --border-w: 3px;
+  --radius: 0;
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+}
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color: var(--accent); }
+
+/* ── header ──────────────────────────────────────────────────────────── */
+header { border-bottom: var(--border-w) solid var(--line); }
+html[data-theme='terminal'] header { background: var(--bg); }
+html[data-theme='primary'] header { background: var(--bg); }
+header h1, header b {
+  font-family: var(--font-body); font-weight: 700; font-size: 0.8rem;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--text);
+}
+html[data-theme='terminal'] header h1, html[data-theme='terminal'] header b {
+  color: var(--accent); text-shadow: var(--glow);
+}
+
+/* ── controls: selects, buttons, inputs, switches ─────────────────────── */
+header select, header input, header button,
+.admin input, .admin select, .admin button, .admin textarea,
+select, button, input[type='search'], input[type='text'], input[type='number'], input[type='password'] {
+  font-family: var(--font-body); font-size: 0.78rem; border-radius: var(--radius);
+  background: var(--panel); color: var(--text); border: 1px solid var(--line);
+}
+html[data-theme='terminal'] select, html[data-theme='terminal'] button, html[data-theme='terminal'] input:not([type='range']):not([type='checkbox']):not([type='radio']) {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); caret-color: var(--accent);
+}
+html[data-theme='terminal'] input::placeholder { color: color-mix(in srgb, var(--accent) 62%, transparent); opacity: 1; }
+html[data-theme='terminal'] button:not(:disabled):hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: var(--glow); filter: brightness(1.1);
+}
+html[data-theme='primary'] select, html[data-theme='primary'] button, html[data-theme='primary'] input:not([type='range']):not([type='checkbox']):not([type='radio']) {
+  border: 2px solid var(--p-black); background: var(--p-white); color: var(--p-black);
+}
+html[data-theme='primary'] button { box-shadow: 3px 3px 0 var(--p-black); font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; }
+html[data-theme='primary'] button:not(:disabled):hover { background: var(--p-yellow); }
+html[data-theme='primary'] button:not(:disabled):active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--p-black); }
+html[data-theme='primary'] button.primary, html[data-theme='primary'] #startBtn { background: var(--p-blue); color: var(--p-white); border-color: var(--p-black); }
+html[data-theme='primary'] button.primary:not(:disabled):hover { background: var(--p-blue); filter: brightness(1.15); }
+html[data-theme='terminal'] button.primary, html[data-theme='terminal'] #startBtn { border-color: var(--accent); color: var(--accent); text-shadow: var(--glow); }
+button:disabled { opacity: 0.45; cursor: default; }
+
+.switch { border-radius: 0; }
+html[data-theme='terminal'] .switch { border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+html[data-theme='terminal'] .switch a { background: transparent; color: color-mix(in srgb, var(--accent) 70%, var(--dim)); font-family: var(--font-body); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+html[data-theme='terminal'] .switch a.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); text-shadow: var(--glow); }
+html[data-theme='primary'] .switch { border: 2px solid var(--p-black); box-shadow: 3px 3px 0 var(--p-black); background: var(--p-white); }
+html[data-theme='primary'] .switch a { background: var(--p-white); color: var(--p-black); font-family: var(--font-body); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+html[data-theme='primary'] .switch a + a { border-left: 2px solid var(--p-black); }
+html[data-theme='primary'] .switch a:hover { background: var(--p-yellow); }
+html[data-theme='primary'] .switch a.on { background: var(--p-blue); color: var(--p-white); }
+html[data-theme='primary'] .switch a.off { opacity: 0.35; }
+
+/* the phone chevron and the clock */
+#more { font-family: var(--font-body); }
+#clock { font-family: var(--font-mono); }
+
+/* ── panels: the scatter-lab section ─────────────────────────────────── */
+.panel { background: var(--panel); border: var(--border-w) solid var(--line); box-shadow: var(--shadow); margin: 0 0 1rem; }
+.panel > h2, .ph {
+  margin: 0; padding: 0.45rem 0.65rem; font-family: var(--font-body); font-weight: 700;
+  font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim);
+  border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 0.5rem;
+}
+.panel > h2 + *, .ph + * { padding: 0.55rem 0.65rem; }
+html[data-theme='terminal'] .panel > h2, html[data-theme='terminal'] .ph {
+  color: var(--accent); border-bottom-color: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+html[data-theme='terminal'] .panel > h2:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+html[data-theme='primary'] .panel { box-shadow: 4px 4px 0 var(--p-black); }
+html[data-theme='primary'] .panel > h2, html[data-theme='primary'] .ph {
+  color: var(--p-black); font-size: 0.7rem; letter-spacing: 0.08em; background: var(--p-white);
+  border-bottom: 2px dashed var(--p-black);
+}
+html[data-theme='primary'] .panel > h2:hover { background: var(--p-yellow); }
+/* a little coloured square before a panel title — the Bauhaus step marker */
+.panel > h2::before { content: ''; width: 9px; height: 9px; flex: none; background: var(--accent); }
+html[data-theme='primary'] .panel > h2::before { border: 2px solid var(--p-black); width: 10px; height: 10px; }
+html[data-theme='primary'] .panel:nth-of-type(3n+1) > h2::before { background: var(--p-red); }
+html[data-theme='primary'] .panel:nth-of-type(3n+2) > h2::before { background: var(--p-blue); }
+html[data-theme='primary'] .panel:nth-of-type(3n+3) > h2::before { background: var(--p-yellow); }
+
+/* ── seat colours ────────────────────────────────────────────────────── */
+.seat { color: var(--seat, var(--text)); }
+html[data-theme='terminal'] .seat { text-shadow: 0 0 10px color-mix(in srgb, var(--seat, transparent) 45%, transparent); }
+html[data-theme='primary'] .seat { color: var(--p-black) !important; text-shadow: none; }
+html[data-theme='primary'] .seat::before {
+  content: ''; display: inline-block; width: 0.62em; height: 0.62em; margin-right: 0.45em;
+  background: var(--seat, var(--dim)); border: 2px solid var(--p-black); vertical-align: 0;
+}
+/* the dot that doubles as the admin door */
+html[data-theme='primary'] #dot { border: 2px solid var(--p-black); background: var(--p-white); width: 0.7em; height: 0.7em; border-radius: 0; }
+html[data-theme='primary'] #dot.live { background: var(--p-blue); }
+html[data-theme='primary'] #dot.ended { background: var(--p-red); }
+html[data-theme='terminal'] #dot.live { box-shadow: var(--glow); }
+
+/* ── details / summaries (thinking, tool runs, journals, files) ───────── */
+summary { font-family: var(--font-body); }
+html[data-theme='primary'] details summary { color: var(--p-black); }
+html[data-theme='primary'] details[open] > summary { color: var(--p-blue); }
+
+/* ── code blocks ─────────────────────────────────────────────────────── */
+pre, code, .runblock pre, pre.code, .diff, .manifest { font-family: var(--font-mono) !important; }
+html[data-theme='primary'] .runblock pre { background: var(--p-white); border: 2px solid var(--p-black); border-left-width: 6px; color: var(--p-black); }
+html[data-theme='primary'] .runblock pre.out { border-left-color: var(--p-blue); }
+html[data-theme='primary'] .runblock.refused pre.out { border-left-color: var(--p-red); }
+
+/* ── the theme switch itself ─────────────────────────────────────────── */
+#themeSwitch a { min-width: 4.4rem; text-align: center; }
+
+/* ── chips, tabs, segmented controls ─────────────────────────────────── */
+html[data-theme='primary'] .chips button.on, html[data-theme='primary'] .seg button.on { background: var(--p-blue); color: var(--p-white); }
+html[data-theme='terminal'] .chips button.on, html[data-theme='terminal'] .seg button.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); text-shadow: var(--glow); }
+.seg { border-radius: 0; }
+html[data-theme='primary'] .seg { border: 2px solid var(--p-black); box-shadow: 3px 3px 0 var(--p-black); }
+html[data-theme='primary'] .seg button { border: 0; box-shadow: none; }
+html[data-theme='primary'] .seg button + button { border-left: 2px solid var(--p-black); }
+html[data-theme='primary'] .seg button:not(:disabled):active { transform: none; }
+.tabs button { box-shadow: none !important; border: 0 !important; background: transparent !important; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.7rem !important; font-weight: 700; }
+html[data-theme='primary'] .tabs { border-bottom: 2px dashed var(--p-black); }
+html[data-theme='primary'] .tabs button { color: var(--dim); }
+html[data-theme='primary'] .tabs button.on { color: var(--p-blue); border-bottom: 3px solid var(--p-blue) !important; }
+html[data-theme='terminal'] .tabs button.on { color: var(--accent); text-shadow: var(--glow); border-bottom: 2px solid var(--accent) !important; }
+html[data-theme='primary'] .tabs button:not(:disabled):hover { background: var(--p-yellow) !important; transform: none; }
+
+/* ── the admin panel: one scatter-lab section ───────────────────────── */
+#adminModal { font-family: var(--font-body); border: var(--border-w) solid var(--line); box-shadow: var(--shadow); background: var(--panel); color: var(--text); }
+html[data-theme='primary'] #adminModal::backdrop { background: rgba(17,17,17,0.45); }
+html[data-theme='terminal'] #adminModal::backdrop { background: rgba(0,0,0,0.7); }
+.admin .lbl, .lbl { font-family: var(--font-body); font-weight: 700; font-size: 0.66rem; letter-spacing: 0.16em; }
+html[data-theme='terminal'] .lbl { color: var(--accent); opacity: 0.85; }
+html[data-theme='primary'] .lbl { color: var(--p-black); letter-spacing: 0.08em; }
+html[data-theme='primary'] .pick { border: 2px solid var(--p-black); }
+html[data-theme='primary'] .pick .item.sel { background: var(--p-yellow); }
+html[data-theme='primary'] .pick .item:hover { background: color-mix(in srgb, var(--p-yellow) 40%, transparent); }
+html[data-theme='primary'] .pick .search { border-bottom: 2px dashed var(--p-black); }
+html[data-theme='primary'] .pick .desc pre { background: var(--p-white); border: 2px solid var(--p-black); }
+html[data-theme='terminal'] .pick { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+html[data-theme='terminal'] .pick .item.sel { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+html[data-theme='terminal'] .summary { color: var(--accent); text-shadow: var(--glow); }
+html[data-theme='primary'] .summary { color: var(--p-blue); font-weight: 700; }
+html[data-theme='primary'] .summary.warn { color: var(--p-red); }
+html[data-theme='terminal'] .summary.warn { color: var(--abaci); text-shadow: none; }
+html[data-theme='primary'] .runs .arm { border-top: 2px dashed var(--p-black); }
+html[data-theme='primary'] .runs .agree { color: var(--p-blue); font-weight: 700; }
+html[data-theme='primary'] .runs a { border-bottom: 2px solid var(--p-black); color: var(--p-black); }
+html[data-theme='primary'] .runs a:hover { background: var(--p-yellow); }
+/* the (i) expander in the condition list is a text button, not a box */
+.pick .item .i { border: 0 !important; box-shadow: none !important; background: none !important; font-weight: 400 !important; }
+.pick .item .i:hover { background: none !important; transform: none !important; }
+
+/* ── popovers: cross-run hits, the round flyout, the "N new" pill ────── */
+#hits, #roundFly { font-family: var(--font-body); border: var(--border-w) solid var(--line); background: var(--panel); border-radius: 0; box-shadow: var(--shadow); }
+html[data-theme='terminal'] #hits, html[data-theme='terminal'] #roundFly { box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 18%, transparent); }
+html[data-theme='primary'] #hits button.hit { border-top: 2px dashed var(--p-black); }
+html[data-theme='primary'] #hits button.hit:hover { background: var(--p-yellow); }
+html[data-theme='primary'] #hits .snip mark { background: var(--p-yellow); }
+#newPill { font-family: var(--font-body); border-radius: 0; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.7rem; }
+html[data-theme='primary'] #newPill { background: var(--p-blue); color: var(--p-white); border: 2px solid var(--p-black); box-shadow: 3px 3px 0 var(--p-black); }
+html[data-theme='terminal'] #newPill { box-shadow: var(--glow); }
+
+/* ── the round rail ──────────────────────────────────────────────────── */
+html[data-theme='primary'] #rounds button.sq { background: var(--p-white); border: 2px solid var(--p-black); border-radius: 0; width: 11px; height: 11px; }
+html[data-theme='primary'] #rounds button.sq.on { background: var(--p-blue); }
+html[data-theme='primary'] #rounds button.sq.here { background: var(--p-yellow); box-shadow: 2px 2px 0 var(--p-black); }
+html[data-theme='primary'] #rounds button.sq.hit { background: var(--p-red); border-color: var(--p-black); }
+html[data-theme='terminal'] #rounds button.sq { border-radius: 0; }
+html[data-theme='terminal'] #rounds button.sq.here { box-shadow: 0 0 8px var(--accent); }
+
+/* ── silences, orders, thinking traces ──────────────────────────────── */
+html[data-theme='primary'] .aside { color: var(--dim); }
+html[data-theme='primary'] .order { color: var(--p-black); font-weight: 700; }
+html[data-theme='primary'] details.thinking .trace { border-left: 2px solid var(--p-black); }
+html[data-theme='primary'] details.toolrun .tbody { border-left: 2px solid var(--p-black); }
+html[data-theme='terminal'] details.thinking .trace, html[data-theme='terminal'] details.toolrun .tbody { border-left-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* ── made.html: cards, tree, workspace ──────────────────────────────── */
+.card { border: var(--border-w) solid var(--line); box-shadow: var(--shadow); border-radius: 0; }
+html[data-theme='primary'] .card { box-shadow: 4px 4px 0 var(--p-black); }
+html[data-theme='primary'] .card .links { border-top: 2px dashed var(--p-black); }
+html[data-theme='primary'] .card .links a { border: 2px solid var(--p-black); background: var(--p-white); color: var(--p-black); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.66rem; box-shadow: 2px 2px 0 var(--p-black); }
+html[data-theme='primary'] .card .links a:hover { background: var(--p-yellow); }
+html[data-theme='primary'] .card .thumb, html[data-theme='primary'] .manifest { border-bottom: 2px dashed var(--p-black); }
+html[data-theme='primary'] .tag { border: 2px solid var(--p-black); color: var(--p-black); font-weight: 700; }
+html[data-theme='primary'] .tag.livetag { background: var(--p-blue); color: var(--p-white); border-color: var(--p-black); }
+html[data-theme='terminal'] .card .links a { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.66rem; }
+html[data-theme='terminal'] .card .links a:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: var(--glow); }
+html[data-theme='terminal'] .tag.livetag { text-shadow: var(--glow); }
+#tree { border-right: var(--border-w) solid var(--line); }
+#tree h2 { font-family: var(--font-body); font-weight: 700; font-size: 0.62rem; letter-spacing: 0.16em; }
+html[data-theme='terminal'] #tree h2 { color: var(--accent); }
+html[data-theme='primary'] #tree h2 { color: var(--p-black); letter-spacing: 0.08em; }
+#tree .entry { box-shadow: none !important; border: 0 !important; background: none !important; font-weight: 400 !important; }
+html[data-theme='primary'] #tree .entry.on, html[data-theme='primary'] #tree .entry:hover { background: var(--p-yellow) !important; color: var(--p-black) !important; }
+html[data-theme='terminal'] #tree .entry.on { background: color-mix(in srgb, var(--accent) 14%, transparent) !important; color: var(--accent) !important; }
+html[data-theme='terminal'] #tree .entry:hover { background: color-mix(in srgb, var(--accent) 8%, transparent) !important; }
+html[data-theme='primary'] #paneHead { border-bottom: 2px dashed var(--p-black); }
+html[data-theme='primary'] .run { border-bottom: 2px dashed var(--p-black); }
+html[data-theme='primary'] .diff .add { background: color-mix(in srgb, var(--p-blue) 12%, transparent); }
+html[data-theme='primary'] .diff .add .mark { color: var(--p-blue); }
+html[data-theme='primary'] .diff .del { background: color-mix(in srgb, var(--p-red) 12%, transparent); }
+html[data-theme='primary'] .diff .del .mark { color: var(--p-red); }
+html[data-theme='primary'] .tally .plus { color: var(--p-blue); } html[data-theme='primary'] .tally .minus { color: var(--p-red); }
+/* site.html: the strip above the room's page */
+html[data-theme='primary'] #scrub, html[data-theme='primary'] input[type='range'] { accent-color: var(--p-blue); }
+#live { text-shadow: var(--glow); }
+html[data-theme='primary'] #live { color: var(--p-blue); font-weight: 700; text-shadow: none; }

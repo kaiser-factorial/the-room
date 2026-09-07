@@ -73,6 +73,25 @@ credential follow-up it leaves).
   README "Same-family rooms", SUMMARY axis 19, EXPERIMENT_DESIGN §9.12
   (predictions written before the first run). 172 tests green. Every
   family room is one admin-panel click away.
+- **THE VIEWER WEARS SCATTER-LAB'S THEMES (2026-09-07, built, not yet
+  deployed).** `viewer/theme.css`, shared by all three pages: `terminal`
+  (default; near-black, JetBrains Mono, green-bordered titled panels) and
+  `primary` (the Bauhaus: off-white, Courier Prime, 3px black boxes with
+  hard shadows, red/blue/yellow). Ported from scatter-lab's `globals.css`
+  and ccru's `CyberContainer`; the source repos were cloned read-only for
+  it. Switch in every header, remembered per browser, applied before paint
+  by an inline head script. Mono transcript at 14px/46rem (Corina chose a
+  true match over the serif). Mechanism: theme.css loads after each page's
+  own CSS and redefines the old token names per theme on `html[data-theme]`,
+  so the structure re-skins; rails/cards/admin carry `.panel`; seat
+  colours ride `--seat` + class `seat` (terminal colours the text, Bauhaus
+  prints black text with a bordered swatch — Grok's #ECECEC would vanish on
+  white otherwise), and a test forbids `style.color = colorOf(` returning.
+  Verified in Chromium in both themes: transcript (real bookends rows),
+  admin panel, made gallery + workspace (real project-whittle rows), site
+  strip, phone width. The browser here cannot reach fonts.googleapis.com
+  (nor vercel, nor the HF static host), so the screenshots show the
+  fallback faces; the live page loads the real ones. Deploy: viewer only.
 - **VIEWER DEPLOYED 2026-09-07 (second pass) — viewer `b134752`, runner
   deliberately NOT touched** (PR #38 merged to main `4c5a951`: the two-axis
   picker, `link`/`json`, the phone headers, the rail gutter — all viewer).

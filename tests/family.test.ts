@@ -3,6 +3,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
+const require = createRequire(import.meta.url);
 import { CATALOG, FAMILY_SEATS } from '../src/catalog.js';
 import { config } from '../src/config.js';
 import { conditionRecord, listConditions, resolveCondition } from '../src/conditions.js';
@@ -119,6 +122,23 @@ test('catalog.json: every seat, one family each, families in roster order', () =
   assert.deepEqual(fams, FAMILY_ORDER);
   const opus = entries.filter((e) => e.name.startsWith('Opus ')).map((e) => e.name);
   assert.deepEqual(opus, ['Opus 4', 'Opus 4.1', 'Opus 4.5', 'Opus 4.6', 'Opus 4.7', 'Opus 4.8', 'Opus 5']);
+});
+
+test('the viewer pages share theme.css, apply the theme before paint, and the deploy ships it', () => {
+  const { readFileSync: read } = require('node:fs');
+  const css = read(join(process.cwd(), 'viewer', 'theme.css'), 'utf8');
+  assert.match(css, /html\[data-theme='terminal'\]/);
+  assert.match(css, /html\[data-theme='primary'\]/);
+  for (const page of ['index', 'site', 'made']) {
+    const html = read(join(process.cwd(), 'viewer', `${page}.html`), 'utf8');
+    assert.match(html, /<link rel="stylesheet" href="\.\/theme\.css" \/>/, `${page}: links theme.css`);
+    assert.match(html, /localStorage\.getItem\('room-theme'\) \|\| 'terminal'/, `${page}: sets the theme before paint`);
+    assert.match(html, /data-theme-pick="primary"/, `${page}: has the switch`);
+    // Seat colours must ride --seat, never `color`, or the Bauhaus theme
+    // loses the pale seats (Grok is #ECECEC on a white page).
+    assert.ok(!/style\.color = colorOf\(/.test(html), `${page}: a seat colour set as color, not --seat`);
+  }
+  assert.match(read(join(process.cwd(), 'deploy', 'deploy.sh'), 'utf8'), /theme\.css/);
 });
 
 test('countMentions: a shared first word names nobody; full names still reach each sibling', () => {

@@ -1497,6 +1497,32 @@ marked). Search/run details also appear behind feed chevrons like
 traces; `config` changes render as feed asides. Each rail stays hidden
 in sessions that don't use it.
 
+### Two themes, from scatter-lab
+
+The viewer wears scatter-lab's two themes (`viewer/theme.css`, ported from
+that project's `globals.css` and the `ccru` terminal containers it wraps;
+Corina 2026-09-07). **Terminal** is the default: near-black, JetBrains
+Mono, panels as thin green-bordered containers with a tracked uppercase
+title bar and a green glow. **Bauhaus** (scatter-lab's own default):
+off-white, Courier Prime, 3px black boxes with a hard offset shadow,
+uppercase section headers that go yellow on hover, red / blue / yellow
+markers. The switch sits in every header; the choice is remembered per
+browser (`room-theme`) and applied by an inline `<head>` script before
+first paint, so there is no flash of the other theme. The transcript
+itself is monospace in both (Corina's call: a true match over a faster
+read), at 14px on a 46rem column.
+
+How it is wired, for the next change: every page keeps its structural CSS
+and its old token names (`--bg`, `--panel`, `--text`, `--dim`, `--line`,
+`--accent`); `theme.css` loads after it and redefines those tokens per
+theme on `html[data-theme]`, which out-specifies `:root`, so the structure
+re-skins without a rewrite. Rails, cards and the admin dialog carry
+`.panel` (a titled section in each theme's chrome). Seat colours were
+chosen for a dark page, so pages set them as `--seat` on the element with
+class `seat` rather than as `color`; the terminal colours the text, the
+Bauhaus prints black text beside a bordered colour swatch. A test pins
+that no page sets a seat colour as `color` again.
+
 ### A room, portable: `link` and `json`
 
 Two small tools sit next to the room select in the transcript header
