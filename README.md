@@ -1497,6 +1497,20 @@ marked). Search/run details also appear behind feed chevrons like
 traces; `config` changes render as feed asides. Each rail stays hidden
 in sessions that don't use it.
 
+### A room, portable: `link` and `json`
+
+Two small tools sit next to the room select in the transcript header
+(2026-09-07, Corina). **`link`** copies the deep link for the room on
+screen, `index.html?session=<id>` — including the newest room, which the
+address bar deliberately does not name so a reload keeps following live
+sessions. The fragment form works too: `index.html#<session-id>` opens
+and pins that room exactly like `?session=`. **`json`** downloads the room
+as `<session-id>.json`: every event in the shape the runner wrote
+(`RoomEvent`, in `seq` order — the same mapping `npm run export` uses,
+kept in step by hand), plus the journals, plus the arm name and an export
+timestamp. It pages the mirror in thousands, so a long room comes out
+whole. Both read the public mirror; nothing reaches a prompt.
+
 ## Admin
 
 The status dot in the header is the unmarked door: click it, enter the admin

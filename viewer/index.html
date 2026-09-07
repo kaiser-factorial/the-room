@@ -298,6 +298,9 @@
 <header>
   <h1>THE ROOM</h1>
   <select id="sessions"></select>
+  <span class="switch" id="roomTools">
+    <a id="permalink" href="#" title="copy a link to this room">link</a><a id="exportJson" href="#" title="download this room as JSON — the transcript events and the journals">json</a>
+  </span>
   <span id="clock"></span>
   <span class="switch" id="views" hidden>
     <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a><a id="toMade" href="./made.html">made</a>
@@ -1490,8 +1493,11 @@ async function refreshSessions(selectNewest) {
 }
 
 // §9.8: `?session=` opens a specific room — the other half of the switch on
-// site.html, so the two views hand the session back and forth.
-let pinned = new URLSearchParams(location.search).get('session');
+// site.html, so the two views hand the session back and forth. `#<id>` does
+// the same (Corina 2026-09-07: "the space URL with the room run hash after")
+// — a session id is unmistakable, so the fragment can carry it too.
+const sessionFromHash = () => /^#(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})$/.exec(location.hash)?.[1] ?? null;
+let pinned = new URLSearchParams(location.search).get('session') || sessionFromHash();
 // The newest session id, from the last listing — what "am I following the
 // live room?" is decided against.
 let newestSession = null;
@@ -1514,6 +1520,95 @@ function updateViews() {
 }
 
 $('sessions').onchange = (e) => { pinned = null; showSession(e.target.value); };
+
+// ── link + json: this room, portable ───────────────────────────────────────
+// `link` copies the canonical deep link for the room on screen — including
+// the newest room, which the address bar deliberately does not name (see
+// showSession) — so "send me that room" is one click. `json` downloads the
+// room as the CLI exporter would write it: every event in RoomEvent shape,
+// in seq order, plus the journals; paged, because PostgREST caps a
+// response at 1000 rows and a long room is longer than that.
+const roomLink = () => new URL(`?session=${encodeURIComponent(currentSession ?? '')}`, location.href).href;
+const flashTool = (id, text, back) => { const a = $(id); a.textContent = text; setTimeout(() => { a.textContent = back; }, 1500); };
+$('permalink').addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (!currentSession) return;
+  try { await navigator.clipboard.writeText(roomLink()); flashTool('permalink', 'copied', 'link'); }
+  catch { window.prompt('link to this room', roomLink()); }
+});
+
+async function pageAll(table, sessionId, orderCol) {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from(table).select('*').eq('session_id', sessionId)
+      .order(orderCol, { ascending: true }).range(from, from + 999);
+    if (error) throw new Error(error.message);
+    rows.push(...(data || []));
+    if (!data || data.length < 1000) return rows;
+  }
+}
+
+/** Mirror row → the event the runner wrote (src/export.ts `toEvent`, kept
+ *  in step by hand: the two must agree or a viewer export and a CLI export
+ *  of the same room would differ). */
+function rowToEvent(r) {
+  const base = { ts: r.ts, round: r.round };
+  const p = r.payload || {};
+  const who = { agentId: r.agent_id, agentName: r.agent_name ?? r.agent_id };
+  const extra = { ...(p.thinking ? { thinking: p.thinking } : {}), ...(p.telemetry ? { telemetry: p.telemetry } : {}) };
+  const flag = (k) => (p[k] ? { [k]: true } : {});
+  switch (r.kind) {
+    case 'message': return { kind: 'message', ...base, ...who, text: r.text ?? '', ...extra };
+    case 'journal': return { kind: 'journal', ...base, ...who, ...extra };
+    case 'system': return { kind: 'system', ...base, text: r.text ?? '', ...(r.agent_id ? { agentId: r.agent_id } : {}), ...(p.private ? { private: true } : {}), ...extra };
+    case 'search': return { kind: 'search', ...base, ...who, query: p.query ?? '', ...(p.results ? { results: p.results } : {}), ...flag('denied'), notice: Boolean(p.notice), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'file': return { kind: 'file', ...base, ...who, name: p.name ?? '', content: p.content ?? '', ...(p.encoding ? { encoding: p.encoding } : {}), ...flag('denied'), ...flag('deleted'), notice: Boolean(p.notice), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'run': return { kind: 'run', ...base, ...who, code: p.code ?? '', ...(p.output ? { output: p.output } : {}), ...flag('public'), ...flag('denied'), notice: Boolean(p.notice), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'config': return { kind: 'config', ...base, ...who, key: p.key ?? '', value: p.value ?? '', ...flag('denied'), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'source': return { kind: 'source', ...base, ...who, ...(p.name ? { name: p.name } : {}), ...(p.file ? { file: p.file } : {}), ...(p.found === false ? { found: false } : {}), ...(p.index ? { index: p.index } : {}), notice: Boolean(p.notice), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'order': return { kind: 'order', ...base, order: r.order_ids ?? [] };
+    case 'summary': return { kind: 'summary', ...base, text: r.text ?? '' };
+    case 'meta': return { kind: 'meta', ...base, payload: p };
+    case 'end': return { kind: 'end', ...base, payload: r.payload ?? { adminTouched: false } };
+    default: return { kind: r.kind, ...base, ...who, text: r.text ?? undefined, payload: r.payload ?? undefined };
+  }
+}
+
+/** The document `json` downloads. Exposed on window so a test can check
+ *  its shape without catching a browser download. */
+async function exportRoom(sessionId) {
+  const [ev, jr] = await Promise.all([pageAll('room_events', sessionId, 'seq'), pageAll('room_journals', sessionId, 'id')]);
+  return {
+    session: sessionId,
+    arm: ARMS.get(sessionId) ?? null,
+    exportedAt: new Date().toISOString(),
+    source: 'the-room viewer',
+    events: ev.map(rowToEvent),
+    journals: jr.map((j) => ({ round: j.round, ts: j.ts, agentId: j.agent_id, agentName: j.agent_name ?? j.agent_id, text: j.text })),
+  };
+}
+window.exportRoom = exportRoom;
+
+$('exportJson').addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (!currentSession) return;
+  const a = $('exportJson');
+  a.textContent = '…';
+  try {
+    const out = await exportRoom(currentSession);
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const dl = document.createElement('a');
+    dl.href = url; dl.download = `${currentSession}.json`;
+    document.body.appendChild(dl); dl.click(); dl.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    a.textContent = 'json';
+  } catch (err) {
+    a.textContent = 'json';
+    setStatus(`export: ${err.message}`);
+  }
+});
+
 refreshSessions(true);
 // A brand-new session = first rows under an unseen session_id; cheap poll to
 // pick it up and jump there — unless the URL asked for a particular session,

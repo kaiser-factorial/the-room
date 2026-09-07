@@ -86,6 +86,14 @@ credential follow-up it leaves).
   headless Chromium (default ticks, override payload, hand-built room
   surviving a second pick, mixed rooms untouched → no override, two-seat
   minimum). README "Same-family rooms" has the rules.
+- **`link` + `json` in the transcript header (2026-09-07).** `link` copies
+  `?session=<id>` for the room on screen (newest included); `#<id>` in the
+  URL now pins a room like `?session=` does. `json` downloads the room as
+  `<id>.json` — events in RoomEvent shape via a hand-kept port of
+  export.ts's `toEvent` (`rowToEvent` in the viewer; change one, change
+  both), paged in thousands, plus journals, arm and timestamp.
+  `window.exportRoom(id)` is exposed so a headless test can check the
+  document without catching a download.
 - **`family-claude-bookends` HAS RUN (2026-09-07T13-41-12, 30 min, 51
   rounds, clock).** Corina: "fucking amazing." Read it before reading
   about it. One apparatus note from it: the FIRST attempt
