@@ -26,6 +26,8 @@ if [[ $TARGET == all || $TARGET == viewer ]]; then
   # §9.9/§9.11: everything every room made — pages, files, code output.
   cp viewer/made.html "$STAGE/viewer/made.html"
   npx tsx src/conditions-info.ts > "$STAGE/viewer/conditions.json"
+  # The whole seat catalog, by family, for the picker's seats axis.
+  npx tsx src/catalog-info.ts > "$STAGE/viewer/catalog.json"
   cat > "$STAGE/viewer/README.md" <<'EOF'
 ---
 title: the-room

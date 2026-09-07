@@ -73,6 +73,29 @@ credential follow-up it leaves).
   README "Same-family rooms", SUMMARY axis 19, EXPERIMENT_DESIGN §9.12
   (predictions written before the first run). 172 tests green. Every
   family room is one admin-panel click away.
+- **THE PICKER HAS TWO AXES (2026-09-07, after the first bookends room).**
+  Condition = the situation (chat, `site`, `project`, …); seats = anyone in
+  the catalog, grouped by family, the condition's own room ticked by
+  default. Untouched ticks send no override (the condition runs as written,
+  renames included); changed ticks go as `agentIds`, which the runner
+  already resolved against the catalog — no runner change, viewer only,
+  plus `catalog.json` emitted by `src/catalog-info.ts` at deploy. So "site
+  with Haiku 3 and Fable 5.1" is two clicks and lands in the ledger as a
+  `site` run with those seats; the `family-*` files stay as presets with
+  their rationale, and no new seat combination needs a file. Verified in
+  headless Chromium (default ticks, override payload, hand-built room
+  surviving a second pick, mixed rooms untouched → no override, two-seat
+  minimum). README "Same-family rooms" has the rules.
+- **`family-claude-bookends` HAS RUN (2026-09-07T13-41-12, 30 min, 51
+  rounds, clock).** Corina: "fucking amazing." Read it before reading
+  about it. One apparatus note from it: the FIRST attempt
+  (2026-09-07T13-37-20) recorded 0 messages over 100 rounds in four
+  minutes — every turn failed with `OpenRouter 401: API key expired`
+  (reminder 1, the temporary key). The runner keeps opening rounds when
+  nobody can speak; a session whose every seat has failed for several
+  rounds running should end itself with an `ending` that says so, rather
+  than burn the round cap and leave a 100-round ghost in the ledger. Not
+  built; worth a small fix.
 - **Everything is HOSTED.** Viewer (public):
   https://huggingface.co/spaces/brick-factorial/the-room · Runner
   (private Docker Space, cpu-basic):

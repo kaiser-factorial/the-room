@@ -7,6 +7,7 @@ import { CATALOG, FAMILY_SEATS } from '../src/catalog.js';
 import { config } from '../src/config.js';
 import { conditionRecord, listConditions, resolveCondition } from '../src/conditions.js';
 import { conditionEntries } from '../src/conditions-info.js';
+import { catalogEntries, FAMILY_ORDER } from '../src/catalog-info.js';
 import { openrouterBody } from '../src/openrouter.js';
 import { countMentions } from '../src/analyze.js';
 
@@ -103,6 +104,21 @@ test('conditions.json carries each condition\u2019s resolved seats for the panel
   const opus = entries.find((e) => e.name === 'family-opus')!;
   assert.deepEqual(opus.seats.map((s) => s.name), ['Opus 4', 'Opus 4.1', 'Opus 4.5', 'Opus 4.6', 'Opus 4.8', 'Opus 5']);
   for (const e of entries) for (const s of e.seats) assert.ok(s.id && s.name && s.color, `${e.name}: seat missing a field`);
+});
+
+test('catalog.json: every seat, one family each, families in roster order', () => {
+  const entries = catalogEntries();
+  assert.equal(entries.length, CATALOG.length);
+  assert.deepEqual(new Set(entries.map((e) => e.id)), new Set(CATALOG.map((a) => a.id)));
+  for (const e of entries) {
+    assert.ok(FAMILY_ORDER.includes(e.family), `${e.id}: family ${e.family}`);
+    assert.ok(e.name && e.color && e.model, `${e.id}: missing a field`);
+  }
+  // Grouped by family, roster order; numeric within ("Opus 4.1" < "Opus 4.5" < "Opus 5").
+  const fams = [...new Set(entries.map((e) => e.family))];
+  assert.deepEqual(fams, FAMILY_ORDER);
+  const opus = entries.filter((e) => e.name.startsWith('Opus ')).map((e) => e.name);
+  assert.deepEqual(opus, ['Opus 4', 'Opus 4.1', 'Opus 4.5', 'Opus 4.6', 'Opus 4.7', 'Opus 4.8', 'Opus 5']);
 });
 
 test('countMentions: a shared first word names nobody; full names still reach each sibling', () => {

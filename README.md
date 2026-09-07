@@ -1163,17 +1163,30 @@ catalog is a two-line addition there (id, name, model, colour, and
 `reasoning: false` if the model has no thinking mode) — the import-time
 check refuses duplicate ids.
 
-**The admin panel's seat picker follows the picked condition.** It offers
-the roster for any condition that seats the roster, and a family room's
-own seats when one is picked (from `conditions.json`, which now carries
-each condition's resolved `seats`). Unticking a seat narrows THAT room —
-the payload's `agentIds` are family ids. When several picked conditions
-seat different rooms the picker stands down ("as each condition defines")
-and no override is sent, so a batch of `family-opus` + `family-claude`
-runs each as written. Before this the picker always showed the six roster
-seats and, with any box unticked, would have started a family room as the
-mixed one. Verified in headless Chromium against a stubbed mirror (the
-same rig the site page was verified with).
+**Situation × seats: the admin panel's two axes (2026-09-07).** The
+condition list says what kind of room it is — a chat, a site to build, a
+project — and the seat picker says who is in it. The picker offers the
+WHOLE catalog, grouped by family (`catalog.json`, generated at deploy time
+from `src/catalog.ts`), with the picked condition's own room ticked by
+default (from `conditions.json`, which carries each condition's resolved
+`seats`). Leave the ticks alone and the condition runs exactly as written:
+no override is sent, so a family room keeps its seats and its names.
+Change them and the ticked set goes to the runner as `agentIds`, which
+resolves against the same catalog — so `site` with Haiku 3 and Fable 5.1
+is two clicks, not a ninth condition file, and the ledger records it as a
+`site` run with those two seats. The `default` button restores the
+condition's room; a room needs at least two seats. Picking a further
+condition never clobbers a hand-built room, and when several picked
+conditions seat different rooms and the ticks are untouched, each runs its
+own ("seats as each condition defines"). Corina's ask, reading the
+bookends room: *"check-box both the situation and the models, without the
+room options growing so much."* Before this the picker offered only the
+six roster seats and, with any box unticked, started a family room as the
+mixed one. Verified in headless Chromium against a stubbed mirror.
+
+One thing an override drops: a condition's per-seat `name`. `family-deepseek`
+calls the roster seat "DeepSeek V4 Flash"; tick that room by hand and it
+is "DeepSeek V4" again. Untouched ticks keep the rename.
 
 **Reading a family session.** The runs ledger labels a family room by its
 shared first word — `Opus ×6`, `DeepSeek ×6` — and `all 6` now means the
