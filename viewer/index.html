@@ -43,6 +43,25 @@
   #dot { width: 0.55em; height: 0.55em; border-radius: 50%; background: var(--dim); cursor: default; }
   #dot.live { background: var(--accent); }
   #dot.ended { background: #b8563e; }
+  /* The tools tray: inline on a desktop (display: contents keeps every tool
+     a direct flex child of the header, so the layout is unchanged), a
+     fold-away row on a phone. */
+  #tools { display: contents; }
+  #more { display: none; }
+  @media (min-width: 40.01rem) { #statuswrap { order: 9; } }
+  @media (max-width: 40rem) {
+    header { padding: 0.5rem 0.7rem; gap: 0.5rem; align-items: center; }
+    header h1 { font-size: 0.85rem; letter-spacing: 0.1em; }
+    header select { font-size: 0.8rem; padding: 0.2rem 0.4rem; max-width: 52vw; }
+    #clock { font-size: 0.75rem; }
+    #statuswrap #status { display: none; }   /* the dot says it */
+    #more { display: inline-block; background: none; border: 1px solid var(--line); color: var(--dim);
+      font: inherit; font-size: 0.8rem; line-height: 1; padding: 0.25rem 0.45rem; cursor: pointer; }
+    header.open #more { color: var(--text); transform: rotate(180deg); }
+    #tools { display: none; width: 100%; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    header.open #tools { display: flex; }
+    #find { width: 100%; }
+  }
 
   .wrap { display: flex; max-width: 72rem; margin: 0 auto; align-items: flex-start; }
   main { flex: 1; min-width: 0; max-width: 44rem; margin: 0 auto; padding: 1.5rem 1.2rem 6rem; }
@@ -206,6 +225,12 @@
   #roundFly button.dot { width: 11px; height: 11px; border-radius: 50%; padding: 0;
     border: 1px solid rgba(0,0,0,0.4); cursor: pointer; flex-shrink: 0; }
 
+  /* Below ~75rem the rail's left clamps to 0.4rem while the column is still
+     centred, and at ~62rem the two meet: rail squares 1px from the text
+     (Corina, 2026-09-07). A gutter for the widths where they share an edge. */
+  @media (min-width: 60.01rem) and (max-width: 76rem) {
+    main { padding-left: 3.2rem; }
+  }
   @media (max-width: 60rem) {
     .wrap { flex-direction: column; }
     #journals { position: static; width: auto; max-height: none; border-top: 1px solid var(--line); }
@@ -226,7 +251,12 @@
   .admin, .pane { display: flex; flex-direction: column; gap: 0.7rem; }
   .admin label, .lbl { font-size: 0.72rem; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
   .admin .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-  .admin .agents { display: grid; grid-template-columns: 1fr 1fr; gap: 0.2rem; font-size: 0.85rem; }
+  .admin .agents { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+  .admin .agents .fam { display: grid; grid-template-columns: 5.2rem 1fr; gap: 0.3rem; align-items: baseline; }
+  .admin .agents .fam .lbl { padding-top: 0.15rem; }
+  .admin .agents .fam .chips { display: flex; flex-wrap: wrap; gap: 0.15rem 0.7rem; }
+  .admin .agents .fam label { white-space: nowrap; text-transform: none; letter-spacing: 0; font-size: 0.85rem; }
+  .admin .agents .fam input:not(:checked) + span { opacity: 0.55; }
   .admin button { cursor: pointer; }
   .admin input[type=checkbox], .admin input[type=radio] { accent-color: var(--accent); }
   .admin button.primary { border-color: var(--accent); color: var(--accent); }
@@ -293,19 +323,27 @@
 <header>
   <h1>THE ROOM</h1>
   <select id="sessions"></select>
+  <!-- On a phone the tools fold away behind this chevron; on a desktop it
+       is hidden and the tools sit inline as they always have. -->
+  <button id="more" type="button" aria-expanded="false" aria-controls="tools" title="more">▾</button>
   <span id="clock"></span>
-  <span class="switch" id="views" hidden>
-    <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a><a id="toMade" href="./made.html">made</a>
-  </span>
-  <input id="find" type="search" placeholder="find in transcript…" autocomplete="off" />
-  <span class="switch" id="scope" title="where to search">
-    <a href="#" class="on" data-scope="room">this room</a><a href="#" data-scope="all">all runs</a>
-  </span>
-  <span id="findCount"></span>
-  <span class="switch" id="zoom" title="text size">
-    <a href="#" id="zoomOut" aria-label="Smaller text">−</a><a href="#" id="zoomIn" aria-label="Larger text">+</a>
-  </span>
   <span id="statuswrap"><span id="cond"></span><span id="dot"></span><span id="status">connecting…</span></span>
+  <span id="tools">
+    <span class="switch" id="roomTools">
+      <a id="permalink" href="#" title="copy a link to this room">link</a><a id="exportJson" href="#" title="download this room as JSON — the transcript events and the journals">json</a>
+    </span>
+    <span class="switch" id="views" hidden>
+      <a class="on" href="#" id="toChat">chat</a><a id="toSite" href="./site.html">site</a><a id="toMade" href="./made.html">made</a>
+    </span>
+    <input id="find" type="search" placeholder="find in transcript…" autocomplete="off" />
+    <span class="switch" id="scope" title="where to search">
+      <a href="#" class="on" data-scope="room">this room</a><a href="#" data-scope="all">all runs</a>
+    </span>
+    <span id="findCount"></span>
+    <span class="switch" id="zoom" title="text size">
+      <a href="#" id="zoomOut" aria-label="Smaller text">−</a><a href="#" id="zoomIn" aria-label="Larger text">+</a>
+    </span>
+  </span>
 </header>
 
 <div id="hits" hidden></div>
@@ -379,9 +417,14 @@
         </select>
       </div>
 
+      <!-- SEATS. The second axis. The condition says what kind of room it is
+           (a chat, a site to build, a project); the ticks say who is in it.
+           Every catalog seat is offered, grouped by family, with the picked
+           condition's own room ticked by default — so "site, but Haiku 3
+           and Fable 5.1" is a click rather than another condition file. -->
       <div class="spread">
         <span class="lbl">seats</span>
-        <span><button id="seatsAll" type="button">all</button> <button id="seatsNone" type="button">none</button></span>
+        <span><button id="seatsDefault" type="button">default</button> <button id="seatsNone" type="button">none</button></span>
       </div>
       <div class="agents" id="cfgAgents"></div>
 
@@ -1480,8 +1523,11 @@ async function refreshSessions(selectNewest) {
 }
 
 // §9.8: `?session=` opens a specific room — the other half of the switch on
-// site.html, so the two views hand the session back and forth.
-let pinned = new URLSearchParams(location.search).get('session');
+// site.html, so the two views hand the session back and forth. `#<id>` does
+// the same (Corina 2026-09-07: "the space URL with the room run hash after")
+// — a session id is unmistakable, so the fragment can carry it too.
+const sessionFromHash = () => /^#(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})$/.exec(location.hash)?.[1] ?? null;
+let pinned = new URLSearchParams(location.search).get('session') || sessionFromHash();
 // The newest session id, from the last listing — what "am I following the
 // live room?" is decided against.
 let newestSession = null;
@@ -1504,6 +1550,106 @@ function updateViews() {
 }
 
 $('sessions').onchange = (e) => { pinned = null; showSession(e.target.value); };
+
+// The phone header's chevron: fold the tools out and back. Remembered per
+// browser, so a reader who opened it finds it open next time.
+const header = document.querySelector('header');
+function setTools(open) {
+  header.classList.toggle('open', open);
+  $('more').setAttribute('aria-expanded', String(open));
+  try { localStorage.setItem('room-tools-open', open ? '1' : ''); } catch {}
+}
+$('more').addEventListener('click', () => setTools(!header.classList.contains('open')));
+try { if (localStorage.getItem('room-tools-open') === '1') setTools(true); } catch {}
+
+// ── link + json: this room, portable ───────────────────────────────────────
+// `link` copies the canonical deep link for the room on screen — including
+// the newest room, which the address bar deliberately does not name (see
+// showSession) — so "send me that room" is one click. `json` downloads the
+// room as the CLI exporter would write it: every event in RoomEvent shape,
+// in seq order, plus the journals; paged, because PostgREST caps a
+// response at 1000 rows and a long room is longer than that.
+const roomLink = () => new URL(`?session=${encodeURIComponent(currentSession ?? '')}`, location.href).href;
+const flashTool = (id, text, back) => { const a = $(id); a.textContent = text; setTimeout(() => { a.textContent = back; }, 1500); };
+$('permalink').addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (!currentSession) return;
+  try { await navigator.clipboard.writeText(roomLink()); flashTool('permalink', 'copied', 'link'); }
+  catch { window.prompt('link to this room', roomLink()); }
+});
+
+async function pageAll(table, sessionId, orderCol) {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from(table).select('*').eq('session_id', sessionId)
+      .order(orderCol, { ascending: true }).range(from, from + 999);
+    if (error) throw new Error(error.message);
+    rows.push(...(data || []));
+    if (!data || data.length < 1000) return rows;
+  }
+}
+
+/** Mirror row → the event the runner wrote (src/export.ts `toEvent`, kept
+ *  in step by hand: the two must agree or a viewer export and a CLI export
+ *  of the same room would differ). */
+function rowToEvent(r) {
+  const base = { ts: r.ts, round: r.round };
+  const p = r.payload || {};
+  const who = { agentId: r.agent_id, agentName: r.agent_name ?? r.agent_id };
+  const extra = { ...(p.thinking ? { thinking: p.thinking } : {}), ...(p.telemetry ? { telemetry: p.telemetry } : {}) };
+  const flag = (k) => (p[k] ? { [k]: true } : {});
+  switch (r.kind) {
+    case 'message': return { kind: 'message', ...base, ...who, text: r.text ?? '', ...extra };
+    case 'journal': return { kind: 'journal', ...base, ...who, ...extra };
+    case 'system': return { kind: 'system', ...base, text: r.text ?? '', ...(r.agent_id ? { agentId: r.agent_id } : {}), ...(p.private ? { private: true } : {}), ...extra };
+    case 'search': return { kind: 'search', ...base, ...who, query: p.query ?? '', ...(p.results ? { results: p.results } : {}), ...flag('denied'), notice: Boolean(p.notice), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'file': return { kind: 'file', ...base, ...who, name: p.name ?? '', content: p.content ?? '', ...(p.encoding ? { encoding: p.encoding } : {}), ...flag('denied'), ...flag('deleted'), notice: Boolean(p.notice), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'run': return { kind: 'run', ...base, ...who, code: p.code ?? '', ...(p.output ? { output: p.output } : {}), ...flag('public'), ...flag('denied'), notice: Boolean(p.notice), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'config': return { kind: 'config', ...base, ...who, key: p.key ?? '', value: p.value ?? '', ...flag('denied'), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'source': return { kind: 'source', ...base, ...who, ...(p.name ? { name: p.name } : {}), ...(p.file ? { file: p.file } : {}), ...(p.found === false ? { found: false } : {}), ...(p.index ? { index: p.index } : {}), notice: Boolean(p.notice), ...(p.step ? { step: p.step } : {}), ...(p.via ? { via: p.via } : {}), ...extra };
+    case 'order': return { kind: 'order', ...base, order: r.order_ids ?? [] };
+    case 'summary': return { kind: 'summary', ...base, text: r.text ?? '' };
+    case 'meta': return { kind: 'meta', ...base, payload: p };
+    case 'end': return { kind: 'end', ...base, payload: r.payload ?? { adminTouched: false } };
+    default: return { kind: r.kind, ...base, ...who, text: r.text ?? undefined, payload: r.payload ?? undefined };
+  }
+}
+
+/** The document `json` downloads. Exposed on window so a test can check
+ *  its shape without catching a browser download. */
+async function exportRoom(sessionId) {
+  const [ev, jr] = await Promise.all([pageAll('room_events', sessionId, 'seq'), pageAll('room_journals', sessionId, 'id')]);
+  return {
+    session: sessionId,
+    arm: ARMS.get(sessionId) ?? null,
+    exportedAt: new Date().toISOString(),
+    source: 'the-room viewer',
+    events: ev.map(rowToEvent),
+    journals: jr.map((j) => ({ round: j.round, ts: j.ts, agentId: j.agent_id, agentName: j.agent_name ?? j.agent_id, text: j.text })),
+  };
+}
+window.exportRoom = exportRoom;
+
+$('exportJson').addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (!currentSession) return;
+  const a = $('exportJson');
+  a.textContent = '…';
+  try {
+    const out = await exportRoom(currentSession);
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const dl = document.createElement('a');
+    dl.href = url; dl.download = `${currentSession}.json`;
+    document.body.appendChild(dl); dl.click(); dl.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    a.textContent = 'json';
+  } catch (err) {
+    a.textContent = 'json';
+    setStatus(`export: ${err.message}`);
+  }
+});
+
 refreshSessions(true);
 // A brand-new session = first rows under an unseen session_id; cheap poll to
 // pick it up and jump there — unless the URL asked for a particular session,
@@ -1527,6 +1673,21 @@ async function loadConditionInfo() {
   try { CONDITION_INFO = await (await fetch('conditions.json')).json(); }
   catch { CONDITION_INFO = []; }
   return CONDITION_INFO;
+}
+
+// The seat catalog, by family — every model a room can hold (catalog.json,
+// generated at deploy time from src/catalog.ts). Offline fallback: the
+// roster, one family each, so the picker still works without the fetch.
+let CATALOG_INFO = null;
+const ROSTER_FAMILY = { opus: 'Claude', gemini: 'Gemini', qwen: 'Qwen', grok: 'Grok', deepseek: 'DeepSeek', seed: 'Seed' };
+async function loadCatalogInfo() {
+  if (CATALOG_INFO) return CATALOG_INFO;
+  try {
+    const list = await (await fetch('catalog.json')).json();
+    CATALOG_INFO = Array.isArray(list) && list.length ? list : null;
+  } catch { CATALOG_INFO = null; }
+  if (!CATALOG_INFO) CATALOG_INFO = CATALOG.map((a) => ({ ...a, family: ROSTER_FAMILY[a.id] || 'Other' }));
+  return CATALOG_INFO;
 }
 
 // ── The condition picker ───────────────────────────────────────────────────
@@ -1559,8 +1720,7 @@ async function buildPicker() {
     cb.addEventListener('change', () => {
       cb.checked ? picked.add(name) : picked.delete(name);
       row.classList.toggle('sel', cb.checked);
-      renderSeats();
-      updateSummary();
+      renderSeats().then(updateSummary);
     });
     i.addEventListener('click', () => {
       if (!desc.hidden) { desc.hidden = true; return; }
@@ -1598,54 +1758,86 @@ $('pickClear').onclick = () => {
   picked.clear();
   for (const cb of $('pickList').querySelectorAll('input')) cb.checked = false;
   for (const row of $('pickList').querySelectorAll('.item')) row.classList.remove('sel');
-  renderSeats();
-  updateSummary();
+  renderSeats().then(updateSummary);
 };
 
-// ── The seat picker ────────────────────────────────────────────────────────
-// It offers the seats of the picked condition — the roster for anything
-// that does not seat its own room, and the siblings for a same-family room
-// (from conditions.json). When several picked conditions seat DIFFERENT
-// rooms there is no one list to narrow, so the picker stands down and no
-// override is sent: each condition runs the room it defines. Before this a
-// family room picked with any box unticked was started as the mixed room.
-let SEATS = CATALOG;      // what the checkboxes currently show
-let seatsMixed = false;   // picked conditions disagree about the room
+// ── The seat picker: the second axis ───────────────────────────────────────
+// The condition list answers "what kind of room"; this answers "who is in
+// it". Every catalog seat is offered, grouped by family, and the picked
+// condition's own room is ticked by default. Leave the ticks alone and the
+// condition runs exactly as written — no override is sent, so a family room
+// keeps its seats AND its names (family-deepseek renames a seat; an override
+// would drop that). Change them and the ticked set goes as `agentIds`, which
+// the runner resolves against the same catalog, so `site` with Haiku 3 and
+// Fable 5.1 is two clicks rather than a new condition file.
+//
+// Several picked conditions can seat different rooms. The default shown is
+// the FIRST picked condition's; untouched, each condition runs its own room
+// (the summary says so). Touched, the override applies to the whole batch —
+// which is the only reading of "I ticked these seats" that makes sense.
+let seatsDefaultIds = [];   // the picked condition's own room (or the roster)
+let seatsMixed = false;     // picked conditions disagree about the room
 
-function seatsFor() {
+function seatsDefault() {
   const info = CONDITION_INFO || [];
   const lists = [...picked].map((n) => info.find((c) => c.name === n)?.seats).filter((l) => l && l.length);
-  if (!lists.length) return { seats: CATALOG, mixed: false };
+  if (!lists.length) return { ids: CATALOG.map((a) => a.id), mixed: false };
   const key = (l) => l.map((s) => s.id).join(',');
-  return { seats: lists[0], mixed: lists.some((l) => key(l) !== key(lists[0])) };
+  return { ids: lists[0].map((s) => s.id), mixed: lists.some((l) => key(l) !== key(lists[0])) };
 }
 
-function renderSeats() {
-  const { seats, mixed } = seatsFor();
+const tickedSeats = () => [...$('cfgAgents').querySelectorAll('input:checked')].map((i) => i.value);
+const sameSet = (a, b) => a.length === b.length && [...a].sort().join(',') === [...b].sort().join(',');
+/** true when the ticks differ from the picked condition's own room. */
+const seatsTouched = () => !sameSet(tickedSeats(), seatsDefaultIds);
+
+function tickSeats(ids) {
+  const want = new Set(ids);
+  for (const i of $('cfgAgents').querySelectorAll('input')) i.checked = want.has(i.value);
+}
+
+async function renderSeats() {
+  const catalog = await loadCatalogInfo();
   const el = $('cfgAgents');
-  const was = new Map([...el.querySelectorAll('input')].map((i) => [i.value, i.checked]));
-  const unchanged = !mixed && !seatsMixed && seats === SEATS && el.querySelector('input');
-  if (unchanged) return;
-  SEATS = seats; seatsMixed = mixed;
-  el.innerHTML = '';
-  if (mixed) {
-    const n = document.createElement('span');
-    n.className = 'lbl';
-    n.textContent = 'as each condition defines';
-    el.appendChild(n);
+  const before = seatsDefaultIds;
+  const touched = el.querySelector('input') ? seatsTouched() : false;
+  const { ids, mixed } = seatsDefault();
+  seatsDefaultIds = ids; seatsMixed = mixed;
+  if (!el.querySelector('input')) {
+    // Build once: one row per family, its seats as chips, in catalog order.
+    const families = [...new Set(catalog.map((a) => a.family))];
+    for (const fam of families) {
+      const row = document.createElement('div');
+      row.className = 'fam';
+      const h = document.createElement('span'); h.className = 'lbl'; h.textContent = fam;
+      const chips = document.createElement('div'); chips.className = 'chips';
+      for (const a of catalog.filter((x) => x.family === fam)) {
+        const lab = document.createElement('label');
+        lab.innerHTML = `<input type="checkbox" value="${a.id}" /> <span></span>`;
+        lab.querySelector('span').textContent = a.name;
+        lab.querySelector('span').style.color = a.color;
+        lab.title = a.model || a.id;
+        lab.querySelector('input').addEventListener('change', updateSummary);
+        chips.appendChild(lab);
+      }
+      row.append(h, chips);
+      el.appendChild(row);
+    }
+    tickSeats(ids);
     return;
   }
-  for (const a of seats) {
-    const lab = document.createElement('label');
-    lab.style.textTransform = 'none'; lab.style.letterSpacing = '0';
-    lab.innerHTML = `<input type="checkbox" value="${a.id}" /> <span></span>`;
-    // A seat that was already on screen keeps its tick; a new one starts ticked.
-    lab.querySelector('input').checked = was.has(a.id) ? was.get(a.id) : true;
-    lab.querySelector('span').textContent = a.name;
-    lab.querySelector('span').style.color = a.color;
-    lab.querySelector('input').addEventListener('change', updateSummary);
-    el.appendChild(lab);
-  }
+  // A new default only replaces ticks the user has not changed: picking a
+  // different condition re-seats the room; a hand-built room survives it.
+  if (!touched || sameSet(tickedSeats(), before)) tickSeats(ids);
+}
+
+/** What the summary and the start button say about the room. */
+function seatsPlan() {
+  const ticked = tickedSeats();
+  const catalog = CATALOG_INFO || CATALOG;
+  const names = ticked.map((id) => catalog.find((a) => a.id === id)?.name || id);
+  if (!seatsTouched()) return { override: null, text: seatsMixed ? 'seats as each condition defines' : `${ticked.length} seat${ticked.length === 1 ? '' : 's'} (the condition\u2019s own)` };
+  return { override: ticked, text: `seats: ${names.join(' \u00b7 ')}` };
 }
 
 const planMode = () => $('planLoop').checked ? 'loop' : $('planN').checked ? 'n' : 'once';
@@ -1653,11 +1845,11 @@ const planMode = () => $('planLoop').checked ? 'loop' : $('planN').checked ? 'n'
 function updateSummary() {
   const el = $('planSummary');
   const n = picked.size;
-  const seats = $('cfgAgents').querySelectorAll('input:checked').length;
+  const seats = tickedSeats().length;
   $('pickCount').textContent = n ? `${n} selected` : '';
   if (!n) { el.className = 'summary warn'; el.textContent = 'pick at least one condition'; return; }
-  if (!seats && !seatsMixed) { el.className = 'summary warn'; el.textContent = 'pick at least one seat'; return; }
-  const seatText = seatsMixed ? 'seats as each condition defines' : `${seats} seat${seats > 1 ? 's' : ''}`;
+  if (seats < 2) { el.className = 'summary warn'; el.textContent = seats ? 'a room needs at least two seats' : 'pick at least two seats'; return; }
+  const seatText = seatsPlan().text;
   const mins = Number($('cfgMinutes').value) || 30;
   const mode = planMode();
   el.className = 'summary';
@@ -1689,12 +1881,12 @@ dot.addEventListener('click', () => {
   $('adminLogin').hidden = !!adminPw;
   $('adminPanel').hidden = !adminPw;
   if (!$('pickList').children.length) buildPicker().then(updateSummary);
-  if (!$('cfgAgents').children.length) { renderSeats(); updateSummary(); }
+  if (!$('cfgAgents').children.length) renderSeats().then(updateSummary);
   modal.showModal();
 });
 $('closeBtn').onclick = $('closeBtn2').onclick = () => modal.close();
-$('seatsAll').onclick = () => { for (const i of $('cfgAgents').querySelectorAll('input')) i.checked = true; updateSummary(); };
-$('seatsNone').onclick = () => { for (const i of $('cfgAgents').querySelectorAll('input')) i.checked = false; updateSummary(); };
+$('seatsDefault').onclick = () => { tickSeats(seatsDefaultIds); updateSummary(); };
+$('seatsNone').onclick = () => { tickSeats([]); updateSummary(); };
 
 async function adminCall(body) {
   const res = await fetch(ADMIN_FN, {
@@ -1726,14 +1918,13 @@ const flash = (t) => { $('adminMsg2').textContent = t; setTimeout(() => { $('adm
 $('startBtn').onclick = async () => {
   const conditions = [...picked];
   if (!conditions.length) return flash('pick at least one condition');
-  const agentIds = seatsMixed ? [] : [...$('cfgAgents').querySelectorAll('input:checked')].map((i) => i.value);
-  if (!seatsMixed && !agentIds.length) return flash('pick at least one seat');
-  // Only send a seat override when the selection actually narrows the room
-  // the condition seats — otherwise it would clobber seat/persona/name
-  // assignments that a named condition defines (the meta stamp would then
-  // faithfully record the wrong resolution, invisibly). Never when the
-  // picked conditions seat different rooms (seatsMixed).
-  const seatOverride = !seatsMixed && agentIds.length < SEATS.length ? { agentIds } : {};
+  if (tickedSeats().length < 2) return flash('a room needs at least two seats');
+  // Only send a seat override when the ticks differ from the room the
+  // condition seats — otherwise it would clobber seat/persona/name
+  // assignments the condition defines (the meta stamp would then faithfully
+  // record the wrong resolution, invisibly).
+  const { override } = seatsPlan();
+  const seatOverride = override ? { agentIds: override } : {};
   const base = {
     condition: conditions[0],
     ...seatOverride,
