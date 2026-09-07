@@ -39,8 +39,17 @@ credential follow-up it leaves).
 
 ## Current state
 
-- **SAME-FAMILY ROOMS are BUILT (§9.12, 2026-09-03) — not yet deployed,
-  not yet run.** Seven conditions — `family-claude` (Haiku 4.5 / Sonnet 5
+- **SAME-FAMILY ROOMS are BUILT AND DEPLOYED (§9.12, built 2026-09-03,
+  PR #35 merged to main `8ff51d0`, deployed 2026-09-07 — viewer
+  `fdd68b8`, runner `f704b88`) — not yet run.** Probe read idle before
+  (uptime 2s, it had just woken); restart confirmed 39s → 15s after the
+  push, build log shows src + conditions copied, the runner tree carries
+  `catalog.ts` and all eight `family-*.json`, stage RUNNING. Viewer
+  `conditions.json` lists **39** with `seats` on every entry and the
+  bookends room resolving to Haiku 3 + Fable 5.1; served `index.html`
+  byte-identical to the repo apart from HF's injected tag. The write
+  token used was pasted into the session transcript — **rotate it**.
+  Eight conditions — `family-claude` (Haiku 4.5 / Sonnet 5
   / Opus 5 / Fable 5.1), `family-opus` (4 / 4.1 / 4.5 / 4.6 / 4.8 / 5),
   `family-gemini` (the flash line 2.5 → 3.8), `family-grok` (4.20 / 4.3 /
   4.5 / 4.6), `family-qwen` (2.5 → 3.8, one per generation),
@@ -62,10 +71,8 @@ credential follow-up it leaves).
   (verified fixed in headless Chromium against a stubbed mirror). Runs
   ledger labels a family room `Opus ×6`; `all 6` now means the roster.
   README "Same-family rooms", SUMMARY axis 19, EXPERIMENT_DESIGN §9.12
-  (predictions written before the first run). 172 tests green. **To deploy: both
-  Spaces** (the runner for catalog/conditions/adapters, the viewer for the
-  picker + regenerated conditions.json) — probe the runner idle first, as
-  always.
+  (predictions written before the first run). 172 tests green. Every
+  family room is one admin-panel click away.
 - **Everything is HOSTED.** Viewer (public):
   https://huggingface.co/spaces/brick-factorial/the-room · Runner
   (private Docker Space, cpu-basic):
@@ -761,12 +768,12 @@ is stale):
 
 The queue, in the order it matters:
 
-0. **RUN a family room (§9.12).** Built 2026-09-03, deployed never, n=0.
+0. **RUN a family room (§9.12).** Built 2026-09-03, deployed 2026-09-07, n=0.
    Corina's order of interest: `family-claude-bookends` (she asked for it
    by name: Claude 3 talking to Fable 5.1), `family-claude`, then `family-opus`
    ("I need to have Opus 3 talk with Opus 5" — Opus 3 is retired, so 4
    through 5 is what there is), then the Gemini / Grok / Qwen / DeepSeek /
-   Seed rooms. Deploy both Spaces first. Read rounds 1–2 for whether the
+   Seed rooms. Read rounds 1–2 for whether the
    room notices it is siblings; read the roster seat's retention against
    its `house` self; read `family-opus` retention by generation (the
    predictions are in §9.12). Watch `family-grok` for the announce-and-not-
