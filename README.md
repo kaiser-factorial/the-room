@@ -1139,11 +1139,16 @@ The rules the rooms keep, each pinned by `tests/family.test.ts`:
   is a 400 and an allowance a model cannot spend would only let it run
   longer than its room-mates. `meta.condition.agents[].reasoning` records
   it, so a traceless seat is not misread as a provider withholding a trace.
-- **Colours are per seat, not per brand.** Inside a family room the hue
-  would say nothing, so siblings get colours chosen to be told apart; only
-  the roster seat keeps its brand colour everywhere (Opus 5 is always
-  orange). The viewer takes colours from the session's meta, so a seat its
-  hardcoded catalog has never heard of still renders in its own.
+- **Colours are shades of the family's brand.** The roster seat keeps the
+  brand itself (Opus 5 is always that orange) and its siblings take
+  lighter and darker turns of the same hue — every Claude is some kind of
+  orange, every Gemini some blue, every Qwen a purple, Grok greys,
+  DeepSeek indigos, Seed cyans (Corina 2026-09-07) — so a mixed room still
+  reads by family at a glance and a family room still tells its seats
+  apart. Every shade reads as text on the dark theme; the Bauhaus theme
+  shows them as swatches. The viewer takes colours from the session's
+  meta, so a seat its hardcoded catalog has never heard of still renders
+  in its own.
 - **Grok siblings stay on OpenRouter** even with `XAI_API_KEY` set. The
   xai adapter sends the bare slug and only `grok-4.6` is verified to exist
   under that name on api.x.ai. With the key set, `family-grok` has one
@@ -1178,7 +1183,12 @@ is two clicks, not a ninth condition file, and the ledger records it as a
 condition's room; a room needs at least two seats. Picking a further
 condition never clobbers a hand-built room, and when several picked
 conditions seat different rooms and the ticks are untouched, each runs its
-own ("seats as each condition defines"). Corina's ask, reading the
+own ("seats as each condition defines"). The condition list itself is
+folded by kind — chat, search, tools, broadcast, site, project, family —
+each fold closed unless something in it is picked or the filter lands in
+it, with an `all` toggle in its header so "every site arm, one each" is a
+click. A condition the viewer has not heard of folds under its name's
+first word if that is a kind, else under `other`. Corina's ask, reading the
 bookends room: *"check-box both the situation and the models, without the
 room options growing so much."* Before this the picker offered only the
 six roster seats and, with any box unticked, started a family room as the

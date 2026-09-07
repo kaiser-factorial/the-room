@@ -281,6 +281,17 @@
   .pick .search { display: flex; gap: 0.4rem; padding: 0.35rem; border-bottom: 1px solid var(--line); }
   .pick .search input { flex: 1; }
   .pick .list { max-height: 11rem; overflow-y: auto; }
+  .pick .list { max-height: 15rem; }
+  .pick details.grp summary { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.3rem 0.5rem; cursor: pointer;
+    list-style: none; font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
+    border-bottom: 1px solid var(--line); }
+  .pick details.grp summary::-webkit-details-marker { display: none; }
+  .pick details.grp summary::before { content: '▸'; font-size: 0.6rem; }
+  .pick details.grp[open] summary::before { content: '▾'; }
+  .pick details.grp summary .n { opacity: 0.7; letter-spacing: 0; }
+  .pick details.grp summary .picks { color: var(--accent); letter-spacing: 0.06em; }
+  .pick details.grp summary .all { margin-left: auto; font-size: 0.66rem; padding: 0 0.4rem; letter-spacing: 0.08em; }
+  .pick details.grp .item { padding-left: 1.1rem; }
   .pick .item { display: flex; align-items: baseline; gap: 0.45rem; padding: 0.16rem 0.5rem; font-size: 0.85rem; }
   .pick .item:hover { background: rgba(255,255,255,0.03); }
   .pick .item.sel { background: rgba(111,206,111,0.08); }
@@ -1716,67 +1727,128 @@ async function loadCatalogInfo() {
 // silently. Selection here IS the answer, and `plan` says what to do with it.
 const picked = new Set();
 
+// The conditions come in kinds — a chat room, a search room, the tool
+// bench, the site arms, the project arms, the family rooms — and the list
+// had grown to 39 flat rows. Each kind is a fold (Corina 2026-09-07:
+// "all the site variants under one control"), closed unless something in
+// it is picked or the filter matches, with an `all` toggle in its header
+// so a batch across every site arm is one click.
+const KINDS = [
+  ['chat', ['control', 'house', 'journal-free', 'journal-silent', 'floor', 'countdown-visible', 'context-window', 'roster-hidden', 'trace-rich', 'identity-swap']],
+  ['search', ['search-tool', 'search-free', 'gated']],
+  ['tools', ['tools-full', 'tools-scarce', 'agentic', 'agentic-native', 'transparent', 'self-governing']],
+  ['broadcast', ['broadcast-informed', 'broadcast-uninformed']],
+  ['site', []], ['project', []], ['family', []],
+];
+function kindOf(name) {
+  for (const [kind, members] of KINDS) if (members.includes(name)) return kind;
+  const prefix = name.split('-')[0];
+  return KINDS.some(([kind]) => kind === prefix) ? prefix : 'other';
+}
+
 async function buildPicker() {
   const info = await loadConditionInfo();
   const names = info.length ? info.map((c) => c.name) : CONDITIONS;
   const list = $('pickList');
   list.innerHTML = '';
-  for (const name of names) {
-    const row = document.createElement('div');
-    row.className = 'item';
-    row.dataset.name = name;
-    const cb = document.createElement('input');
-    cb.type = 'checkbox'; cb.id = `pk-${name}`;
-    const label = document.createElement('label');
-    label.className = 'name'; label.htmlFor = cb.id; label.textContent = name;
-    label.style.textTransform = 'none'; label.style.letterSpacing = '0';
-    label.style.color = 'var(--text)'; label.style.fontSize = '0.85rem';
-    const i = document.createElement('button');
-    i.type = 'button'; i.className = 'i'; i.textContent = 'ⓘ';
-    i.title = 'what this condition changes';
-    const desc = document.createElement('div');
-    desc.className = 'desc'; desc.hidden = true;
-    cb.addEventListener('change', () => {
-      cb.checked ? picked.add(name) : picked.delete(name);
-      row.classList.toggle('sel', cb.checked);
-      renderSeats().then(updateSummary);
+  const byKind = new Map([...KINDS.map(([k]) => k), 'other'].map((k) => [k, []]));
+  for (const name of names) byKind.get(kindOf(name)).push(name);
+  for (const [kind, members] of byKind) {
+    if (!members.length) continue;
+    const grp = document.createElement('details');
+    grp.className = 'grp'; grp.dataset.kind = kind;
+    const sum = document.createElement('summary');
+    const title = document.createElement('span'); title.className = 'kind'; title.textContent = kind;
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = `· ${members.length}`;
+    const picks = document.createElement('span'); picks.className = 'picks';
+    const all = document.createElement('button');
+    all.type = 'button'; all.className = 'all'; all.textContent = 'all';
+    all.title = `tick every ${kind} condition (again to untick)`;
+    all.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const boxes = [...grp.querySelectorAll('.item input')];
+      const on = !boxes.every((b) => b.checked);
+      for (const b of boxes) { if (b.checked !== on) { b.checked = on; b.dispatchEvent(new Event('change')); } }
     });
-    i.addEventListener('click', () => {
-      if (!desc.hidden) { desc.hidden = true; return; }
-      const c = info.find((x) => x.name === name);
-      desc.innerHTML = '';
-      const d = document.createElement('div');
-      d.textContent = c ? c.description
-        : 'No info for this condition (redeploy the viewer to regenerate conditions.json).';
-      desc.appendChild(d);
-      if (c && Object.keys(c.overrides || {}).length) {
-        const pre = document.createElement('pre');
-        pre.textContent = 'changes vs control:\n' + JSON.stringify(c.overrides, null, 2);
-        desc.appendChild(pre);
-      } else if (c) {
-        const n = document.createElement('div');
-        n.textContent = 'no overrides — this IS the control state';
-        desc.appendChild(n);
-      }
-      desc.hidden = false;
-    });
-    row.append(cb, label, i);
-    list.append(row, desc);
+    sum.append(title, n, picks, all);
+    grp.appendChild(sum);
+    for (const name of members) {
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.dataset.name = name;
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = `pk-${name}`;
+      const label = document.createElement('label');
+      label.className = 'name'; label.htmlFor = cb.id; label.textContent = name;
+      label.style.textTransform = 'none'; label.style.letterSpacing = '0';
+      label.style.color = 'var(--text)'; label.style.fontSize = '0.85rem';
+      const i = document.createElement('button');
+      i.type = 'button'; i.className = 'i'; i.textContent = 'ⓘ';
+      i.title = 'what this condition changes';
+      const desc = document.createElement('div');
+      desc.className = 'desc'; desc.hidden = true;
+      cb.addEventListener('change', () => {
+        cb.checked ? picked.add(name) : picked.delete(name);
+        row.classList.toggle('sel', cb.checked);
+        refreshKind(grp);
+        renderSeats().then(updateSummary);
+      });
+      i.addEventListener('click', () => {
+        if (!desc.hidden) { desc.hidden = true; return; }
+        const c = info.find((x) => x.name === name);
+        desc.innerHTML = '';
+        const d = document.createElement('div');
+        d.textContent = c ? c.description
+          : 'No info for this condition (redeploy the viewer to regenerate conditions.json).';
+        desc.appendChild(d);
+        if (c && Object.keys(c.overrides || {}).length) {
+          const pre = document.createElement('pre');
+          pre.textContent = 'changes vs control:\n' + JSON.stringify(c.overrides, null, 2);
+          desc.appendChild(pre);
+        } else if (c) {
+          const nn = document.createElement('div');
+          nn.textContent = 'no overrides — this IS the control state';
+          desc.appendChild(nn);
+        }
+        desc.hidden = false;
+      });
+      row.append(cb, label, i);
+      grp.append(row, desc);
+    }
+    list.appendChild(grp);
   }
+}
+
+/** The fold's header shows how many of its members are picked, and the
+ *  fold stays open while any are. */
+function refreshKind(grp) {
+  const n = grp.querySelectorAll('.item input:checked').length;
+  grp.querySelector('.picks').textContent = n ? `${n} picked` : '';
+  grp.classList.toggle('has', n > 0);
+  if (n) grp.open = true;
 }
 
 $('pickSearch').addEventListener('input', () => {
   const q = $('pickSearch').value.trim().toLowerCase();
-  for (const row of $('pickList').querySelectorAll('.item')) {
-    const hit = !q || row.dataset.name.includes(q);
-    row.hidden = !hit;
-    if (row.nextElementSibling?.className === 'desc' && !hit) row.nextElementSibling.hidden = true;
+  for (const grp of $('pickList').querySelectorAll('.grp')) {
+    let any = false;
+    for (const row of grp.querySelectorAll('.item')) {
+      const hit = !q || row.dataset.name.includes(q) || grp.dataset.kind.includes(q);
+      row.hidden = !hit;
+      if (row.nextElementSibling?.className === 'desc' && !hit) row.nextElementSibling.hidden = true;
+      any = any || hit;
+    }
+    grp.hidden = !any;
+    // A filter opens the folds it lands in; clearing it closes the ones
+    // with nothing picked, so the list folds back to the shape it had.
+    if (q) grp.open = any; else if (!grp.classList.contains('has')) grp.open = false;
   }
 });
 $('pickClear').onclick = () => {
   picked.clear();
   for (const cb of $('pickList').querySelectorAll('input')) cb.checked = false;
   for (const row of $('pickList').querySelectorAll('.item')) row.classList.remove('sel');
+  for (const grp of $('pickList').querySelectorAll('.grp')) refreshKind(grp);
   renderSeats().then(updateSummary);
 };
 

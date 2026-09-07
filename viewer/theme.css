@@ -279,3 +279,14 @@ html[data-theme='primary'] .tally .plus { color: var(--p-blue); } html[data-them
 html[data-theme='primary'] #scrub, html[data-theme='primary'] input[type='range'] { accent-color: var(--p-blue); }
 #live { text-shadow: var(--glow); }
 html[data-theme='primary'] #live { color: var(--p-blue); font-weight: 700; text-shadow: none; }
+
+/* ── the condition picker's folds ────────────────────────────────────── */
+html[data-theme='terminal'] .pick details.grp summary { color: var(--accent); opacity: 0.85; border-bottom-color: color-mix(in srgb, var(--accent) 15%, transparent); }
+html[data-theme='terminal'] .pick details.grp summary:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+html[data-theme='terminal'] .pick details.grp.has summary { opacity: 1; text-shadow: var(--glow); }
+html[data-theme='primary'] .pick details.grp summary { color: var(--p-black); font-weight: 700; letter-spacing: 0.08em; border-bottom: 2px dashed var(--p-black); }
+html[data-theme='primary'] .pick details.grp summary:hover { background: var(--p-yellow); }
+html[data-theme='primary'] .pick details.grp[open] summary { background: var(--p-blue); color: var(--p-white); }
+html[data-theme='primary'] .pick details.grp[open] summary .picks { color: var(--p-yellow); }
+html[data-theme='primary'] .pick details.grp summary .all { box-shadow: 2px 2px 0 var(--p-black); border-width: 2px; }
+html[data-theme='primary'] .pick details.grp[open] summary .all { background: var(--p-white); color: var(--p-black); }

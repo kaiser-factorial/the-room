@@ -73,6 +73,16 @@ credential follow-up it leaves).
   README "Same-family rooms", SUMMARY axis 19, EXPERIMENT_DESIGN §9.12
   (predictions written before the first run). 172 tests green. Every
   family room is one admin-panel click away.
+- **Catalog colours are family shades; the condition list is folded by
+  kind (2026-09-07, same PR).** Every family seat is a lighter or darker
+  turn of its roster seat's brand hue (Claude oranges, Gemini blues, Qwen
+  purples, Grok greys, DeepSeek indigos, Seed cyans); the roster keeps the
+  brand. The picker's 39 rows fold into chat / search / tools / broadcast
+  / site / project / family (`KINDS` in the viewer; unknown names fold by
+  first word), closed unless picked or filtered into, each with an `all`
+  toggle. Chromium-verified: `all` on site ticks seven and the summary says
+  seven sessions; the filter opens only the fold it lands in; clearing it
+  folds the rest back.
 - **THE VIEWER WEARS SCATTER-LAB'S THEMES (2026-09-07, built, not yet
   deployed).** `viewer/theme.css`, shared by all three pages: `terminal`
   (default; near-black, JetBrains Mono, green-bordered titled panels) and
