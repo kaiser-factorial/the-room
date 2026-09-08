@@ -59,6 +59,13 @@
   iframe { flex: 1; border: 0; background: #fff; }
   #empty { margin: auto; max-width: 30rem; padding: 2rem; text-align: center; color: var(--dim); }
 </style>
+<link rel="stylesheet" href="./theme.css" />
+<!-- The theme before first paint: localStorage('room-theme'), default
+     terminal. Inline so there is no flash of the other theme. -->
+<script>
+  try { document.documentElement.dataset.theme = localStorage.getItem('room-theme') || 'terminal'; }
+  catch (e) { document.documentElement.dataset.theme = 'terminal'; }
+</script>
 </head>
 <body>
 
@@ -80,6 +87,9 @@
       <span class="switch">
         <a id="toChat" href="./index.html">chat</a><a class="on" id="toSite" href="#">site</a><a id="toMade" href="./made.html">made</a>
       </span>
+      <span class="switch" id="themeSwitch" title="theme">
+      <a href="#" data-theme-pick="terminal">terminal</a><a href="#" data-theme-pick="primary">bauhaus</a>
+    </span>
       <button id="hide">hide this bar</button>
     </span>
   </span>
@@ -338,6 +348,21 @@ setInterval(async () => {
   };
   more.addEventListener('click', () => setTools(!header.classList.contains('open')));
   try { if (localStorage.getItem('room-tools-open') === '1') setTools(true); } catch {}
+}
+
+// ── Theme switch ───────────────────────────────────────────────────────────
+// scatter-lab's two themes (theme.css). Applied before paint by the <head>
+// script; this keeps the switch in step and remembers the choice.
+{
+  const apply = (t) => {
+    document.documentElement.dataset.theme = t;
+    for (const a of document.querySelectorAll('[data-theme-pick]')) a.classList.toggle('on', a.dataset.themePick === t);
+    try { localStorage.setItem('room-theme', t); } catch {}
+  };
+  for (const a of document.querySelectorAll('[data-theme-pick]')) {
+    a.addEventListener('click', (e) => { e.preventDefault(); apply(a.dataset.themePick); });
+  }
+  apply(document.documentElement.dataset.theme || 'terminal');
 }
 </script>
 </body>

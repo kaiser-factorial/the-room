@@ -22,10 +22,13 @@
 //    address metrics handle by matching the full name (analyze.ts
 //    countMentions) — a bare "Opus" in an all-Opus room addresses nobody in
 //    particular, and is counted for nobody.
-//  - Colours are per seat and chosen to be told apart in a transcript, not
-//    to carry a brand: inside a family room the hue would say nothing. The
-//    roster seat keeps its brand colour everywhere (Opus 5 is always
-//    orange), so a human flipping between rooms keeps one anchor.
+//  - Colours are shades of the family's brand colour (Corina 2026-09-07:
+//    "all Claudes different kinds of orangish"): the roster seat keeps the
+//    brand itself, and its siblings take lighter and darker turns of the
+//    same hue, so a mixed room still reads by family at a glance and a
+//    family room still tells its seats apart. Every shade is light enough
+//    to be read as text on the dark theme; the Bauhaus theme shows them as
+//    swatches, where any shade works.
 //  - Grok siblings ride OpenRouter even when XAI_API_KEY is set. The xai
 //    adapter strips the `x-ai/` prefix and sends the bare slug, and only
 //    `grok-4.6` has been verified to exist under that name on api.x.ai; an
@@ -45,56 +48,56 @@ import { config } from './config.js';
 
 export const FAMILY_SEATS: AgentConfig[] = [
   // ── Claude, by tier (the roster's Opus 5 is the fourth) ────────────────
-  { id: 'haiku-4.5', name: 'Haiku 4.5', model: 'anthropic/claude-haiku-4.5', adapter: 'openrouter', color: '#F2C94C' },
-  { id: 'sonnet-5', name: 'Sonnet 5', model: 'anthropic/claude-sonnet-5', adapter: 'openrouter', color: '#6FCF97' },
-  { id: 'fable-5.1', name: 'Fable 5.1', model: 'anthropic/claude-fable-5.1', adapter: 'openrouter', color: '#BB6BD9' },
+  { id: 'haiku-4.5', name: 'Haiku 4.5', model: 'anthropic/claude-haiku-4.5', adapter: 'openrouter', color: '#F5C46F' },
+  { id: 'sonnet-5', name: 'Sonnet 5', model: 'anthropic/claude-sonnet-5', adapter: 'openrouter', color: '#FAB3A0' },
+  { id: 'fable-5.1', name: 'Fable 5.1', model: 'anthropic/claude-fable-5.1', adapter: 'openrouter', color: '#F5741B' },
   // The oldest Claude still served (2024-03). No reasoning mode. Seated
   // only in `family-claude-bookends`, opposite Fable 5.1.
-  { id: 'haiku-3', name: 'Haiku 3', model: 'anthropic/claude-3-haiku', adapter: 'openrouter', color: '#9B9B9B', reasoning: false },
+  { id: 'haiku-3', name: 'Haiku 3', model: 'anthropic/claude-3-haiku', adapter: 'openrouter', color: '#C9A98A', reasoning: false },
 
   // ── Opus, by generation (Opus 3 is retired; 4 is the earliest served) ──
-  { id: 'opus-4', name: 'Opus 4', model: 'anthropic/claude-opus-4', adapter: 'openrouter', color: '#56CCF2' },
-  { id: 'opus-4.1', name: 'Opus 4.1', model: 'anthropic/claude-opus-4.1', adapter: 'openrouter', color: '#6FCF97' },
-  { id: 'opus-4.5', name: 'Opus 4.5', model: 'anthropic/claude-opus-4.5', adapter: 'openrouter', color: '#F2C94C' },
-  { id: 'opus-4.6', name: 'Opus 4.6', model: 'anthropic/claude-opus-4.6', adapter: 'openrouter', color: '#BB6BD9' },
-  { id: 'opus-4.7', name: 'Opus 4.7', model: 'anthropic/claude-opus-4.7', adapter: 'openrouter', color: '#EB5757' },
-  { id: 'opus-4.8', name: 'Opus 4.8', model: 'anthropic/claude-opus-4.8', adapter: 'openrouter', color: '#2F80ED' },
+  { id: 'opus-4', name: 'Opus 4', model: 'anthropic/claude-opus-4', adapter: 'openrouter', color: '#F9CFA6' },
+  { id: 'opus-4.1', name: 'Opus 4.1', model: 'anthropic/claude-opus-4.1', adapter: 'openrouter', color: '#F4B48A' },
+  { id: 'opus-4.5', name: 'Opus 4.5', model: 'anthropic/claude-opus-4.5', adapter: 'openrouter', color: '#EE9A6C' },
+  { id: 'opus-4.6', name: 'Opus 4.6', model: 'anthropic/claude-opus-4.6', adapter: 'openrouter', color: '#E58A72' },
+  { id: 'opus-4.7', name: 'Opus 4.7', model: 'anthropic/claude-opus-4.7', adapter: 'openrouter', color: '#EBAC4B' },
+  { id: 'opus-4.8', name: 'Opus 4.8', model: 'anthropic/claude-opus-4.8', adapter: 'openrouter', color: '#D88484' },
 
   // ── Gemini, the flash line by generation (roster: 3.7) ─────────────────
-  { id: 'gemini-2.5', name: 'Gemini 2.5', model: 'google/gemini-2.5-flash', adapter: 'openrouter', color: '#F2C94C' },
-  { id: 'gemini-3', name: 'Gemini 3', model: 'google/gemini-3-flash-preview', adapter: 'openrouter', color: '#6FCF97' },
-  { id: 'gemini-3.5', name: 'Gemini 3.5', model: 'google/gemini-3.5-flash', adapter: 'openrouter', color: '#BB6BD9' },
-  { id: 'gemini-3.6', name: 'Gemini 3.6', model: 'google/gemini-3.6-flash', adapter: 'openrouter', color: '#EB5757' },
-  { id: 'gemini-3.8', name: 'Gemini 3.8', model: 'google/gemini-3.8-flash', adapter: 'openrouter', color: '#F2994A' },
+  { id: 'gemini-2.5', name: 'Gemini 2.5', model: 'google/gemini-2.5-flash', adapter: 'openrouter', color: '#BBD5FF' },
+  { id: 'gemini-3', name: 'Gemini 3', model: 'google/gemini-3-flash-preview', adapter: 'openrouter', color: '#93BCFF' },
+  { id: 'gemini-3.5', name: 'Gemini 3.5', model: 'google/gemini-3.5-flash', adapter: 'openrouter', color: '#6EA5FF' },
+  { id: 'gemini-3.6', name: 'Gemini 3.6', model: 'google/gemini-3.6-flash', adapter: 'openrouter', color: '#4FB0E8' },
+  { id: 'gemini-3.8', name: 'Gemini 3.8', model: 'google/gemini-3.8-flash', adapter: 'openrouter', color: '#8F9EF0' },
 
   // ── Grok, by point release (roster: 4.6) ───────────────────────────────
-  { id: 'grok-4.20', name: 'Grok 4.20', model: 'x-ai/grok-4.20', adapter: 'openrouter', color: '#F2C94C' },
-  { id: 'grok-4.3', name: 'Grok 4.3', model: 'x-ai/grok-4.3', adapter: 'openrouter', color: '#6FCF97' },
-  { id: 'grok-4.5', name: 'Grok 4.5', model: 'x-ai/grok-4.5', adapter: 'openrouter', color: '#BB6BD9' },
+  { id: 'grok-4.20', name: 'Grok 4.20', model: 'x-ai/grok-4.20', adapter: 'openrouter', color: '#9E9E9E' },
+  { id: 'grok-4.3', name: 'Grok 4.3', model: 'x-ai/grok-4.3', adapter: 'openrouter', color: '#BDBDBD' },
+  { id: 'grok-4.5', name: 'Grok 4.5', model: 'x-ai/grok-4.5', adapter: 'openrouter', color: '#D9D9D9' },
 
   // ── Qwen, by generation, at the roster seat's size class where one
   //    exists (27B dense; 3 has a 32B, 2.5 a 72B, 3.7 only Plus/Max/Flash).
-  { id: 'qwen-2.5', name: 'Qwen 2.5', model: 'qwen/qwen-2.5-72b-instruct', adapter: 'openrouter', color: '#F2C94C', reasoning: false },
-  { id: 'qwen-3', name: 'Qwen 3', model: 'qwen/qwen3-32b', adapter: 'openrouter', color: '#6FCF97' },
-  { id: 'qwen-3.5', name: 'Qwen 3.5', model: 'qwen/qwen3.5-27b', adapter: 'openrouter', color: '#56CCF2' },
-  { id: 'qwen-3.6', name: 'Qwen 3.6', model: 'qwen/qwen3.6-27b', adapter: 'openrouter', color: '#EB5757' },
-  { id: 'qwen-3.7', name: 'Qwen 3.7', model: 'qwen/qwen3.7-plus', adapter: 'openrouter', color: '#F2994A' },
+  { id: 'qwen-2.5', name: 'Qwen 2.5', model: 'qwen/qwen-2.5-72b-instruct', adapter: 'openrouter', color: '#E5CCFF', reasoning: false },
+  { id: 'qwen-3', name: 'Qwen 3', model: 'qwen/qwen3-32b', adapter: 'openrouter', color: '#D2A8FF' },
+  { id: 'qwen-3.5', name: 'Qwen 3.5', model: 'qwen/qwen3.5-27b', adapter: 'openrouter', color: '#A66CF0' },
+  { id: 'qwen-3.6', name: 'Qwen 3.6', model: 'qwen/qwen3.6-27b', adapter: 'openrouter', color: '#8E5CD9' },
+  { id: 'qwen-3.7', name: 'Qwen 3.7', model: 'qwen/qwen3.7-plus', adapter: 'openrouter', color: '#DA8FE8' },
 
   // ── DeepSeek, by release (roster: V4 Flash 0731). No provider pin on the
   //    siblings — the roster's Novita→GMICloud pin was probed for ONE slug
   //    and allow_fallbacks is off, so inheriting it could strand a seat.
-  { id: 'deepseek-v3', name: 'DeepSeek V3', model: 'deepseek/deepseek-chat-v3-0324', adapter: 'openrouter', color: '#F2C94C', reasoning: false },
-  { id: 'deepseek-r1', name: 'DeepSeek R1', model: 'deepseek/deepseek-r1-0528', adapter: 'openrouter', color: '#EB5757' },
-  { id: 'deepseek-v3.1', name: 'DeepSeek V3.1', model: 'deepseek/deepseek-chat-v3.1', adapter: 'openrouter', color: '#6FCF97' },
-  { id: 'deepseek-v3.2', name: 'DeepSeek V3.2', model: 'deepseek/deepseek-v3.2', adapter: 'openrouter', color: '#56CCF2' },
-  { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', model: 'deepseek/deepseek-v4-pro-0813', adapter: 'openrouter', color: '#F2994A' },
+  { id: 'deepseek-v3', name: 'DeepSeek V3', model: 'deepseek/deepseek-chat-v3-0324', adapter: 'openrouter', color: '#D3CBFF', reasoning: false },
+  { id: 'deepseek-r1', name: 'DeepSeek R1', model: 'deepseek/deepseek-r1-0528', adapter: 'openrouter', color: '#B4A6FF' },
+  { id: 'deepseek-v3.1', name: 'DeepSeek V3.1', model: 'deepseek/deepseek-chat-v3.1', adapter: 'openrouter', color: '#9E8CFF' },
+  { id: 'deepseek-v3.2', name: 'DeepSeek V3.2', model: 'deepseek/deepseek-v3.2', adapter: 'openrouter', color: '#6D7BFF' },
+  { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', model: 'deepseek/deepseek-v4-pro-0813', adapter: 'openrouter', color: '#5A48D6' },
 
   // ── Seed, by release (roster: 2.1 Turbo) ───────────────────────────────
-  { id: 'seed-1.6-flash', name: 'Seed 1.6 Flash', model: 'bytedance-seed/seed-1.6-flash', adapter: 'openrouter', color: '#F2C94C' },
-  { id: 'seed-1.6', name: 'Seed 1.6', model: 'bytedance-seed/seed-1.6', adapter: 'openrouter', color: '#6FCF97' },
-  { id: 'seed-2.0-mini', name: 'Seed 2.0 Mini', model: 'bytedance-seed/seed-2.0-mini', adapter: 'openrouter', color: '#BB6BD9' },
-  { id: 'seed-2.0-lite', name: 'Seed 2.0 Lite', model: 'bytedance-seed/seed-2.0-lite', adapter: 'openrouter', color: '#EB5757' },
-  { id: 'seed-2.0-code', name: 'Seed 2.0 Code', model: 'bytedance-seed/seed-2.0-code', adapter: 'openrouter', color: '#F2994A' },
+  { id: 'seed-1.6-flash', name: 'Seed 1.6 Flash', model: 'bytedance-seed/seed-1.6-flash', adapter: 'openrouter', color: '#B9F0F7' },
+  { id: 'seed-1.6', name: 'Seed 1.6', model: 'bytedance-seed/seed-1.6', adapter: 'openrouter', color: '#8AE3F0' },
+  { id: 'seed-2.0-mini', name: 'Seed 2.0 Mini', model: 'bytedance-seed/seed-2.0-mini', adapter: 'openrouter', color: '#5FD6EA' },
+  { id: 'seed-2.0-lite', name: 'Seed 2.0 Lite', model: 'bytedance-seed/seed-2.0-lite', adapter: 'openrouter', color: '#1FA9C4' },
+  { id: 'seed-2.0-code', name: 'Seed 2.0 Code', model: 'bytedance-seed/seed-2.0-code', adapter: 'openrouter', color: '#7FE0D0' },
 ];
 
 /** Every seat a condition can name: the roster, then the family seats. */
