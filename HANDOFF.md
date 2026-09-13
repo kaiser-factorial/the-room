@@ -83,25 +83,21 @@ credential follow-up it leaves).
   toggle. Chromium-verified: `all` on site ticks seven and the summary says
   seven sessions; the filter opens only the fold it lands in; clearing it
   folds the rest back.
-- **THE VIEWER WEARS SCATTER-LAB'S THEMES (2026-09-07, built, not yet
-  deployed).** `viewer/theme.css`, shared by all three pages: `terminal`
-  (default; near-black, JetBrains Mono, green-bordered titled panels) and
-  `primary` (the Bauhaus: off-white, Courier Prime, 3px black boxes with
-  hard shadows, red/blue/yellow). Ported from scatter-lab's `globals.css`
-  and ccru's `CyberContainer`; the source repos were cloned read-only for
-  it. Switch in every header, remembered per browser, applied before paint
-  by an inline head script. Mono transcript at 14px/46rem (Corina chose a
-  true match over the serif). Mechanism: theme.css loads after each page's
-  own CSS and redefines the old token names per theme on `html[data-theme]`,
-  so the structure re-skins; rails/cards/admin carry `.panel`; seat
-  colours ride `--seat` + class `seat` (terminal colours the text, Bauhaus
-  prints black text with a bordered swatch — Grok's #ECECEC would vanish on
-  white otherwise), and a test forbids `style.color = colorOf(` returning.
-  Verified in Chromium in both themes: transcript (real bookends rows),
-  admin panel, made gallery + workspace (real project-whittle rows), site
-  strip, phone width. The browser here cannot reach fonts.googleapis.com
-  (nor vercel, nor the HF static host), so the screenshots show the
-  fallback faces; the live page loads the real ones. Deploy: viewer only.
+- **THE SCATTER-LAB THEMES WERE BUILT AND THEN REVERTED (2026-09-13).**
+  A `viewer/theme.css` with two switchable themes (`terminal` near-black
+  mono, `primary` the Bauhaus) shipped in PR #39 and was reverted before
+  it ever reached the Space — Corina: "I think the theme stuff was a bit
+  overkill… we can keep the original theme". The viewer's own dark serif
+  page IS the design; do not re-skin it without being asked. What was kept
+  out of that PR: the family-shaded catalog colours and the folded
+  condition picker. If a re-skin is ever wanted, the mechanism that worked
+  was a second stylesheet redefining each page's existing token names
+  under `html[data-theme]` (it out-specifies `:root`, so the structure
+  re-skins with no rewrite); the trap is seat colours, which were chosen
+  for a dark page — Grok's #ECECEC vanishes on white. The revert also
+  fixed two fold bugs it had masked: a filter that missed a *picked* fold
+  closed it and clearing never brought it back, and `clear` left folds
+  hanging open. Both are pinned by the picker test now.
 - **VIEWER DEPLOYED 2026-09-07 (second pass) — viewer `b134752`, runner
   deliberately NOT touched** (PR #38 merged to main `4c5a951`: the two-axis
   picker, `link`/`json`, the phone headers, the rail gutter — all viewer).
