@@ -64,13 +64,7 @@
   }
 
   .wrap { display: flex; max-width: 72rem; margin: 0 auto; align-items: flex-start; }
-  main { flex: 1; min-width: 0; max-width: 46rem; margin: 1rem auto; padding: 1.2rem 1.4rem 5rem;
-    background: var(--panel); border: var(--border-w) solid var(--line); box-shadow: var(--shadow); position: relative; }
-  /* the pane's tiny title, the way scatter-lab labels a view */
-  main::before { content: 'transcript'; position: absolute; top: 0.45rem; left: 0.8rem; font-size: 0.6rem;
-    letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); opacity: 0.8; pointer-events: none; }
-  html[data-theme='terminal'] main::before { color: var(--accent); opacity: 0.55; }
-  html[data-theme='primary'] main::before { color: var(--p-black); font-weight: 700; letter-spacing: 0.1em; }
+  main { flex: 1; min-width: 0; max-width: 44rem; margin: 0 auto; padding: 1.5rem 1.2rem 6rem; }
   .msg { margin: 1.4rem 0; }
   .msg .who { font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; }
   .msg .body { white-space: pre-wrap; }
@@ -124,8 +118,8 @@
   /* Journals rail */
   #journals { width: 17rem; flex-shrink: 0; padding: 1.5rem 1rem; position: sticky; top: 3.2rem;
     max-height: calc(100vh - 3.2rem); overflow-y: auto; }
+  #journals h2 { font-size: 0.75rem; letter-spacing: 0.14em; color: var(--dim); font-weight: normal; text-transform: uppercase; }
   #journals details { border-bottom: 1px solid var(--line); padding: 0.4rem 0; }
-  #journals .panel > div > details:last-child { border-bottom: 0; }
   #journals summary { cursor: pointer; font-size: 0.85rem; letter-spacing: 0.05em; }
   #journals summary .count { color: var(--dim); font-size: 0.75rem; }
   /* Shared-files rail (F4½): one entry per file, CURRENT contents. */
@@ -280,8 +274,7 @@
   .pick { border: 1px solid var(--line); }
   .pick .search { display: flex; gap: 0.4rem; padding: 0.35rem; border-bottom: 1px solid var(--line); }
   .pick .search input { flex: 1; }
-  .pick .list { max-height: 11rem; overflow-y: auto; }
-  .pick .list { max-height: 15rem; }
+  .pick .list { max-height: 15rem; overflow-y: auto; }
   .pick details.grp summary { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.3rem 0.5rem; cursor: pointer;
     list-style: none; font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
     border-bottom: 1px solid var(--line); }
@@ -292,6 +285,8 @@
   .pick details.grp summary .picks { color: var(--accent); letter-spacing: 0.06em; }
   .pick details.grp summary .all { margin-left: auto; font-size: 0.66rem; padding: 0 0.4rem; letter-spacing: 0.08em; }
   .pick details.grp .item { padding-left: 1.1rem; }
+  .pick details.grp summary:hover { background: rgba(255,255,255,0.03); color: var(--text); }
+  .pick details.grp.has summary { color: var(--text); }
   .pick .item { display: flex; align-items: baseline; gap: 0.45rem; padding: 0.16rem 0.5rem; font-size: 0.85rem; }
   .pick .item:hover { background: rgba(255,255,255,0.03); }
   .pick .item.sel { background: rgba(111,206,111,0.08); }
@@ -335,13 +330,6 @@
   .runs a:hover { border-bottom-color: var(--accent); }
   .runs .agree { color: var(--accent); }
 </style>
-<link rel="stylesheet" href="./theme.css" />
-<!-- The theme before first paint: localStorage('room-theme'), default
-     terminal. Inline so there is no flash of the other theme. -->
-<script>
-  try { document.documentElement.dataset.theme = localStorage.getItem('room-theme') || 'terminal'; }
-  catch (e) { document.documentElement.dataset.theme = 'terminal'; }
-</script>
 </head>
 <body>
 <header>
@@ -367,9 +355,6 @@
     <span class="switch" id="zoom" title="text size">
       <a href="#" id="zoomOut" aria-label="Smaller text">−</a><a href="#" id="zoomIn" aria-label="Larger text">+</a>
     </span>
-    <span class="switch" id="themeSwitch" title="theme">
-      <a href="#" data-theme-pick="terminal">terminal</a><a href="#" data-theme-pick="primary">bauhaus</a>
-    </span>
   </span>
 </header>
 
@@ -382,9 +367,9 @@
 <div class="wrap">
   <main id="feed"></main>
   <aside id="journals">
-    <section class="panel" id="filesWrap" hidden><h2>shared files</h2><div id="fileList"></div></section>
-    <section class="panel" id="toolsWrap" hidden><h2>tool calls</h2><div id="toolList"></div></section>
-    <section class="panel" id="journalsWrap"><h2>journals</h2><div id="journalList"></div></section>
+    <div id="filesWrap" hidden><h2>shared files</h2><div id="fileList"></div></div>
+    <div id="toolsWrap" hidden><h2>tool calls</h2><div id="toolList"></div></div>
+    <h2>journals</h2><div id="journalList"></div>
   </aside>
 </div>
 
@@ -582,8 +567,7 @@ function render(e) {
     el.className = 'msg';
     el.innerHTML = `<div class="who"></div><div class="body"></div>`;
     el.querySelector('.who').textContent = e.agent_name;
-    el.querySelector('.who').classList.add('seat');
-    el.querySelector('.who').style.setProperty('--seat', colorOf(e.agent_id));
+    el.querySelector('.who').style.color = colorOf(e.agent_id);
     el.querySelector('.body').textContent = e.text;
     // Thinking precedes speech — the chevron sits between name and message.
     appendThinking(el, e, el.querySelector('.body'));
@@ -698,7 +682,7 @@ function render(e) {
       const tag = document.createElement('span');
       tag.className = 'tag';
       tag.textContent = silence === 'chosen' ? 'passed' : silence === 'error' ? 'failed' : 'no words';
-      if (silence === 'chosen') { tag.classList.add('seat'); tag.style.setProperty('--seat', colorOf(e.agent_id)); }
+      if (silence === 'chosen') tag.style.color = colorOf(e.agent_id);
       const line = document.createElement('span');
       line.textContent = e.text;
       el.append(tag, line);
@@ -861,8 +845,7 @@ function renderToolCall(e) {
     const summaryEl = document.createElement('summary');
     summaryEl.innerHTML = `<span></span> <span class="count"></span>`;
     summaryEl.querySelector('span').textContent = e.agent_name;
-    summaryEl.querySelector('span').classList.add('seat');
-    summaryEl.querySelector('span').style.setProperty('--seat', colorOf(e.agent_id));
+    summaryEl.querySelector('span').style.color = colorOf(e.agent_id);
     const body = document.createElement('div');
     details.append(summaryEl, body);
     toolList.appendChild(details);
@@ -929,8 +912,7 @@ function renderJournal(j) {
     const summaryEl = document.createElement('summary');
     summaryEl.innerHTML = `<span></span> <span class="count"></span>`;
     summaryEl.querySelector('span').textContent = j.agent_name;
-    summaryEl.querySelector('span').classList.add('seat');
-    summaryEl.querySelector('span').style.setProperty('--seat', colorOf(j.agent_id));
+    summaryEl.querySelector('span').style.color = colorOf(j.agent_id);
     const body = document.createElement('div');
     details.append(summaryEl, body);
     journalList.appendChild(details);
@@ -1839,16 +1821,21 @@ $('pickSearch').addEventListener('input', () => {
       any = any || hit;
     }
     grp.hidden = !any;
-    // A filter opens the folds it lands in; clearing it closes the ones
-    // with nothing picked, so the list folds back to the shape it had.
-    if (q) grp.open = any; else if (!grp.classList.contains('has')) grp.open = false;
+    // A filter opens the folds it lands in; clearing it restores the shape
+    // the list has when nothing is typed — open exactly where there are
+    // picks. (Not merely "close the empty ones": a filter that misses a
+    // PICKED fold closes it too, and that fold has to come back.)
+    grp.open = q ? any : grp.classList.contains('has');
   }
 });
 $('pickClear').onclick = () => {
   picked.clear();
   for (const cb of $('pickList').querySelectorAll('input')) cb.checked = false;
   for (const row of $('pickList').querySelectorAll('.item')) row.classList.remove('sel');
-  for (const grp of $('pickList').querySelectorAll('.grp')) refreshKind(grp);
+  // `clear` means back to the list's opening shape, so the folds close too.
+  // (refreshKind only ever OPENS — a fold the reader opened to browse must
+  // not snap shut under them just because they ticked nothing in it.)
+  for (const grp of $('pickList').querySelectorAll('.grp')) { refreshKind(grp); grp.open = false; }
   renderSeats().then(updateSummary);
 };
 
@@ -1906,8 +1893,7 @@ async function renderSeats() {
         const lab = document.createElement('label');
         lab.innerHTML = `<input type="checkbox" value="${a.id}" /> <span></span>`;
         lab.querySelector('span').textContent = a.name;
-        lab.querySelector('span').classList.add('seat');
-        lab.querySelector('span').style.setProperty('--seat', a.color);
+        lab.querySelector('span').style.color = a.color;
         lab.title = a.model || a.id;
         lab.querySelector('input').addEventListener('change', updateSummary);
         chips.appendChild(lab);
@@ -2252,21 +2238,6 @@ async function loadRuns(force) {
   catch (err) { $('runsSummary').textContent = err.message; }
 }
 $('runsRefresh').onclick = () => loadRuns(true);
-
-// ── Theme switch ───────────────────────────────────────────────────────────
-// scatter-lab's two themes (theme.css). Applied before paint by the <head>
-// script; this keeps the switch in step and remembers the choice.
-{
-  const apply = (t) => {
-    document.documentElement.dataset.theme = t;
-    for (const a of document.querySelectorAll('[data-theme-pick]')) a.classList.toggle('on', a.dataset.themePick === t);
-    try { localStorage.setItem('room-theme', t); } catch {}
-  };
-  for (const a of document.querySelectorAll('[data-theme-pick]')) {
-    a.addEventListener('click', (e) => { e.preventDefault(); apply(a.dataset.themePick); });
-  }
-  apply(document.documentElement.dataset.theme || 'terminal');
-}
 </script>
 </body>
 </html>
