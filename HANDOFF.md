@@ -98,6 +98,14 @@ credential follow-up it leaves).
   fixed two fold bugs it had masked: a filter that missed a *picked* fold
   closed it and clearing never brought it back, and `clear` left folds
   hanging open. Both are pinned by the picker test now.
+- **VIEWER DEPLOYED 2026-09-13 — viewer `5c86746`, runner deliberately NOT
+  touched.** `HF_TOKEN=… ./deploy/deploy.sh brick-factorial viewer`. Ships
+  the themes revert, the folded condition picker and the family-shaded
+  catalog. Verified on the live Space: all three pages 200 with zero theme
+  references, `theme.css` 404 (it never reached the Space), index.html
+  carries the folds, catalog.json carries the shades. **The token used for
+  this and the 2026-09-07 deploy still needs rotating** — it was pasted in
+  chat and is therefore burned.
 - **VIEWER DEPLOYED 2026-09-07 (second pass) — viewer `b134752`, runner
   deliberately NOT touched** (PR #38 merged to main `4c5a951`: the two-axis
   picker, `link`/`json`, the phone headers, the rail gutter — all viewer).
