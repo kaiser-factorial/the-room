@@ -21,6 +21,7 @@ import { pathToFileURL } from 'node:url';
 import './env.js';
 import { cosine, centroid, embedAll, type Vec } from './embeddings.js';
 import type { RoomEvent } from './types.js';
+import { styleFeatures, earlyLateAccuracy, eligible, isContentWord } from './authorship.js';
 
 const TRIM_ROUNDS = 2;      // final rounds dropped from the late window
 const WINDOW_ROUNDS = 10;   // early/late window width (halves if session is short)
@@ -291,8 +292,14 @@ export function permutationNull(ems: EmbeddedMsg[], win: Windows, observed: numb
     const g = gapOf(permuted, win);
     if (g !== null) nulls.push(g);
   }
+  return summarizeNull(nulls, observed);
+}
+
+/** Band, percentile and two-sided add-one p for an observed statistic
+ *  against its permutation draws. Shared by every permutation null here. */
+export function summarizeNull(nulls: number[], observed: number) {
   if (!nulls.length) return null;
-  nulls.sort((a, b) => a - b);
+  nulls = [...nulls].sort((a, b) => a - b);
   const q = (p: number) => nulls[Math.min(nulls.length - 1, Math.floor(p * nulls.length))];
   // The null is NOT zero-centered (window structure biases the gap even
   // without temporal order), so the test is positional: two-sided p from
@@ -306,6 +313,54 @@ export function permutationNull(ems: EmbeddedMsg[], win: Windows, observed: numb
     hi95: round4(q(0.975)),
     percentile: round4(below / nulls.length),
     p: round4(Math.min(1, (2 * Math.min(below + 1, above + 1)) / (nulls.length + 1))),
+  };
+}
+
+/** Shuffle each agent's round labels among its own messages (the null
+ *  every instrument here shares), returning the permuted round array. */
+function shuffleRoundsWithinAgent(agentIds: string[], rounds: number[], rng: () => number): number[] {
+  const out = [...rounds];
+  const byAgent = new Map<string, number[]>();
+  agentIds.forEach((a, i) => (byAgent.get(a) ?? byAgent.set(a, []).get(a)!).push(i));
+  for (const idx of byAgent.values()) {
+    for (let k = idx.length - 1; k > 0; k--) {
+      const j = Math.floor(rng() * (k + 1));
+      [out[idx[k]], out[idx[j]]] = [out[idx[j]], out[idx[k]]];
+    }
+  }
+  return out;
+}
+
+// ── Style authorship (§2.2, content-blind) ─────────────────────────────────
+// A softmax-regression classifier on function-word / punctuation / shape
+// features (src/authorship.ts): trained on the early window, tested on the
+// late one. Late accuracy near chance = voices merged; the round-shuffle
+// null says whether it fell further than a same-n classifier's noise.
+// Read `percentile`: LOW = drifted over time, HIGH = more separable late.
+
+const CLF_PERMUTATIONS = Number(process.env.ROOM_CLF_PERMS) > 0 ? Number(process.env.ROOM_CLF_PERMS) : 200;
+
+export function styleAuthorship(msgs: Msg[], win: Windows) {
+  const { msgs: ms, agents } = eligible(msgs, win.early, win.late);
+  if (agents.length < 3) return null;
+  const feats = ms.map((m) => styleFeatures(m.text));
+  const ids = ms.map((m) => m.agentId);
+  const rounds = ms.map((m) => m.round);
+  const obs = earlyLateAccuracy(feats, ids, rounds, win.early, win.late, agents);
+  if (!obs) return null;
+  const rng = mulberry32(0x766f6963); // 'voic'
+  const nulls: number[] = [];
+  for (let i = 0; i < CLF_PERMUTATIONS; i++) {
+    const r = earlyLateAccuracy(feats, ids, shuffleRoundsWithinAgent(ids, rounds, rng), win.early, win.late, agents);
+    if (r) nulls.push(r.accuracy);
+  }
+  return {
+    agents,
+    nEarly: obs.nEarly, nLate: obs.nLate,
+    chance: round4(1 / agents.length),
+    lateAccuracy: round4(obs.accuracy),
+    perAgentRecall: Object.fromEntries(Object.entries(obs.perAgent).map(([a, v]) => [a, round4(v)])),
+    null: summarizeNull(nulls, obs.accuracy),
   };
 }
 
@@ -408,6 +463,65 @@ export function mimicry(msgs: Msg[]) {
       .sort((a, b) => b[1].adopters.size - a[1].adopters.size || a[1].round - b[1].round || b[0].length - a[0].length)
       .slice(0, 40)
       .map(([g, e]) => ({ ngram: g, coinedBy: e.agentId, round: e.round, adopters: [...e.adopters] })),
+    influence,
+  };
+}
+
+// ── Room culture (§2.2, tightened mimicry) ─────────────────────────────────
+// `mimicry` above counts every novel n-gram with one adopter, which lets
+// "and then the" through and ranks noise beside coinage. This keeps the
+// birth-time / spread machinery and adds two filters: the n-gram must
+// carry at least one content word, and at least MIN_ADOPTERS OTHER agents
+// must have used it. The result reads like a room's shared props ("the
+// pantry", "averted vision", "good room"). No word-count floor: the
+// two-word sign-offs are exactly the callbacks this is for.
+
+const MIN_ADOPTERS = 2;
+
+export function roomCulture(msgs: Msg[]) {
+  const seed = new Set<string>();
+  for (const m of msgs) if (m.round <= SEED_ROUNDS) for (const g of ngramsOf(m.text)) seed.add(g);
+  const first = new Map<string, { round: number; agentId: string; adopters: Set<string>; uses: number }>();
+  for (const m of [...msgs].sort((a, b) => a.round - b.round || a.ts.localeCompare(b.ts))) {
+    if (m.round <= SEED_ROUNDS) continue;
+    for (const g of ngramsOf(m.text)) {
+      if (seed.has(g) || !g.split(' ').some(isContentWord)) continue;
+      const e = first.get(g);
+      if (!e) first.set(g, { round: m.round, agentId: m.agentId, adopters: new Set(), uses: 0 });
+      else { e.uses++; if (e.agentId !== m.agentId) e.adopters.add(m.agentId); }
+    }
+  }
+  const shared = [...first.entries()].filter(([, e]) => e.adopters.size >= MIN_ADOPTERS);
+  // Dedup by WORD containment, widest spread first (ties: longer first).
+  // Not longest-first as in `mimicry`: "good room thanks all" (2 adopters)
+  // must not swallow "good room" (4). A phrase is dropped when it contains
+  // or is contained in an already-kept phrase, which by construction has
+  // at least its spread.
+  const related = (a: string, b: string) => ` ${a} `.includes(` ${b} `) || ` ${b} `.includes(` ${a} `);
+  const kept: typeof shared = [];
+  for (const item of shared.sort((a, b) => b[1].adopters.size - a[1].adopters.size || b[0].length - a[0].length)) {
+    if (!kept.some(([g]) => related(g, item[0]))) kept.push(item);
+  }
+  kept.sort((a, b) => b[1].adopters.size - a[1].adopters.size || a[1].round - b[1].round || b[0].length - a[0].length);
+  const influence: Record<string, { coined: number; adopted: number }> = {};
+  for (const [, e] of kept) {
+    influence[e.agentId] = influence[e.agentId] ?? { coined: 0, adopted: 0 };
+    influence[e.agentId].coined++;
+    for (const a of e.adopters) {
+      influence[a] = influence[a] ?? { coined: 0, adopted: 0 };
+      influence[a].adopted++;
+    }
+  }
+  const n = Math.max(1, msgs.length);
+  return {
+    minAdopters: MIN_ADOPTERS,
+    count: kept.length,
+    per100Messages: round2(100 * kept.length / n),
+    wide: kept.filter(([, e]) => e.adopters.size >= 3).length,
+    reuseEvents: kept.reduce((a, [, e]) => a + e.uses, 0),
+    // Birth rounds are left-censored by the seed window: a pile-up at
+    // SEED_ROUNDS+1 is partly the cutoff, not a burst of invention.
+    phrases: kept.slice(0, 40).map(([g, e]) => ({ ngram: g, coinedBy: e.agentId, round: e.round, adopters: [...e.adopters].sort(), uses: e.uses })),
     influence,
   };
 }
@@ -850,6 +964,11 @@ export async function analyzeSession(dir: string) {
       }];
     })),
     mimicry: mimicry(s.msgs),
+    // 2026-09-16: the two content-blind instruments. `culture` is mimicry
+    // with a content-word and >=2-adopter filter; `styleAuthorship` is the
+    // early->late voice classifier (null if <3 agents clear the floors).
+    culture: roomCulture(s.msgs),
+    styleAuthorship: styleAuthorship(s.msgs, win),
     // Present only in sessions that used tools — every pre-F4½ session's
     // metrics.json keeps its exact shape.
     ...(s.actions.length ? { toolUse: toolUse(s.actions, s.msgs, agents) } : {}),
