@@ -1145,8 +1145,8 @@ The rules the rooms keep, each pinned by `tests/family.test.ts`:
   orange, every Gemini some blue, every Qwen a purple, Grok greys,
   DeepSeek indigos, Seed cyans (Corina 2026-09-07) — so a mixed room still
   reads by family at a glance and a family room still tells its seats
-  apart. Every shade reads as text on the dark theme; the Bauhaus theme
-  shows them as swatches. The viewer takes colours from the session's
+  apart. Every shade is picked to read as text on the viewer's dark
+  page. The viewer takes colours from the session's
   meta, so a seat its hardcoded catalog has never heard of still renders
   in its own.
 - **Grok siblings stay on OpenRouter** even with `XAI_API_KEY` set. The
@@ -1518,31 +1518,38 @@ marked). Search/run details also appear behind feed chevrons like
 traces; `config` changes render as feed asides. Each rail stays hidden
 in sessions that don't use it.
 
-### Two themes, from scatter-lab
+### The condition picker folds by kind
 
-The viewer wears scatter-lab's two themes (`viewer/theme.css`, ported from
-that project's `globals.css` and the `ccru` terminal containers it wraps;
-Corina 2026-09-07). **Terminal** is the default: near-black, JetBrains
-Mono, panels as thin green-bordered containers with a tracked uppercase
-title bar and a green glow. **Bauhaus** (scatter-lab's own default):
-off-white, Courier Prime, 3px black boxes with a hard offset shadow,
-uppercase section headers that go yellow on hover, red / blue / yellow
-markers. The switch sits in every header; the choice is remembered per
-browser (`room-theme`) and applied by an inline `<head>` script before
-first paint, so there is no flash of the other theme. The transcript
-itself is monospace in both (Corina's call: a true match over a faster
-read), at 14px on a 46rem column.
+The picker's condition list had grown to 39 flat rows, so it is grouped
+into seven folds — chat, search, tools, broadcast, site, project, family
+(Corina 2026-09-07: "all the site variants under one control"). Each fold
+header carries its count, the names picked inside it, and an `all` button
+that ticks or unticks every member, so a batch across all seven site arms
+is one click. A fold opens when something in it is picked; the filter box
+opens the folds it lands in, matching a condition name or a kind name.
 
-How it is wired, for the next change: every page keeps its structural CSS
-and its old token names (`--bg`, `--panel`, `--text`, `--dim`, `--line`,
-`--accent`); `theme.css` loads after it and redefines those tokens per
-theme on `html[data-theme]`, which out-specifies `:root`, so the structure
-re-skins without a rewrite. Rails, cards and the admin dialog carry
-`.panel` (a titled section in each theme's chrome). Seat colours were
-chosen for a dark page, so pages set them as `--seat` on the element with
-class `seat` rather than as `color`; the terminal colours the text, the
-Bauhaus prints black text beside a bordered colour swatch. A test pins
-that no page sets a seat colour as `color` again.
+`KINDS` in `viewer/index.html` lists the members of the four folds whose
+names don't share a prefix; `site`, `project` and `family` are matched by
+prefix, so a new `site-*` condition joins its fold with no edit. A test
+walks every condition the picker offers and fails if one would land in a
+nameless `other` fold.
+
+Two rules keep the open/closed state honest, both of them bugs first:
+clearing the filter restores "open exactly where there are picks" rather
+than merely closing the empty folds (a filter that misses a *picked* fold
+closes it too, and it has to come back), and `clear` closes every fold,
+since it means back to the list's opening shape. `refreshKind` itself only
+ever opens — a fold the reader opened to browse must not snap shut under
+them because they ticked nothing in it.
+
+A note for anyone reaching for a redesign: the viewer was briefly given
+two switchable themes ported from scatter-lab, and they were reverted
+before deploy (Corina 2026-09-13: "we can keep the original theme"). The
+page's own dark serif styling is the design. If a re-skin ever is wanted,
+the mechanism that worked was a second stylesheet redefining each page's
+existing token names (`--bg`, `--panel`, `--text`, `--dim`, `--line`,
+`--accent`) under `html[data-theme]`, which out-specifies `:root` and
+re-skins the structure without a rewrite.
 
 ### A room, portable: `link` and `json`
 

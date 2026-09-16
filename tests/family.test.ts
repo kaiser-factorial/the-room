@@ -34,7 +34,10 @@ test('catalog: the roster comes first, and no id or slug is seated twice', () =>
 });
 
 test('every condition file resolves to a room of at least two distinct seats', () => {
-  for (const name of listConditions()) {
+  // The picker is built from conditionEntries() — listConditions() plus the
+  // synthesised 'control' baseline, which has no file of its own.
+  const offered = conditionEntries().map((c) => c.name);
+  for (const name of offered) {
     const c = resolveCondition(name);
     assert.ok(c.agents.length >= 2, name);
     const ids = c.agents.map((a) => a.id);
@@ -124,21 +127,42 @@ test('catalog.json: every seat, one family each, families in roster order', () =
   assert.deepEqual(opus, ['Opus 4', 'Opus 4.1', 'Opus 4.5', 'Opus 4.6', 'Opus 4.7', 'Opus 4.8', 'Opus 5']);
 });
 
-test('the viewer pages share theme.css, apply the theme before paint, and the deploy ships it', () => {
+test('the condition picker folds every condition into a named kind', () => {
   const { readFileSync: read } = require('node:fs');
-  const css = read(join(process.cwd(), 'viewer', 'theme.css'), 'utf8');
-  assert.match(css, /html\[data-theme='terminal'\]/);
-  assert.match(css, /html\[data-theme='primary'\]/);
-  for (const page of ['index', 'site', 'made']) {
-    const html = read(join(process.cwd(), 'viewer', `${page}.html`), 'utf8');
-    assert.match(html, /<link rel="stylesheet" href="\.\/theme\.css" \/>/, `${page}: links theme.css`);
-    assert.match(html, /localStorage\.getItem\('room-theme'\) \|\| 'terminal'/, `${page}: sets the theme before paint`);
-    assert.match(html, /data-theme-pick="primary"/, `${page}: has the switch`);
-    // Seat colours must ride --seat, never `color`, or the Bauhaus theme
-    // loses the pale seats (Grok is #ECECEC on a white page).
-    assert.ok(!/style\.color = colorOf\(/.test(html), `${page}: a seat colour set as color, not --seat`);
+  const html = read(join(process.cwd(), 'viewer', 'index.html'), 'utf8');
+  // The picker's KINDS table, read out of the page. Conditions not listed
+  // explicitly fall into the group their name is prefixed with (site-open →
+  // site); anything matching neither would land in a nameless 'other' fold,
+  // which is the case this test is here to catch when a condition is added.
+  const table = html.match(/const KINDS = \[([\s\S]*?)\n\];/);
+  assert.ok(table, 'index.html no longer declares the picker KINDS table');
+  const kinds = [...table[1].matchAll(/\['([a-z-]+)',\s*\[([^\]]*)\]\]/g)]
+    .map(([, kind, members]) => ({
+      kind,
+      members: [...members.matchAll(/'([^']+)'/g)].map(([, n]) => n),
+    }));
+  const named = new Set(kinds.flatMap((k) => k.members));
+  const prefixes = new Set(kinds.map((k) => k.kind));
+  // The picker is built from conditionEntries() — listConditions() plus the
+  // synthesised 'control' baseline, which has no file of its own.
+  const offered = conditionEntries().map((c) => c.name);
+  for (const name of offered) {
+    assert.ok(
+      named.has(name) || prefixes.has(name.split('-')[0]),
+      `condition '${name}' has no picker fold — add it to KINDS in viewer/index.html`,
+    );
   }
-  assert.match(read(join(process.cwd(), 'deploy', 'deploy.sh'), 'utf8'), /theme\.css/);
+  // A member listed in the table that no longer exists is equally wrong: the
+  // fold would advertise a count the list cannot fill.
+  const all = new Set(offered);
+  for (const n of named) assert.ok(all.has(n), `KINDS lists '${n}', which is not a condition`);
+  // The theme experiment was reverted (Corina 2026-09-13) — the pages carry
+  // no stylesheet of their own and no theme switch.
+  for (const page of ['index', 'site', 'made']) {
+    const h = read(join(process.cwd(), 'viewer', `${page}.html`), 'utf8');
+    assert.ok(!/theme\.css/.test(h), `${page}: still links theme.css`);
+    assert.ok(!/data-theme-pick/.test(h), `${page}: still has the theme switch`);
+  }
 });
 
 test('countMentions: a shared first word names nobody; full names still reach each sibling', () => {

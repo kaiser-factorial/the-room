@@ -149,13 +149,6 @@
   .run.refused pre.out { border-left-color: var(--warn); color: var(--dim); }
   img.artifact { max-width: 100%; display: block; margin: 1rem 1.1rem; border: 1px solid var(--line); }
 </style>
-<link rel="stylesheet" href="./theme.css" />
-<!-- The theme before first paint: localStorage('room-theme'), default
-     terminal. Inline so there is no flash of the other theme. -->
-<script>
-  try { document.documentElement.dataset.theme = localStorage.getItem('room-theme') || 'terminal'; }
-  catch (e) { document.documentElement.dataset.theme = 'terminal'; }
-</script>
 </head>
 <body>
 
@@ -172,9 +165,6 @@
     <select id="arm" hidden></select>
     <span class="switch" id="views" hidden>
       <a id="toChat" href="./index.html">chat</a><a id="toSite" href="./site.html">site</a><a class="on" href="#">made</a>
-    </span>
-    <span class="switch" id="themeSwitch" title="theme">
-      <a href="#" data-theme-pick="terminal">terminal</a><a href="#" data-theme-pick="primary">bauhaus</a>
     </span>
   </span>
 </header>
@@ -639,7 +629,7 @@ async function drawPane() {
 
   const who = el('span');
   const name = el('b', null, row.agent_name || '—');
-  name.classList.add('seat'); name.style.setProperty('--seat', colorOf(row.agent_id));
+  name.style.color = colorOf(row.agent_id);
   name.style.fontWeight = 'normal';
   who.append(name, ` · round ${row.round} · ${fmtTime(row.ts)}`);
   head.appendChild(who);
@@ -712,7 +702,7 @@ function drawRuns() {
     const box = el('div', 'run' + (p.denied ? ' refused' : ''));
     const who = el('div', 'who');
     const name = el('b', null, r.agent_name || '—');
-    name.classList.add('seat'); name.style.setProperty('--seat', colorOf(r.agent_id));
+    name.style.color = colorOf(r.agent_id);
     // Spans, not bare text: the row is a flex box, and its `gap` does not
     // apply to text nodes — "round 3" and the timestamp ran together into
     // "round 38/30/2026".
@@ -929,21 +919,6 @@ try {
   };
   more.addEventListener('click', () => setTools(!header.classList.contains('open')));
   try { if (localStorage.getItem('room-tools-open') === '1') setTools(true); } catch {}
-}
-
-// ── Theme switch ───────────────────────────────────────────────────────────
-// scatter-lab's two themes (theme.css). Applied before paint by the <head>
-// script; this keeps the switch in step and remembers the choice.
-{
-  const apply = (t) => {
-    document.documentElement.dataset.theme = t;
-    for (const a of document.querySelectorAll('[data-theme-pick]')) a.classList.toggle('on', a.dataset.themePick === t);
-    try { localStorage.setItem('room-theme', t); } catch {}
-  };
-  for (const a of document.querySelectorAll('[data-theme-pick]')) {
-    a.addEventListener('click', (e) => { e.preventDefault(); apply(a.dataset.themePick); });
-  }
-  apply(document.documentElement.dataset.theme || 'terminal');
 }
 </script>
 </body>

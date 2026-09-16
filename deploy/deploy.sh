@@ -25,8 +25,6 @@ if [[ $TARGET == all || $TARGET == viewer ]]; then
   cp viewer/site.html "$STAGE/viewer/site.html"
   # §9.9/§9.11: everything every room made — pages, files, code output.
   cp viewer/made.html "$STAGE/viewer/made.html"
-  # The two scatter-lab themes, shared by all three pages.
-  cp viewer/theme.css "$STAGE/viewer/theme.css"
   npx tsx src/conditions-info.ts > "$STAGE/viewer/conditions.json"
   # The whole seat catalog, by family, for the picker's seats axis.
   npx tsx src/catalog-info.ts > "$STAGE/viewer/catalog.json"
