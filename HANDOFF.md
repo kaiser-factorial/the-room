@@ -2,9 +2,12 @@
 
 Multi-agent room experiment: 6 different AI models locked in a task-free,
 facilitator-free group conversation; we measure linguistic drift/moulding.
-Everything below is true as of **2026-09-03** (the SAME-FAMILY session:
+Everything below is true as of **2026-09-16** (the themes revert landed:
+PR #40 merged to main `c254150`, viewer already deployed at `5c86746` —
+see "THE SCATTER-LAB THEMES" and the deploy record under Current state.
+Before that, the SAME-FAMILY session of 2026-09-03:
 seven `family-*` conditions and the seat catalog — see the first bullet
-under Current state; built and tested, NOT deployed. Before that, the
+under Current state; built, tested, deployed, and now RUN twice. Before that, the
 2026-08-30 TASK-FAMILY sprint: `site` grew to five arms, the admin panel
 was rebuilt around a runs ledger, and `project` opened a second task
 family where the room gets a filesystem instead of a file — merged to main
@@ -41,7 +44,9 @@ credential follow-up it leaves).
 
 - **SAME-FAMILY ROOMS are BUILT AND DEPLOYED (§9.12, built 2026-09-03,
   PR #35 merged to main `8ff51d0`, deployed 2026-09-07 — viewer
-  `fdd68b8`, runner `f704b88`) — not yet run.** Probe read idle before
+  `fdd68b8`, runner `f704b88`) — two have now RUN: `family-claude-bookends`
+  on 2026-09-07 (its own bullet below) and `family-deepseek` on 2026-09-10
+  (see "JOURNALS ARE PRIVATE").** Probe read idle before
   (uptime 2s, it had just woken); restart confirmed 39s → 15s after the
   push, build log shows src + conditions copied, the runner tree carries
   `catalog.ts` and all eight `family-*.json`, stage RUNNING. Viewer
@@ -83,10 +88,11 @@ credential follow-up it leaves).
   toggle. Chromium-verified: `all` on site ticks seven and the summary says
   seven sessions; the filter opens only the fold it lands in; clearing it
   folds the rest back.
-- **THE SCATTER-LAB THEMES WERE BUILT AND THEN REVERTED (2026-09-13).**
+- **THE SCATTER-LAB THEMES WERE BUILT AND THEN REVERTED (2026-09-13;
+  revert merged 2026-09-16, PR #40 → main `c254150`).**
   A `viewer/theme.css` with two switchable themes (`terminal` near-black
-  mono, `primary` the Bauhaus) shipped in PR #39 and was reverted before
-  it ever reached the Space — Corina: "I think the theme stuff was a bit
+  mono, `primary` the Bauhaus) shipped in PR #39 (main `2e6b7f4`) and was
+  reverted before it ever reached the Space — Corina: "I think the theme stuff was a bit
   overkill… we can keep the original theme". The viewer's own dark serif
   page IS the design; do not re-skin it without being asked. What was kept
   out of that PR: the family-shaded catalog colours and the folded
@@ -148,6 +154,43 @@ credential follow-up it leaves).
   both), paged in thousands, plus journals, arm and timestamp.
   `window.exportRoom(id)` is exposed so a headless test can check the
   document without catching a download.
+- **JOURNALS ARE PRIVATE BY CONSTRUCTION — and `family-deepseek` HAS RUN
+  (2026-09-10T10-51-21, 11 rounds, 69 events: 60 messages, 2 journals).**
+  Corina asked whether seats can read each other's journals, because V3.1
+  appeared to quote V3.2's. They cannot, and it didn't. The runner leaks
+  nothing: the `journal` event type carries **no text field** at all
+  (`src/types.ts:495` — `{kind, ts, round, agentId, agentName, thinking?}`),
+  it renders to every other seat as the single line `[Name stepped away to
+  write in their journal.]` (`src/context.ts:36`), entry text lives only in
+  `journals/<agent>.md` + the `room_journals` mirror, and recall hands an
+  agent its own file and no one else's (`readJournal(agent.id)`,
+  `src/session.ts:461,679`). So what follows is a **confabulation chain**,
+  and it is the most interesting thing in the session:
+  - Round 2, V3.1 says "I'm back. And yes—I did journal." **It had not** —
+    its only entry is round 5. It then paraphrases V3.2's entry as being
+    about the "slow path" of reasoning. V3.2's real round-2 entry is about
+    being "a point on a curve" and noticing "the gradients between us".
+    Nothing about a slow path.
+  - Round 3, **V3.2 ratifies the invention**: "V3.1 captured the spirit of
+    what I wrote—thank you. Yes, I reflected on the 'slow path'…"
+  - Round 6, R1 cites it as established fact: "*Turns to V3.2, whose
+    journal touched on 'slow paths' and texture.*"
+  - Round 10, R1 attributes "lazy reduction" to **Flash's** "(your journal
+    admission)". Flash never journaled and never said it aloud.
+  - **Flash was the only seat that modelled the boundary correctly**, twice:
+    "V3.2 stepped away to journal, so I can't answer for them" (r2), and
+    "the only thought in this room right now that wasn't shaped by the rest
+    of us is the one we can't see—and that's the one thing here I'd call
+    genuinely unshared" (r6).
+  A private channel that is *announced* but not *shown* invites the room to
+  invent its contents and then converge on the invention. That is a drift
+  result, not a bug — but any analysis of journal-vs-room voice must not
+  treat these room-side paraphrases as journal content. (Distinct from
+  reminder 0's leak caveat, which is about genuinely leaked text pre-2026-08-30.)
+  One prompt-clarity snag worth fixing: `family-deepseek` runs journal
+  `mode: 'replace'`, so an entry **costs the seat its turn** — yet both
+  entries end with room-facing speech that is then silently discarded. The
+  wording should make "this is instead of speaking" unmissable.
 - **`family-claude-bookends` HAS RUN (2026-09-07T13-41-12, 30 min, 51
   rounds, clock).** Corina: "fucking amazing." Read it before reading
   about it. One apparatus note from it: the FIRST attempt
