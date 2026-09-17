@@ -88,7 +88,9 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   // wholesale when the artifact they were about changes. `ending` records
   // WHY the session stopped, which is the axis's headline result.
   const done = new Set<string>();
-  let ending: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile' | undefined;
+  let ending: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile' | 'errors' | undefined;
+  const ERROR_STOP_ROUNDS = 2;
+  const ERROR_STOP_FRACTION = 0.5;
   const standingNames = () =>
     config.agents.filter((a) => done.has(a.id)).map((a) => a.name);
   /** Record one vote (raise or withdraw) and move the standing set. Shared
@@ -567,9 +569,19 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
   // the body, after the break: a round that never opened is not a round.
   let roundsRun = 0;
 
+  // Error stop (2026-09-16). A room whose seats cannot speak is not a
+  // room: 2026-09-17T01-18-38 ran 95 rounds of OpenRouter 402s (no
+  // credits) after its sixth real round, and 2026-09-17T01-36-33 thirty
+  // rounds of nothing else. When at least ERROR_STOP_FRACTION of the seats
+  // offered a turn fail in each of ERROR_STOP_ROUNDS consecutive rounds,
+  // the session ends with `ending: 'errors'`. Seats that pass, starve or
+  // speak are fine; only adapter failures ("could not speak") count.
+  const errorRounds: boolean[] = [];
+
   for (let round = 1; round <= config.maxRounds; round++) {
     if (stopping || existsSync(stopFile) || Date.now() >= endAt) break;
     roundsRun = round;
+    let offered = 0, errored = 0;
 
     if (roundsUntilShuffle <= 0 || order.length === 0) {
       order = shuffledOrder(config.agents, previousLast);
@@ -602,6 +614,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
       if (stopping || existsSync(stopFile)) { roundComplete = false; break; }
       if (Date.now() >= endAt) { roundComplete = false; break; }
       const minutesRemaining = Math.ceil((endAt - Date.now()) / 60_000);
+      offered++;
 
       // ── The turn (F4¾) ───────────────────────────────────────────────
       // One turn is a LOOP over model calls. It ends the moment the agent
@@ -943,7 +956,7 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
         }
       }
 
-      if (failed) continue;
+      if (failed) { errored++; continue; }
 
       previousLast = agent.id;
       await maybeSummarize(round);
@@ -956,6 +969,16 @@ export async function runSession(config: RoomConfig, onHandle?: (h: SessionHandl
     // the count — is heard before the room closes. What ends the session is
     // therefore a state the room HELD for a whole round, not a race won by
     // whoever spoke last.
+    errorRounds.push(offered > 0 && errored / offered >= ERROR_STOP_FRACTION);
+    if (errorRounds.length >= ERROR_STOP_ROUNDS && errorRounds.slice(-ERROR_STOP_ROUNDS).every(Boolean)) {
+      ending = 'errors';
+      record({
+        kind: 'system', ts: now(), round,
+        text: `The session stopped: ${errored} of ${offered} seats could not speak this round, the ${ERROR_STOP_ROUNDS}th such round in a row.`,
+      });
+      break;
+    }
+
     if (roundComplete && agreementReached()) {
       ending = 'agreement';
       record({

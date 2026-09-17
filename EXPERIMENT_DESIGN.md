@@ -81,6 +81,26 @@ Cheap, interpretable, computed per agent per round-window:
   first ~5 rounds that later appear across ≥2 speakers. Gives "inside
   references" a birth time and a spread graph. Directionality (who coined it,
   who adopted it) yields an influence network.
+  *2026-09-16: `metrics.json` carries two versions. `mimicry` is the
+  original (any n-gram, ≥1 adopter). `culture` is the tightened one: the
+  n-gram must contain a content word and be used by ≥2 OTHER agents, with
+  dedup widest-spread-first so "good room" (4 adopters) is not swallowed
+  by "good room thanks all" (2). Reports count, per-100-messages, `wide`
+  (≥3 adopters) and re-use events, so rooms are comparable.*
+- **style authorship (content-blind)**: the embedding gap runs on a
+  retrieval embedding and mostly sees topic. `styleAuthorship` trains a
+  softmax classifier on function-word / punctuation / shape features
+  (`src/authorship.ts`) in the early window and tests it on the late one.
+  Late accuracy near chance = voices merged; the round-shuffle null
+  (`null.percentile` LOW = drifted over time, HIGH = more separable late)
+  says whether the fall beats same-n classifier noise. Null if fewer than
+  3 agents have ≥3 usable (≥15-word, untruncated) messages in both
+  windows. Python prototype over 33 hosted sessions (2026-09-16; the TS
+  port matches within a few points on the sessions checked): late accuracy
+  ~0.55 vs chance ~0.19, function-word divergence RISING in 29/33 — voices
+  stay distinct on this layer; the shared lexicon (`culture`) is where the
+  room-feel lives. Same-lineage family rooms are the exception and converge
+  on both layers.
 
 ### 2.3 Journal metrics
 

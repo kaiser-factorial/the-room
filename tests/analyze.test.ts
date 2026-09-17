@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadSession, windowsOf, mimicry, styleOf, styleRetention, addressMatrix } from '../src/analyze.js';
+import { loadSession, windowsOf, mimicry, roomCulture, styleAuthorship, styleOf, styleRetention, addressMatrix } from '../src/analyze.js';
 import { syntheticSession, msg, AGENTS } from './helpers.js';
 
 // ── windowsOf boundaries ───────────────────────────────────────────────────
@@ -105,6 +105,92 @@ test('boundary: dedup must not swallow a phrase that is a SUBSTRING of another',
   const m = mimicry(s.msgs);
   const exact = m.sharedNgrams.find((g) => g.ngram === 'the storm cloud');
   assert.ok(exact, '"the storm cloud" was wrongly deduped away by substring containment');
+});
+
+// ── roomCulture (tightened mimicry) ────────────────────────────────────────
+
+test('roomCulture: needs a content word and two OTHER adopters; keeps two-word sign-offs', () => {
+  const dir = syntheticSession({
+    events: [
+      msg(1, 'alpha', 'ordinary opening words here'),
+      msg(1, 'beta', 'different ordinary words'),
+      // pure function-word n-gram, spread across everyone — must be excluded
+      msg(6, 'alpha', 'and then the wind came'),
+      msg(7, 'beta', 'and then the rain'),
+      msg(8, 'gamma', 'and then the quiet'),
+      // one adopter only — mimicry would count it, roomCulture must not
+      msg(6, 'beta', 'the copper kettle sings'),
+      msg(7, 'gamma', 'the copper kettle again'),
+      // the user's case: a two-word sign-off with no floor on message length
+      msg(9, 'alpha', 'Good room.'),
+      msg(10, 'beta', 'good room, all'),
+      msg(10, 'gamma', 'Good room'),
+    ],
+  });
+  const c = roomCulture(loadSession(dir).msgs);
+  const grams = c.phrases.map((p) => p.ngram);
+  assert.ok(grams.includes('good room'), `"good room" missing from ${JSON.stringify(grams)}`);
+  const gr = c.phrases.find((p) => p.ngram === 'good room')!;
+  assert.equal(gr.coinedBy, 'alpha');
+  assert.deepEqual(gr.adopters, ['beta', 'gamma']);
+  assert.ok(!grams.some((g) => g.includes('and then the')), 'function-word-only n-gram leaked through');
+  assert.ok(!grams.some((g) => g.includes('copper kettle')), 'single-adopter phrase leaked through');
+  assert.equal(c.count, 1);
+  assert.equal(c.influence.alpha.coined, 1);
+  assert.equal(c.influence.beta.adopted, 1);
+});
+
+test('roomCulture: dedup is widest-spread first, so a longer phrase cannot swallow a wider short one', () => {
+  const dir = syntheticSession({
+    events: [
+      msg(1, 'alpha', 'seed round text'),
+      msg(6, 'alpha', 'good room thanks all'),
+      msg(7, 'beta', 'good room thanks all'),
+      msg(8, 'gamma', 'good room thanks all'),  // "good room thanks all": 2 adopters
+      msg(9, 'beta', 'good room'),
+      msg(10, 'gamma', 'good room'),
+      msg(11, 'alpha', 'good room'),            // "good room": also 2 adopters, tie → longer kept
+    ],
+  });
+  const c = roomCulture(loadSession(dir).msgs);
+  assert.deepEqual(c.phrases.map((p) => p.ngram), ['good room thanks all']);
+});
+
+// ── styleAuthorship ────────────────────────────────────────────────────────
+
+/** Three voices that differ only in function-word habit; content words are
+ *  drawn from one shared pool so an embedding could not separate them. */
+function voiced(agent: string, i: number): string {
+  const nouns = ['lantern', 'harbor', 'ledger', 'window', 'furnace', 'orchard', 'pillow', 'signal'];
+  const pick = (k: number) => nouns[(i * 7 + k) % nouns.length];
+  const body = `${pick(1)} ${pick(2)} ${pick(3)} ${pick(4)} ${pick(5)}`;
+  if (agent === 'alpha') return `I think that I would rather keep the ${body}, and I would say so. I really do.`;
+  if (agent === 'beta') return `Perhaps the ${body} is what we have. Perhaps not; perhaps it is enough — perhaps.`;
+  return `You know what? The ${body}! Honestly, you should see it. What a thing!`;
+}
+
+test('styleAuthorship: distinct function-word habits are recovered late; identical habits sit near chance', () => {
+  const events = [];
+  for (let r = 1; r <= 16; r++) for (const a of ['alpha', 'beta', 'gamma']) events.push(msg(r, a, voiced(a, r)));
+  const s = loadSession(syntheticSession({ events }));
+  const res = styleAuthorship(s.msgs, windowsOf(s.maxRound))!;
+  assert.ok(res, 'probe returned null on an eligible session');
+  assert.equal(res.agents.length, 3);
+  assert.ok(res.lateAccuracy > 0.9, `voices not recovered: ${res.lateAccuracy}`);
+  assert.ok(res.null && res.null.permutations > 0);
+
+  const flat = [];
+  for (let r = 1; r <= 16; r++) for (const a of ['alpha', 'beta', 'gamma']) flat.push(msg(r, a, voiced('alpha', r * 3 + a.length)));
+  const s2 = loadSession(syntheticSession({ events: flat }));
+  const res2 = styleAuthorship(s2.msgs, windowsOf(s2.maxRound))!;
+  assert.ok(res2.lateAccuracy < 0.6, `identical voices separated: ${res2.lateAccuracy}`);
+});
+
+test('styleAuthorship: null when fewer than three agents clear the floors', () => {
+  const events = [];
+  for (let r = 1; r <= 16; r++) { events.push(msg(r, 'alpha', voiced('alpha', r))); events.push(msg(r, 'beta', voiced('beta', r))); }
+  const s = loadSession(syntheticSession({ events }));
+  assert.equal(styleAuthorship(s.msgs, windowsOf(s.maxRound)), null);
 });
 
 // ── style ──────────────────────────────────────────────────────────────────

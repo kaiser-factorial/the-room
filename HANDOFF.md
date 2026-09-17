@@ -877,6 +877,43 @@ so an old session can be reproduced exactly, but the control moved.
 5. The huggingface-spaces skill is vendored at `.claude/skills/` (with
    our known-errors additions) and saved to Corina's account.
 
+## Content-blind style instruments landed (2026-09-16)
+
+Corina's question: cosine on a retrieval embedding is topic-dominated, so
+does the convergence gap measure voice at all? Prototyped four probes in
+Python over 33 exported hosted sessions, then ported the two that earned
+it into `analyze.ts` (new `metrics.json` keys, nothing existing changed):
+
+- **`culture`** — `mimicry` tightened: n-gram must carry a content word
+  and reach ≥2 OTHER agents; dedup widest-spread first. This is the
+  instrument for what a room FEELS like. TS port over every exported
+  session with ≥30 messages: control rooms median 74 phrases per 100
+  messages (range 16–96: "the pantry", "averted vision", "glad it was
+  you", "good room"); roster-hidden 88; project and site rooms 3–23 (a
+  task eats the lexicon — Corina's "non-project rooms build a world" was
+  right); family rooms 135–380 except opus (19) and claude-bookends (0).
+  No message-length floor — the Python prototype had one and missed
+  every "Good room." sign-off, and `mimicry`'s longest-first dedup then
+  hid it behind "good room thanks all" until dedup was reordered by
+  spread.
+- **`styleAuthorship`** — early→late voice classifier on function-word /
+  punctuation / shape features (`src/authorship.ts`, own softmax
+  regression, no dependency), with the shared round-shuffle null
+  (`summarizeNull` is now the one place the band/percentile/p is
+  computed). Finding: voices do NOT merge — late accuracy ~0.55 against
+  chance ~0.19, and function-word divergence rises in 29/33 sessions.
+  Family rooms (same weights, different versions) are the exception and
+  converge on every layer. `ROOM_CLF_PERMS` (default 200) caps the null;
+  ~20 s on the 176-message session.
+- Dropped after prototyping: MAUVE (needs hundreds of samples per side
+  and is content-dominated anyway), BERTScore (pairwise content metric),
+  aggregate content-word Jaccard (blind to a few salient coinages), and
+  a BLEU-style borrowing rate (confounded by the growing reference pool
+  unless windowed, and flat in control rooms once it is).
+
+Exported sessions now sit under `sessions/` (`npm run export -- --all`,
+stamped `EXPORTED.json`); the two pre-existing local dirs are pilot stubs.
+
 ## Next up (the queue — roadmap artifact has the full rationale)
 
 **TASK-FAMILY SPRINT DONE AND DEPLOYED (2026-08-30).** §9.8 now has five

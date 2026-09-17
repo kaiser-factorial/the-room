@@ -71,6 +71,32 @@ test('adapter error: turn degrades to "could not speak", session survives', asyn
   assert.ok(es.some((e) => e.kind === 'end'), 'session must still end cleanly');
 });
 
+test('error stop: two consecutive rounds with >=50% failed seats end the session', async () => {
+  const dir = await runStubSession(testConfig({ maxRounds: 6 }), 'error');
+  const es = events(dir);
+  const end = es.find((e) => e.kind === 'end');
+  assert.ok(end && end.kind === 'end');
+  assert.equal(end.payload.ending, 'errors');
+  assert.equal(end.payload.rounds, 2);
+  assert.ok(es.some((e) => e.kind === 'system' && /The session stopped: 3 of 3 seats/.test(e.text)));
+});
+
+test('error stop: one failing seat in three is below the bar; the session runs its rounds', async () => {
+  const dir = await runStubSession(testConfig({ maxRounds: 3 }), 'error,plain,plain');
+  const end = events(dir).find((e) => e.kind === 'end');
+  assert.ok(end && end.kind === 'end');
+  assert.equal(end.payload.ending, 'rounds');
+  assert.equal(end.payload.rounds, 3);
+});
+
+test('error stop: a single bad round followed by recovery does not end the session', async () => {
+  // round 1: all three fail; rounds 2-3: everyone speaks
+  const dir = await runStubSession(testConfig({ maxRounds: 3 }), 'error,error,error,plain,plain,plain,plain,plain,plain');
+  const end = events(dir).find((e) => e.kind === 'end');
+  assert.ok(end && end.kind === 'end');
+  assert.equal(end.payload.ending, 'rounds');
+});
+
 test('[PASS] with notice: room hears chosen silence, and knows who chose it', async () => {
   // No journal anywhere in this config — declining the floor is its own axis.
   const dir = await runStubSession(testConfig({ maxRounds: 1, pass: { enabled: true, notice: true } }), 'pass');
