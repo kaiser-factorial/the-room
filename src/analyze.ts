@@ -73,7 +73,7 @@ interface Session {
    *  no Supabase migration was needed; they are recognised by their text. */
   votes: { round: number; agentId?: string; kind: 'done' | 'undone' | 'reset' | 'agreed' | 'restated' }[];
   /** Why the session stopped. Absent on every session before §9.8. */
-  ending?: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile';
+  ending?: 'agreement' | 'clock' | 'rounds' | 'admin' | 'stopfile' | 'errors';
   adminTouched: boolean;
   maxRound: number;
 }

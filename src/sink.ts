@@ -8,20 +8,24 @@
 
 import type { RoomEvent } from './types.js';
 
-const url = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_KEY;
+// Read at CALL time, not import time. 2026-09-16: the test suite deletes
+// the Supabase keys before each stub session, but this module had already
+// captured them at import — 40 stub "test" sessions landed in the mirror
+// beside the real rooms. A stub run never mirrors, whatever the env says.
+const url = () => (process.env.ROOM_STUB === '1' ? undefined : process.env.SUPABASE_URL);
+const key = () => (process.env.ROOM_STUB === '1' ? undefined : process.env.SUPABASE_SERVICE_KEY);
 
-export const liveSinkEnabled = Boolean(url && key);
+export const liveSinkEnabled = Boolean(url() && key());
 
 export function serviceHeaders(): Record<string, string> {
   return {
-    apikey: key!,
-    Authorization: `Bearer ${key!}`,
+    apikey: key()!,
+    Authorization: `Bearer ${key()!}`,
     'Content-Type': 'application/json',
   };
 }
 
-export const supabaseUrl = url;
+export const supabaseUrl = url();
 
 let seq = 0;
 
@@ -72,7 +76,7 @@ function sinkPayload(e: RoomEvent): unknown {
 }
 
 export function sinkEvent(sessionId: string, e: RoomEvent): void {
-  if (!url || !key) return;
+  if (!url() || !key()) return;
   const row = {
     session_id: sessionId,
     seq: seq++,
@@ -97,12 +101,12 @@ export function sinkEvent(sessionId: string, e: RoomEvent): void {
 /** Journals go to their own table — never into room_events, which is what the
  *  agents' shared context is built from. The site shows them; the room doesn't. */
 export function sinkJournal(sessionId: string, round: number, agentId: string, agentName: string, text: string): void {
-  if (!url || !key) return;
+  if (!url() || !key()) return;
   post('room_journals', { session_id: sessionId, round, ts: new Date().toISOString(), agent_id: agentId, agent_name: agentName, text });
 }
 
 function post(table: string, row: unknown): void {
-  fetch(`${url}/rest/v1/${table}`, {
+  fetch(`${url()}/rest/v1/${table}`, {
     method: 'POST',
     headers: { ...serviceHeaders(), Prefer: 'return=minimal' },
     body: JSON.stringify(row),

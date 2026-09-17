@@ -21,7 +21,9 @@ the session's meta event). `control` = the frozen experimental baseline
 Stop gracefully with **Ctrl-C** (finishes the current turn) or `touch
 sessions/<id>/STOP`. The session also ends on its own at `durationMinutes`
 (default 30) or `maxRounds`, whichever comes first — `maxRounds` is the cost
-backstop for an unattended run. `ROOM_STUB=1` dry-runs the whole loop with
+backstop for an unattended run. It also stops itself (`ending: 'errors'`)
+when half or more of the seats offered a turn fail in two consecutive
+rounds — an out-of-credits provider no longer burns 90 rounds of 402s. `ROOM_STUB=1` dry-runs the whole loop with
 canned replies, no API keys needed.
 
 ## What a session leaves behind
